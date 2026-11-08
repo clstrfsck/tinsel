@@ -1,0 +1,45 @@
+day 2023.1
+
+# Each line hides a calibration value: its first and last digits, as a
+# two-digit number.
+# Part 1: add up the calibration values, using only the digits 1-9.
+# Part 2: the same, also counting spelled-out digits ("one" to "nine"),
+#         which may overlap, as in "eightwo".
+
+example """
+1abc2
+pqr3stu8vwx
+a1b2c3d4e5f
+treb7uchet
+"""
+  part1 = 142
+
+example """
+two1nine
+eightwothree
+abcone2threexyz
+xtwone3four
+4nineeightseven2
+zoneight234
+7pqrstsixteen
+"""
+  part2 = 281
+
+answers
+  part1 = 55834
+  part2 = 53221
+
+words = ["one", "two", "three", "four", "five", "six", "seven", "eight", "nine"]
+
+# The digit starting at position i of s, as a list of zero or one digits.
+digit(s, i, spelled) =
+  if s[i] in "123456789" then [int(s[i])]
+  else if spelled then [n + 1 for (n, w) in words.enumerate if s[i..].starts_with(w)]
+  else []
+
+calibration(s, spelled) = 10 * ds.first + ds.last
+  where
+    ds = s.indices.map(i => digit(s, i, spelled)).flatten
+
+part1 = input.lines.map(calibration(_, false)).sum
+part2 = input.lines.map(calibration(_, true)).sum

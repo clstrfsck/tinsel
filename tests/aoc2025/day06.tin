@@ -1,0 +1,40 @@
+day 2025.6
+
+# A worksheet of problems laid out side by side, separated by columns of
+# spaces. Each problem is a column of numbers with + or * on the bottom row.
+# Part 1: the numbers are read across the rows.
+# Part 2: each column of digits, read top to bottom, is one number.
+# Sum the answers to all the problems.
+#
+# The example rows end in spaces, which are significant: every row of the
+# worksheet has the same width.
+# Reference: reference/2025/d06.py
+
+example """
+123 328  51 64 
+ 45 64  387 23 
+  6 98  215 314
+*   +   *   +  
+"""
+  part1 = 4277556
+  part2 = 3263827
+
+answers
+  part1 = 6605396225322
+  part2 = 11052310600986
+
+rows = input.lines
+numbers = rows[..<-1]
+ops = rows.last.words
+
+calc(nums, "+") = nums.sum
+calc(nums, "*") = nums.product
+
+# Part 1: the k-th number on each row belongs to the k-th problem.
+part1 = zip(numbers.map(.ints).transpose, ops).map(calc).sum
+
+# Part 2: turn each column into a line holding its number. The columns of
+# spaces between problems become blank lines, so `blocks` splits the
+# problems apart.
+columns = numbers.transpose.map(.trim).join("\n")
+part2 = zip(columns.blocks.map(.ints), ops).map(calc).sum

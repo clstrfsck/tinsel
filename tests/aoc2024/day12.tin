@@ -1,0 +1,81 @@
+day 2024.12
+
+# A map of garden plots; touching plots of the same plant form a region.
+# Part 1: the sum over regions of area * perimeter.
+# Part 2: the sum over regions of area * number of straight sides.
+
+example """
+AAAA
+BBCD
+BBCC
+EEEC
+"""
+  part1 = 140
+  part2 = 80
+
+example """
+OOOOO
+OXOXO
+OOOOO
+OXOXO
+OOOOO
+"""
+  part1 = 772
+  part2 = 436
+
+example """
+EEEEE
+EXXXX
+EEEEE
+EXXXX
+EEEEE
+"""
+  part2 = 236
+
+example """
+AAAAAA
+AAABBA
+AAABBA
+ABBAAA
+ABBAAA
+AAAAAA
+"""
+  part2 = 368
+
+example """
+RRRRIICCFF
+RRRRIICCCF
+VVRRRCCFFF
+VVRCCCJFFF
+VVVVCJJCFE
+VVIVCCJJEE
+VVIIICJJEE
+MIIIIIJJEE
+MIIISIJEEE
+MMMISSJEEE
+"""
+  part1 = 1930
+  part2 = 1206
+
+answers
+  part1 = 1465112
+  part2 = 893790
+
+garden = input.grid
+
+regions = components(garden.positions, p => garden.nbrs4(p).filter(garden[_] == garden[p]))
+
+perimeter(r) = sum(nbrs4(p).count(_ not in r) for p in r)
+
+# A region has as many sides as corners. At each plot, look at each pair of
+# neighbouring directions: an outside corner has neither neighbour in the
+# region; an inside corner has both, but not the diagonal between them.
+sides(r) = sum(DIRS4.count(d => corner(r, p, d)) for p in r)
+corner(r, p, d) =
+  (a not in r and b not in r) or (a in r and b in r and p + d + cw(d) not in r)
+  where
+    a = p + d
+    b = p + cw(d)
+
+part1 = regions.map(r => r.len * perimeter(r)).sum
+part2 = regions.map(r => r.len * sides(r)).sum

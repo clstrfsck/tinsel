@@ -1,0 +1,36 @@
+day 2022.8
+
+# A grid of tree heights.
+# Part 1: how many trees are visible from outside the grid, looking along a
+#         row or column.
+# Part 2: the highest scenic score: the product of how far a tree can see
+#         in each direction, up to and including the first tree at least as
+#         tall.
+
+example """
+30373
+25512
+65332
+33549
+35390
+"""
+  part1 = 21
+  part2 = 8
+
+answers
+  part1 = 1807
+  part2 = 480000
+
+trees = input.grid(int)
+
+# The heights of the trees from (x, y) to each edge, nearest first.
+rows = trees.rows
+cols = trees.cols
+rays((x, y)) = [rows[y][..<x].reverse, rows[y][x + 1..], cols[x][..<y].reverse, cols[x][y + 1..]]
+
+visible(p) = rays(p).any(r => r.all(_ < trees[p]))
+
+view(p, r) = min(r.take_while(_ < trees[p]).len + 1, r.len)
+
+part1 = trees.positions.count(visible)
+part2 = trees.positions.map(p => rays(p).map(view(p, _)).product).max

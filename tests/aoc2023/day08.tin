@@ -1,0 +1,61 @@
+day 2023.8
+
+# Left/right instructions (repeated forever) and a network of nodes.
+# Part 1: steps from AAA to ZZZ.
+# Part 2: start on every node ending in A at once; steps until every one is
+#         on a node ending in Z.
+
+example """
+RL
+
+AAA = (BBB, CCC)
+BBB = (DDD, EEE)
+CCC = (ZZZ, GGG)
+DDD = (DDD, DDD)
+EEE = (EEE, EEE)
+GGG = (GGG, GGG)
+ZZZ = (ZZZ, ZZZ)
+"""
+  part1 = 2
+
+example """
+LLR
+
+AAA = (BBB, BBB)
+BBB = (AAA, ZZZ)
+ZZZ = (ZZZ, ZZZ)
+"""
+  part1 = 6
+
+example """
+LR
+
+11A = (11B, XXX)
+11B = (XXX, 11Z)
+11Z = (11B, XXX)
+22A = (22B, XXX)
+22B = (22C, 22C)
+22C = (22Z, 22Z)
+22Z = (22B, 22B)
+XXX = (XXX, XXX)
+"""
+  part2 = 6
+
+answers
+  part1 = 11309
+  part2 = 13740108158591
+
+[turns, network] = input.blocks
+nodes = {n: (l, r) for "{n} = ({l}, {r})" in network.lines}
+
+steps(node, done) = go(node, 0)
+  where
+    go(n, i) =
+      if i > 0 and done(n) then i
+      else go(if turns[i % turns.len] == 'L' then nodes[n].0 else nodes[n].1, i + 1)
+
+part1 = steps("AAA", _ == "ZZZ")
+
+# Each ghost loops back to its Z node in exactly the time it took to first
+# reach it (true of every input), so they all line up at the lcm.
+part2 = nodes.keys.filter(.ends_with("A")).map(n => steps(n, .ends_with("Z"))).fold(1, lcm)

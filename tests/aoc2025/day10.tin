@@ -1,0 +1,60 @@
+day 2025.10
+
+# Each machine has indicator lights, buttons (each button affects a set of
+# counters) and target joltages.
+# Part 1: fewest presses so that the lights, toggled by each press, end in
+#         the shown pattern.
+# Part 2: fewest presses so that the counters, each press adding 1, reach
+#         the joltages exactly.
+# Reference: reference/2025/d10.kts (the "redux" halving approach).
+#
+# Differences from the reference:
+#  - Part 1 reuses the part 2 table: a light ends up on exactly when its
+#    counter is odd, so part 1 is the cheapest subset with matching parity.
+#  - Memoization is automatic. `fewest_presses` is recursive and lives in a
+#    `where` block, so it gets a fresh cache for each machine (SPEC 8.1).
+
+example """
+[#.#] (0) (1,2) (0,2) {2,1,3}
+[.##.] (0,1) (1,2) (2,3) (0,3) {1,2,2,1}
+[##.] (0,1) (1) (2) {4,7,3}
+"""
+  part1 = 3
+  part2 = 16
+
+answers
+  part1 = 469
+  part2 = 19293
+
+machines = input.lines.map(parse)
+
+parse("[{lights}] {buttons} {{{joltage}}}") =
+  ( tuple(int(c == '#') for c in lights),
+    buttons.words.map(.ints),
+    tuple(joltage.ints) )
+
+# Press each subset of buttons once. Record the counter totals and the
+# number of presses, grouped by the parity of the totals.
+table(buttons, width) =
+  subsets(buttons)
+    .map(bs => (tuple(bs.count(i in _) for i in 0..<width), bs.len))
+    .group_by((v, _) => v % 2)
+
+solve(lights, buttons, joltage) = (fewest_toggles, fewest_presses(joltage))
+  where
+    t = table(buttons, joltage.len)
+
+    fewest_toggles = t[lights].map(.1).min
+
+    # Match the parity with one set of presses. What's left is even, so halve
+    # it and solve again. Each press in the halved problem counts twice.
+    fewest_presses(goal) when all(goal .== 0) = 0
+    fewest_presses(goal) =
+      min(cost + 2 * fewest_presses((goal - v) / 2)
+          for (v, cost) in t.get(goal % 2, [])
+          if all(v .<= goal)) ?? inf
+
+results = machines.map(solve)
+
+part1 = results.map(.0).sum
+part2 = results.map(.1).sum

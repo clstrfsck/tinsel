@@ -1,0 +1,52 @@
+day 2024.21
+
+# Codes are typed on a numeric keypad by a robot, which is driven from a
+# directional keypad by another robot, and so on, until the last directional
+# keypad, which you press yourself. Each robot's arm starts on A.
+# Part 1: with 2 robots on directional keypads, the sum over codes of
+#         (fewest presses) * (numeric part of the code).
+# Part 2: the same, with 25 robots on directional keypads.
+
+example """
+029A
+980A
+179A
+456A
+379A
+"""
+  part1 = 126384
+
+answers
+  part1 = 171596
+  part2 = 209268004868246
+
+pad(text) = {g[p]: p for p in g.positions}
+  where
+    g = text.grid
+numeric = pad("789\n456\n123\n 0A")
+directional = pad(" ^A\n<v>")
+
+# The ways worth trying to move from a to b and press: all the horizontal
+# moves then all the vertical ones, or the other way round, never crossing
+# the gap.
+routes(keys, a, b) =
+  [r ++ "A" for (r, corner) in [(h ++ v, (x1, y0)), (v ++ h, (x0, y1))] if corner != keys[' ']].uniq
+  where
+    (x0, y0) = keys[a]
+    (x1, y1) = keys[b]
+    h = (if x1 > x0 then ">" else "<").repeat(abs(x1 - x0))
+    v = (if y1 > y0 then "v" else "^").repeat(abs(y1 - y0))
+
+# Fewest presses for you to make the robot at `level` type `keys`, where
+# level 0 is you. Memoized automatically.
+presses(_, 0) = 1
+presses(step, level) = min(typing(r, level - 1) for r in routes(directional, step.0, step.1))
+
+typing(keys, level) = ("A" ++ keys).pairs.map(presses(_, level)).sum
+
+complexity(code, robots) =
+  sum(min(typing(r, robots) for r in routes(numeric, a, b)) for (a, b) in ("A" ++ code).pairs)
+    * code.ints[0]
+
+part1 = input.lines.map(complexity(_, 2)).sum
+part2 = input.lines.map(complexity(_, 25)).sum

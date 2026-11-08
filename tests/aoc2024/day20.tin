@@ -1,0 +1,68 @@
+day 2024.20
+
+# A racetrack with a single path from S to E. Once, a program may cheat by
+# passing through walls for a short time, ending back on the track.
+# Part 1: how many cheats of up to 2 steps save at least `min_saving`.
+# Part 2: how many cheats of up to 20 steps save at least `min_saving`.
+
+example """
+###############
+#...#...#.....#
+#.#.#.#.#.###.#
+#S#...#.#.#...#
+#######.#.#.###
+#######.#.#...#
+#######.#.###.#
+###..E#...#...#
+###.#######.###
+#...###...#...#
+#.#####.#.###.#
+#.#...#.#.#...#
+#.#.#.#.#.#.###
+#...#...#...###
+###############
+"""
+  with min_saving = 20
+  part1 = 5
+
+example """
+###############
+#...#...#.....#
+#.#.#.#.#.###.#
+#S#...#.#.#...#
+#######.#.#.###
+#######.#.#...#
+#######.#.###.#
+###..E#...#...#
+###.#######.###
+#...###...#...#
+#.#####.#.###.#
+#.#...#.#.#...#
+#.#.#.#.#.#.###
+#...#...#...###
+###############
+"""
+  with min_saving = 50
+  part1 = 1
+  part2 = 285
+
+answers
+  part1 = 1404
+  part2 = 1010981
+
+min_saving = 100
+
+track = input.grid
+dist = bfs(track.find('S'), p => track.nbrs4(p).filter(track[_] != '#'))
+
+# A cheat from p to q takes manhattan(p, q) steps instead of following the
+# track from p to q.
+cheats(r) = sum(1 for (p, d) in dist.items
+                  for (o, m) in offsets
+                  if (dist.get(p + o) ?? -inf) - d - m >= min_saving)
+  where
+    offsets = [((dx, dy), abs(dx) + abs(dy)) for dx in -r..r for dy in -r..r
+                 if 2 <= abs(dx) + abs(dy) <= r]
+
+part1 = cheats(2)
+part2 = cheats(20)

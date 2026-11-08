@@ -1,0 +1,73 @@
+day 2022.23
+
+# Elves spread out over a grid. Each round, an Elf with any neighbour (of
+# eight) proposes to step to the first of north, south, west and east whose
+# three cells on that side are empty. Elves whose proposed cell nobody else
+# proposed then move. The first direction tried moves on by one each round.
+# Part 1: after 10 rounds, the empty cells in the smallest rectangle around
+#         the Elves.
+# Part 2: the first round in which no Elf moves.
+
+example """
+....#..
+..###.#
+#...#.#
+.#...##
+#.###..
+##.#.##
+.#..#..
+"""
+  part1 = 110
+  part2 = 20
+
+answers
+  part1 = 3780
+  part2 = 930
+
+# A position (x, y) is stored as the int y * width + x, offset so that it
+# stays positive; int sets are faster than sets of tuples.
+width = 1 << 12
+code((x, y)) = (y + width / 2) * width + x + width / 2
+decode(c) = (c % width - width / 2, c / width - width / 2)
+
+elves = set(input.grid.where('#').map(code))
+
+# The eight neighbours, row by row, and the indices of the three on each side.
+around = DIRS8.map(code(_) - code((0, 0)))
+sides = [(N, [0, 1, 2]), (S, [5, 6, 7]), (W, [0, 3, 5]), (E, [2, 4, 7])]
+  .map((d, idx) => (code(d) - code((0, 0)), idx))
+
+# none for an Elf with no neighbours, else (e, where it proposes to go),
+# with none there if every side is blocked.
+propose(elves, r, e) =
+  if not occupied.any then none
+  else (e, [e + d for k in 0..<4 let (d, idx) = sides[(r + k) % 4] if not idx.any(occupied[_])].first)
+  where
+    occupied = around.map(e + _ in elves)
+
+# Only `active` Elves can move: an Elf with no neighbours stays that way
+# until another Elf arrives next to it. A round gives the new Elves and
+# active Elves, and whether any Elf moved.
+step((elves, active, _), r) = (after, busy | woken, moving.len > 0)
+  where
+    proposals = [pr for e in active let pr = propose(elves, r, e) if pr != none]
+    wanted = proposals.map(.1).filter(_ != none).counts
+    moving = {e: p for (e, p) in proposals if p != none and wanted[p] == 1}
+    arrived = set(moving.values)
+    busy = {e for (e, _) in proposals if e not in moving}
+    after = elves - set(moving.keys) | arrived
+    woken = {q for a in arrived for q in around.map(a + _) if q in after} | arrived
+
+empty(codes) = (x1 - x0 + 1) * (y1 - y0 + 1) - codes.len
+  where
+    ((x0, x1), (y0, y1)) = codes.map(decode).bounds
+
+start = (elves, elves, true)
+
+part1 = empty((0..<10).fold(start, step).0)
+
+settle(state, r) = if next.2 then settle(next, r + 1) else r + 1
+  where
+    next = step(state, r)
+
+part2 = settle(start, 0)

@@ -1,0 +1,57 @@
+day 2018.12
+
+# A row of pots, numbered from 0, some with plants. Each generation, a pot
+# has a plant according to a rule for it and the two pots either side.
+# Part 1: the sum of the numbers of the pots with plants after 20
+#         generations.
+# Part 2: the same after fifty billion generations.
+
+example """
+initial state: #..#.#..##......###...###
+
+...## => #
+..#.. => #
+.#... => #
+.#.#. => #
+.#.## => #
+.##.. => #
+.#### => #
+#.#.# => #
+#.### => #
+##.#. => #
+##.## => #
+###.. => #
+###.# => #
+####. => #
+"""
+  part1 = 325
+
+answers
+  part1 = 3793
+  part2 = 4300000002414
+
+[first, rest] = input.blocks
+
+start = {i for (i, c) in first.words[2].chars.enumerate if c == '#'}
+
+# The patterns that give a plant.
+growing = {pattern for "{pattern} => #" in rest.lines}
+
+step(pots) = {i for i in pots.min - 2..pots.max + 2 if window(pots, i) in growing}
+
+window(pots, i) = (i - 2..i + 2).map(p => if p in pots then '#' else '.').join
+
+part1 = iterate(start, step, times: 20).sum
+
+# The plants settle into a pattern that keeps its shape and moves along, so
+# the sum changes by the same amount each period.
+sum_after(n) =
+  if n < first + period then generations[n].sum
+  else generations[first + (n - first) % period].sum + (n - first) / period * growth
+  where
+    (first, period, generations) = iterate(start, step).find_cycle(key: shape)
+    growth = generations[first + period].sum - generations[first].sum
+
+shape(pots) = {i - pots.min for i in pots}
+
+part2 = sum_after(50_000_000_000)

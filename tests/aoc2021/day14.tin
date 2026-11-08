@@ -1,0 +1,51 @@
+day 2021.14
+
+# A polymer template and pair insertion rules: AB -> C puts C between each
+# A and B, all at once.
+# Part 1: after 10 steps, the most common element's count minus the least
+#         common's.
+# Part 2: the same after 40 steps.
+
+example """
+NNCB
+
+CH -> B
+HH -> N
+CB -> H
+NH -> C
+HB -> C
+HC -> B
+HN -> C
+NN -> C
+BH -> H
+NC -> B
+NB -> B
+BN -> B
+BB -> N
+BC -> B
+CC -> N
+CN -> C
+"""
+  part1 = 1588
+  part2 = 2188189693529
+
+answers
+  part1 = 5656
+  part2 = 12271437788530
+
+[template, rule_text] = input.blocks
+rules = {(a, b): c for "{a:char}{b:char} -> {c:char}" in rule_text.lines}
+
+# Only the number of each pair matters: AB with rule C becomes AC and CB.
+step(pairs) = [kv for ((a, b), n) in pairs.items
+                  for kv in (if (a, b) in rules then [((a, rules[(a, b)]), n), ((rules[(a, b)], b), n)]
+                             else [((a, b), n)])].tally
+
+spread(steps) = counts.values.max - counts.values.min
+  where
+    pairs = iterate(template.chars.pairs.counts, step, times: steps)
+    # Each element is the first of a pair, except the last one.
+    counts = ([(a, n) for ((a, _), n) in pairs.items] ++ [(template.chars.last, 1)]).tally
+
+part1 = spread(10)
+part2 = spread(40)

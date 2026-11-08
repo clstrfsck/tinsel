@@ -1,0 +1,36 @@
+{
+  "name": "tinsel",
+  "displayName": "Tinsel",
+  "description": "Syntax highlighting for Tinsel (.tin), a small language for Advent of Code",
+  "version": "0.1.0",
+  "publisher": "local",
+  "private": true,
+  "engines": {
+    "vscode": "^1.60.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "tinsel",
+        "aliases": [
+          "Tinsel",
+          "tinsel"
+        ],
+        "extensions": [
+          ".tin"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "tinsel",
+        "scopeName": "source.tinsel",
+        "path": "./syntaxes/tinsel.tmLanguage.json"
+      }
+    ]
+  }
+}

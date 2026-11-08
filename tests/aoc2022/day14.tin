@@ -1,0 +1,48 @@
+day 2022.14
+
+# Paths of rock in a cave slice, then sand falling one unit at a time from
+# (500, 0): straight down if it can, else down-left, else down-right, else
+# it comes to rest.
+# Part 1: how much sand comes to rest before sand starts falling into the
+#         abyss below the lowest rock.
+# Part 2: there is a floor two below the lowest rock. How much sand comes
+#         to rest before the source is blocked?
+
+example """
+498,4 -> 498,6 -> 496,6
+503,4 -> 502,4 -> 502,9 -> 494,9
+"""
+  part1 = 24
+  part2 = 93
+
+answers
+  part1 = 964
+  part2 = 32041
+
+segment((x1, y1), (x2, y2)) =
+  [(x, y) for x in min(x1, x2)..max(x1, x2) for y in min(y1, y2)..max(y1, y2)]
+
+rock = {p for line in input.lines for (a, b) in line.ints.chunks(2).map(tuple).pairs for p in segment(a, b)}
+lowest = rock.map(.1).max
+
+# Dropping sand at p, in a cave already holding `filled`, gives the new
+# filled set and whether p ended up blocked. Each grain settles exactly
+# where the one-at-a-time simulation would put it: this fills the cave in
+# the same order, depth first.
+@nomemo
+fill(p, filled, floor, abyss) =
+  if p in filled or p.1 == floor then (filled, true)
+  else if p.1 >= abyss then (filled, false)
+  else below([p + S, p + S + W, p + S + E], p, filled, floor, abyss)
+
+@nomemo
+below([], p, filled, _, _) = (filled.add(p), true)
+below([q, ..qs], p, filled, floor, abyss) = next_below(fill(q, filled, floor, abyss), qs, p, floor, abyss)
+
+next_below((filled, true), qs, p, floor, abyss) = below(qs, p, filled, floor, abyss)
+next_below((filled, false), _, _, _, _) = (filled, false)
+
+sand(floor, abyss) = fill((500, 0), rock, floor, abyss).0.len - rock.len
+
+part1 = sand(inf, lowest + 1)
+part2 = sand(lowest + 2, inf)

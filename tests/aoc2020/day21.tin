@@ -1,0 +1,43 @@
+day 2020.21
+
+# Foods, each a list of ingredients and some (not necessarily all) of the
+# allergens it contains. Each allergen is in exactly one ingredient, and
+# each ingredient contains at most one allergen.
+# Part 1: how many times ingredients that can't contain any allergen
+#         appear.
+# Part 2: the ingredients with allergens, sorted by allergen and joined
+#         with commas.
+
+example """
+mxmxvkd kfcds sqjhc nhms (contains dairy, fish)
+trh fvjkl sbzzf mxmxvkd (contains dairy)
+sqjhc fvjkl (contains soy)
+sqjhc mxmxvkd sbzzf (contains fish)
+"""
+  part1 = 5
+  part2 = "mxmxvkd,sqjhc,fvjkl"
+
+answers
+  part1 = 2307
+  part2 = "cljf,frtfg,vvfjj,qmrps,hvnkk,qnvx,cpxmpc,qsjszn"
+
+foods = [(set(ings.words), als.split(", ")) for "{ings} (contains {als})" in input.lines]
+
+# An allergen must be in an ingredient of every food listing it.
+candidates = {a: [ings for (ings, als) in foods if a in als].intersection
+              for a in set(foods.map(.1).flatten)}
+
+suspects = candidates.values.union
+
+part1 = [i for (ings, _) in foods for i in ings if i not in suspects].len
+
+# Settle allergens one at a time: one with a single candidate takes it,
+# and no other allergen can have that ingredient.
+settle(open, found) =
+  if open == {} then found
+  else settle({a: c - {i} for (a, c) in open.items if a != allergen}, found.set(allergen, i))
+  where
+    allergen = open.keys.first(open[_].len == 1)
+    i = open[allergen].first
+
+part2 = settle(candidates, {}).values.join(",")

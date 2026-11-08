@@ -1,0 +1,70 @@
+day 2021.23
+
+# Amphipods (A, B, C, D) in four side rooms off a hallway must each end in
+# their own room (A leftmost). Moving one step costs 1, 10, 100 or 1000
+# energy by type. An amphipod moves at most twice: from its room into the
+# hallway (never stopping just outside a room), then from the hallway into
+# its own room, only once that room holds no other type.
+# Part 1: the least energy to sort them.
+# Part 2: two more rows are unfolded into the middle of the rooms:
+#           #D#C#B#A#
+#           #D#B#A#C#
+#         The least energy then.
+
+example """
+#############
+#...........#
+###B#C#B#D###
+  #A#D#C#A#
+  #########
+"""
+  part1 = 12521
+  part2 = 44169
+
+answers
+  part1 = 15385
+  part2 = 49803
+
+kinds = "ABCD"
+energy = {'A': 1, 'B': 10, 'C': 100, 'D': 1000}
+
+# A state is (hallway, rooms): the hallway as 11 chars, and each room as a
+# string from its top. Room i opens onto hallway position 2 + 2i.
+door(i) = 2 + 2 * i
+stops = [0, 1, 3, 5, 7, 9, 10]
+
+rooms_of(lines) = (0..<4).map(i => lines.map(l => l[3 + 2 * i]).join).tuple
+
+folded = input.lines[2..<-1]
+unfolded = [folded[0], "  #D#C#B#A#", "  #D#B#A#C#", folded[1]]
+
+
+# The hallway between two positions, not counting the first, is empty.
+clear(hall, from, to) = hall[min(from, to)..max(from, to)].chars.count(_ != '.') == (if hall[from] == '.' then 0 else 1)
+
+# Only its own kind left in room i.
+settled(room, i) = room.chars.all(c => c == '.' or c == kinds[i])
+
+# Moving into its own room is never a mistake: it frees the hallway and
+# blocks nobody. So when one can, that is the only move tried.
+moves((hall, rooms)) = if ins != [] then ins.take(1) else outs
+  where
+    outs = [((hall.set(s, a), rooms.set(i, room.set(d, '.'))), (d + 1 + abs(s - door(i))) * energy[a])
+            for (i, room) in rooms.enumerate if not settled(room, i)
+            let d = room.index(room.chars.first(_ != '.'))
+            let a = room[d]
+            for s in stops if clear(hall, door(i), s) and hall[s] == '.']
+    ins = [((hall.set(s, '.'), rooms.set(i, room.set(d, a))), (abs(s - door(i)) + d + 1) * energy[a])
+           for s in stops let a = hall[s] if a != '.'
+           let i = kinds.index(a)
+           let room = rooms[i]
+           if settled(room, i) and clear(hall, s, door(i))
+           let d = room.chars.count(_ == '.') - 1]
+
+organise(lines) = dijkstra(("...........", rooms_of(lines)), moves, goal: (h, rs) => rs == goal_rooms).0
+  where
+    depth = lines.len
+    goal_rooms = (0..<4).map(i => str(kinds[i]).repeat(depth)).tuple
+
+part1 = organise(folded)
+part2 = organise(unfolded)

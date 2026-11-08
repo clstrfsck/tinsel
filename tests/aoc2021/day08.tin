@@ -1,0 +1,63 @@
+day 2021.8
+
+# Seven-segment displays with their wires mixed up. Each entry lists the
+# ten digit patterns, then the four digits shown.
+# Part 1: how many of the shown digits are 1, 4, 7 or 8 (which use a
+#         unique number of segments).
+# Part 2: work out the wiring and add up the shown four-digit numbers.
+
+example """
+be cfbegad cbdgef fgaecd cgeb fdcge agebfd fecdb fabcd edb |
+fdgacbe cefdb cefbgd gcbe
+edbfga begcd cbg gc gcadebf fbgde acbgfd abcde gfcbed gfec |
+fcgedb cgb dgebacf gc
+fgaebd cg bdaec gdafb agbcfd gdcbef bgcad gfac gcb cdgabef |
+cg cg fdcagb cbg
+fbegcd cbd adcefb dageb afcb bc aefdc ecdab fgdeca fcdbega |
+efabcd cedba gadfec cb
+aecbfdg fbg gf bafeg dbefa fcge gcbea fcaegb dgceab fcbdga |
+gecf egdcabf bgf bfgea
+fgeab ca afcebg bdacfeg cfaedg gcfdb baec bfadeg bafgc acf |
+gebdcfa ecba ca fadegcb
+dbcfg fgd bdegcaf fgec aegbdf ecdfab fbedc dacgb gdcebf gf |
+cefg dcbef fcge gbcadfe
+bdfegc cbegaf gecbf dfcage bdacg ed bedf ced adcbefg gebcd |
+ed bcgafe cdgba cbgef
+egadfb cdbfeg cegd fecab cgb gbdefca cg fgcdab egfdb bfceg |
+gbdfcae bgc cg cgb
+gcafb gcf dcaebfg ecagb gf abcdeg gaef cafbge fdbac fegbdc |
+fgae cfgab fg bagce
+"""
+  part1 = 26
+  part2 = 61229
+
+answers
+  part1 = 445
+  part2 = 1043101
+
+# In the puzzle's example, each entry is split over two lines.
+entries = [(patterns.words.map(set), shown.words.map(set))
+           for "{patterns} | {shown}" in input.replace("|\n", "| ").lines]
+
+part1 = [d for (_, ds) in entries for d in ds if d.len in [2, 3, 4, 7]].len
+
+# 1, 4, 7 and 8 are known by size. The rest are told apart by how they
+# overlap 1 and 4.
+digit(one, four, d) = match d.len
+  2 => 1
+  3 => 7
+  4 => 4
+  7 => 8
+  5 when one.subset(d) => 3
+  5 when (d & four).len == 3 => 5
+  5 => 2
+  6 when not one.subset(d) => 6
+  6 when four.subset(d) => 9
+  6 => 0
+
+value((patterns, shown)) = shown.fold(0, (n, d) => 10 * n + digit(one, four, d))
+  where
+    one = patterns.first(_.len == 2)
+    four = patterns.first(_.len == 4)
+
+part2 = entries.map(value).sum

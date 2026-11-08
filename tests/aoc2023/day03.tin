@@ -1,0 +1,44 @@
+day 2023.3
+
+# An engine schematic of numbers and symbols ('.' is empty).
+# Part 1: add up the numbers next to a symbol, including diagonally.
+# Part 2: a gear is a * next to exactly two numbers. Add up the products of
+#         each gear's two numbers.
+
+example """
+467..114..
+...*......
+..35..633.
+......#...
+617*......
+.....+.58.
+..592.....
+......755.
+...$.*....
+.664.598..
+"""
+  part1 = 4361
+  part2 = 467835
+
+answers
+  part1 = 512794
+  part2 = 67779080
+
+schematic = input.grid
+digit(c) = c in "0123456789"
+
+# Each number, with the set of positions around it. A number starts at a
+# digit that doesn't follow another digit.
+numbers = [(n, {q for i in 0..<str(n).len for q in nbrs8((x + i, y))})
+             for (y, row) in schematic.rows.enumerate
+             for x in row.indices
+             if digit(row[x]) and (x == 0 or not digit(row[x - 1]))
+             let n = row[x..].ints[0]]
+
+symbols = schematic.where(c => c != '.' and not digit(c))
+
+part1 = sum(n for (n, around) in numbers if (around & symbols).len > 0)
+
+part2 = sum(ns.product for g in schematic.where('*')
+                       let ns = [n for (n, around) in numbers if g in around]
+                       if ns.len == 2)

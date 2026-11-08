@@ -1,0 +1,4 @@
+# Values are tagged words, which will cross into generated code as plain
+# integers, so pointers use exposed provenance (see src/value/word.rs).
+[env]
+MIRIFLAGS = "-Zmiri-permissive-provenance"

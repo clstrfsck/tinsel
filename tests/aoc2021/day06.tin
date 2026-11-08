@@ -1,0 +1,26 @@
+day 2021.6
+
+# Lanternfish: each has a timer. Each day it counts down, and a fish at 0
+# resets to 6 and makes a new fish with timer 8.
+# Part 1: how many fish after 80 days.
+# Part 2: how many fish after 256 days.
+
+example """
+3,4,3,1,2
+"""
+  part1 = 5934
+  part2 = 26984457539
+
+answers
+  part1 = 349549
+  part2 = 1589590444365
+
+# How many fish have each timer value, 0 to 8.
+start = (0..8).map(t => input.ints.count(t))
+
+tick([zero, ..rest]) = rest.set(6, rest[6] + zero) ++ [zero]
+
+fish(days) = iterate(start, tick, times: days).sum
+
+part1 = fish(80)
+part2 = fish(256)

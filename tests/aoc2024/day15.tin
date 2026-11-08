@@ -1,0 +1,80 @@
+day 2024.15
+
+# A robot pushes boxes (O) around a warehouse; walls (#) don't move. A move
+# that would push a box into a wall does nothing.
+# Part 1: the sum of the boxes' GPS coordinates (100 * y + x) at the end.
+# Part 2: the same, in a warehouse twice as wide, where each box is two
+#         cells wide and can push two boxes at once.
+
+example """
+##########
+#..O..O.O#
+#......O.#
+#.OO..O.O#
+#..O@..O.#
+#O#..O...#
+#O..O..O.#
+#.OO.O.OO#
+#....O...#
+##########
+
+<vv>^<v^>v>^vv^v>v<>v^v<v<^vv<<<^><<><>>v<vvv<>^v^>^<<<><<v<<<v^vv^v>^
+vvv<<^>^v^^><<>>><>^<<><^vv^^<>vvv<>><^^v>^>vv<>v<<<<v<^v>^<^^>>>^<v<v
+><>vv>v^v^<>><>>>><^^>vv>v<^^^>>v^v^<^^>v^^>v^<^v>v<>>v^v^<v>v^^<^^vv<
+<<v<^>>^^^^>>>v^<>vvv^><v<<<>^^^vv^<vvv>^>v<^^^^v<>^>vvvv><>>v^<<^^^^^
+^><^><>>><>^^<<^^v>>><^<v>^<vv>>v>>>^v><>^v><<<<v>>v<v<v>vvv>^<><<>^><
+^>><>^v<><^vvv<^^<><v<<<<<><^v<<<><<<^^<v<^^^><^>>^<v^><<<^>>^v<v^v<v^
+>^>>^v>vv>^<<^v<>><<><<v<<v><>v<^vv<<<>^^v^>^^>>><<^v>>v^v><^^>>^<>vv^
+<><^^>^^^<><vvvvv^v<v<<>^v<v>v<<^><<><<><<<^^<<<^<<>><<><^^^>^^<>^>v<>
+^^>vv<^v^v<vv>^<><v<^v>^^^>>>^^vvv^>vvv<>>>^<^>>>>>^<<^v>^vvv<>^<><<v>
+v^^>>><<^^<>>^v^<v^vv<>v^<<>^<^v^v><^<<<><<^<v><v<>vv>>v><v^<vv<>v^<<^
+"""
+  part1 = 10092
+  part2 = 9021
+
+example """
+########
+#..O.O.#
+##@.O..#
+#...O..#
+#.#.O..#
+#...O..#
+#......#
+########
+
+<^^>>>vv<v>>v<<
+"""
+  part1 = 2028
+
+answers
+  part1 = 1430439
+  part2 = 1458740
+
+[layout, move_text] = input.blocks
+moves = [{'^': N, '>': E, 'v': S, '<': W}[c] for c in move_text.chars if c != '\n']
+
+# Boxes are stored by their leftmost cell; `w` is their width.
+gps(text, w) = boxes.map(((x, y)) => 100 * y + x).sum
+  where
+    g = text.grid
+    walls = g.where('#')
+    boxes = moves.fold((g.find('@'), g.where(c => c in "O[")), step).1
+
+    step((robot, boxes), d) = match pushed([robot + d], set())
+        none => (robot, boxes)
+        moved => (robot + d, (boxes - moved) | {b + d for b in moved})
+      where
+        # The boxes that move, or none if something hits a wall.
+        pushed([], found) = found
+        pushed([c, ..todo], found) =
+          if c in walls then none
+          else match owner(c)
+            b when b != none and b not in found =>
+              pushed(todo ++ [b + (i, 0) + d for i in 0..<w], found.add(b))
+            _ => pushed(todo, found)
+        owner(c) = [c - (i, 0) for i in 0..<w].first(_ in boxes)
+
+wide = layout.replace("#", "##").replace("O", "[]").replace(".", "..").replace("@", "@.")
+
+part1 = gps(layout, 1)
+part2 = gps(wide, 2)

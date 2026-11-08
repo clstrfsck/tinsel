@@ -1,0 +1,58 @@
+day 2024.25
+
+# Schematics of locks (top row filled) and keys (bottom row filled).
+# Part 1: how many lock/key pairs fit: no column has both a lock pin and a
+#         key tooth in the same cell.
+# There is no part 2.
+
+example """
+#####
+.####
+.####
+.####
+.#.#.
+.#...
+.....
+
+#####
+##.##
+.#.##
+...##
+...#.
+...#.
+.....
+
+.....
+#....
+#....
+#...#
+#.#.#
+#.###
+#####
+
+.....
+.....
+#.#..
+###..
+###.#
+###.#
+#####
+
+.....
+.....
+.....
+#....
+#.#..
+#.#.#
+#####
+"""
+  part1 = 3
+
+answers
+  part1 = 3021
+
+schematics = input.blocks.map(b => set(b.grid.where('#')))
+locks = schematics.filter(s => (0, 0) in s)
+keys = schematics.filter(s => (0, 0) not in s)
+
+part1 = [(l, k) for l in locks for k in keys if (l & k).len == 0].len

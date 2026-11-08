@@ -1,0 +1,72 @@
+day 2018.9
+
+# Marbles placed in a circle by a number of players in turn. Each marble
+# goes between the ones 1 and 2 places clockwise of the current marble,
+# except that a multiple of 23 is kept, along with the marble 7 places
+# anticlockwise, which is removed; the one after that becomes current.
+# Part 1: the winning score.
+# Part 2: the winning score with a last marble 100 times larger.
+
+example """
+9 players; last marble is worth 25 points
+"""
+  part1 = 32
+
+example """
+10 players; last marble is worth 1618 points
+"""
+  part1 = 8317
+
+example """
+13 players; last marble is worth 7999 points
+"""
+  part1 = 146373
+
+example """
+17 players; last marble is worth 1104 points
+"""
+  part1 = 2764
+
+example """
+21 players; last marble is worth 6111 points
+"""
+  part1 = 54718
+
+example """
+30 players; last marble is worth 5807 points
+"""
+  part1 = 37305
+
+answers
+  part1 = 436720
+  part2 = 3527845091
+
+(players, last_marble) = input.ints.tuple
+
+# The circle is a doubly linked list: next and prev are indexed by marble.
+# Each list is passed along as its last use, so it is updated in place.
+high_score(last) = turn(1, 0, last, [0].repeat(last + 1), [0].repeat(last + 1), [0].repeat(players))
+
+turn(m, cur, last, next, prev, scores) =
+  if m > last then scores.max
+  else if m % 23 == 0 then remove(m, back(prev, cur, 7), last, next, prev, scores)
+  else insert(m, next[cur], next[next[cur]], last, next, prev, scores)
+
+back(_, c, 0) = c
+back(prev, c, k) = back(prev, prev[c], k - 1)
+
+# Put m between a and b.
+insert(m, a, b, last, next, prev, scores) =
+  turn(m + 1, m, last, next.set(a, m).set(m, b), prev.set(b, m).set(m, a), scores)
+
+remove(m, r, last, next, prev, scores) = unlink(m, r, prev[r], next[r], last, next, prev, scores)
+
+# Take r out from between p and n.
+unlink(m, r, p, n, last, next, prev, scores) =
+  turn(m + 1, n, last, next.set(p, n), prev.set(n, p), scores.set(player, scores[player] + m + r))
+  where
+    player = m % players
+
+part1 = high_score(last_marble)
+
+part2 = high_score(last_marble * 100)

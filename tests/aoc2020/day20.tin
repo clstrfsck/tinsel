@@ -1,0 +1,173 @@
+day 2020.20
+
+# Square tiles of an image, each rotated and flipped at random. Tiles fit
+# together where their edges match.
+# Part 1: the product of the IDs of the four corner tiles.
+# Part 2: assemble the image, strip each tile's border, and find the sea
+#         monsters in it (in whichever of the eight orientations has them).
+#         How many # are not part of a sea monster?
+
+example """
+Tile 2311:
+..##.#..#.
+##..#.....
+#...##..#.
+####.#...#
+##.##.###.
+##...#.###
+.#.#.#..##
+..#....#..
+###...#.#.
+..###..###
+
+Tile 1951:
+#.##...##.
+#.####...#
+.....#..##
+#...######
+.##.#....#
+.###.#####
+###.##.##.
+.###....#.
+..#.#..#.#
+#...##.#..
+
+Tile 1171:
+####...##.
+#..##.#..#
+##.#..#.#.
+.###.####.
+..###.####
+.##....##.
+.#...####.
+#.##.####.
+####..#...
+.....##...
+
+Tile 1427:
+###.##.#..
+.#..#.##..
+.#.##.#..#
+#.#.#.##.#
+....#...##
+...##..##.
+...#.#####
+.#.####.#.
+..#..###.#
+..##.#..#.
+
+Tile 1489:
+##.#.#....
+..##...#..
+.##..##...
+..#...#...
+#####...#.
+#..#.#.#.#
+...#.#.#..
+##.#...##.
+..##.##.##
+###.##.#..
+
+Tile 2473:
+#....####.
+#..#.##...
+#.##..#...
+######.#.#
+.#...#.#.#
+.#########
+.###.#..#.
+########.#
+##...##.#.
+..###.#.#.
+
+Tile 2971:
+..#.#....#
+#...###...
+#.#.###...
+##.##..#..
+.#####..##
+.#..####.#
+#..#.#..#.
+..####.###
+..#.#.###.
+...#.#.#.#
+
+Tile 2729:
+...#.#.#.#
+####.#....
+..#.#.....
+....#..#.#
+.##..##.#.
+.#.####...
+####.#.#..
+##.####...
+##..#.##..
+#.##...##.
+
+Tile 3079:
+#.#.#####.
+.#..######
+..#.......
+######....
+####.#..#.
+.#...#.##.
+#.#####.##
+..#.###...
+..#.......
+..#.###...
+"""
+  part1 = 20899048083289
+  part2 = 273
+
+answers
+  part1 = 30425930368573
+  part2 = 2453
+
+tiles = {int(head.ints[0]): rows.join("\n").grid for b in input.blocks let [head, ..rows] = b.lines}
+
+edges(g) = [g.rows[0], g.rows.last, g.cols[0], g.cols.last]
+
+# An edge reads the same whichever way round a tile is flipped.
+norm(e) = min(e, e.reverse)
+
+owners = [(norm(e), id) for (id, g) in tiles.items for e in edges(g)].group_by(.0, .1)
+
+# An edge on the outside of the image matches no other tile.
+outer(e) = owners[norm(e)].len == 1
+
+corners = tiles.keys.filter(id => edges(tiles[id]).count(outer) == 2)
+
+part1 = corners.product
+
+orientations(g) = (0..<4).map(g.rot(_)) ++ (0..<4).map(g.transpose.rot(_))
+
+# Lay the tiles out row by row from a corner turned so its outer edges are
+# at the top and left. Each later tile is the other owner of the edge it
+# shares with the tile to its left (or above, in the first column), turned
+# to match.
+size = isqrt(tiles.len)
+start = (corners[0], orientations(tiles[corners[0]]).first(g => outer(g.rows[0]) and outer(g.cols[0])))
+
+place(placed, (r, c)) = placed.set((r, c), (id, orientations(tiles[id]).first(fits)))
+  where
+    (prev_id, prev) = if c > 0 then placed[(r, c - 1)] else placed[(r - 1, c)]
+    want = if c > 0 then prev.cols.last else prev.rows.last
+    id = owners[norm(want)].first(_ != prev_id)
+    fits(g) = (if c > 0 then g.cols[0] else g.rows[0]) == want
+
+placed = [(r, c) for r in 0..<size for c in 0..<size][1..].fold({(0, 0): start}, place)
+
+image = [[placed[(r, c)].1.rows[y][1..<-1] for c in 0..<size].join
+         for r in 0..<size for y in 1..8].join("\n").grid
+
+monster = """
+                  # 
+#    ##    ##    ###
+ #  #  #  #  #  #   
+"""
+shape = [(x, y) for (y, line) in monster.lines.enumerate for (x, c) in line.chars.enumerate if c == '#']
+
+# The cells covered by sea monsters in one orientation of the image.
+monster_cells(img) = {p + o for p in img.positions if shape.all(o => img.get(p + o) == '#') for o in shape}
+
+part2 = image.where('#').len - orientations(image).map(monster_cells).max_by(.len).len

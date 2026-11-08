@@ -1,0 +1,54 @@
+day 2020.9
+
+# A list of numbers where each, after a preamble of 25, should be the sum
+# of two different numbers among the 25 before it.
+# Part 1: the first number that isn't.
+# Part 2: a run of at least two numbers adding up to that number; the sum
+#         of the smallest and largest in the run.
+
+example """
+35
+20
+15
+25
+47
+40
+62
+55
+65
+95
+102
+117
+150
+182
+127
+219
+299
+277
+309
+576
+"""
+  with preamble = 5
+  part1 = 127
+  part2 = 62
+
+answers
+  part1 = 144381670
+  part2 = 20532569
+
+preamble = 25
+
+nums = input.ints
+
+valid(i) = nums[i - preamble..<i].combos(2).any(c => c.sum == nums[i])
+
+part1 = nums[(preamble..<nums.len).first(i => not valid(i))]
+
+# Two pointers: grow the run at the end while its sum is too small, and
+# shrink it from the start while it's too big.
+run(lo, hi, total) =
+  if total == part1 and hi - lo >= 2 then nums[lo..<hi].min + nums[lo..<hi].max
+  else if total < part1 or hi - lo < 2 then run(lo, hi + 1, total + nums[hi])
+  else run(lo + 1, hi, total - nums[lo])
+
+part2 = run(0, 0, 0)

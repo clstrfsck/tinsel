@@ -1,0 +1,26 @@
+day 2023.6
+
+# Boat races: hold the button for t ms of a T ms race and the boat travels
+# t * (T - t) mm. Beat the record distance D.
+# Part 1: multiply together the number of ways to win each race.
+# Part 2: the numbers are one race with the spaces removed.
+
+example """
+Time:      7  15   30
+Distance:  9  40  200
+"""
+  part1 = 288
+  part2 = 71503
+
+answers
+  part1 = 160816
+  part2 = 46561107
+
+[times, records] = input.lines.map(.ints)
+
+# t * (T - t) rises to a peak at T / 2 and falls symmetrically, so find the
+# first winning t by binary search below the peak.
+ways(T, D) = T + 1 - 2 * (0..T / 2).bisect(t => t * (T - t) > D)
+
+part1 = zip(times, records).map(ways).product
+part2 = ways(int(times.join), int(records.join))

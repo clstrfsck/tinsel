@@ -1,0 +1,36 @@
+day 2022.12
+
+# A heightmap, a to z. Each step goes to a neighbouring square at most one
+# higher (any amount lower is fine). S is height a, and E is height z.
+# Part 1: fewest steps from S to E.
+# Part 2: fewest steps to E from any square of height a.
+# Reference: reference/2022/d12.py
+
+example """
+Sabqponm
+abcryxxl
+accszExk
+acctuvwj
+abdefghi
+"""
+  part1 = 31
+  part2 = 29
+
+answers
+  part1 = 339
+  part2 = 332
+
+hill = input.grid
+start = hill.find('S')
+end = hill.find('E')
+
+height(p) = match hill[p]
+  'S' => ord('a')
+  'E' => ord('z')
+  c => ord(c)
+
+up(p) = hill.nbrs4(p).filter(q => height(q) <= height(p) + 1)
+
+part1 = bfs(start, up, goal: end).0
+# Every square of height a is a possible start (SPEC 9.7).
+part2 = bfs_from(hill.where('a') | {start}, up, goal: end).0

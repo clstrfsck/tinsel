@@ -1,0 +1,41 @@
+day 2023.12
+
+# Rows of springs (. working, # broken, ? unknown), each with the sizes of
+# its contiguous groups of broken springs.
+# Part 1: add up the number of arrangements that fit each row.
+# Part 2: the same, after unfolding each row: five copies of the springs
+#         joined by ?, and five copies of the group sizes.
+
+example """
+???.### 1,1,3
+.??..??...?##. 1,1,3
+?#?#?#?#?#?#?#? 1,3,1,6
+????.#...#... 4,1,1
+????.######..#####. 1,6,5
+?###???????? 3,2,1
+"""
+  part1 = 21
+  part2 = 525152
+
+answers
+  part1 = 8180
+  part2 = 620189727003627
+
+rows = [(springs, groups.ints) for "{springs} {groups}" in input.lines]
+
+arrangements(s, groups) = count(0, 0)
+  where
+    # Arrangements of s[i..] for groups[j..]. Memoized automatically, with
+    # a fresh cache for each row.
+    count(i, j) =
+      if j == groups.len then int('#' not in s[i..])
+      else if i >= s.len then 0
+      else (if s[i] != '#' then count(i + 1, j) else 0)
+         + (if s[i] != '.' and fits(i, groups[j]) then count(i + groups[j] + 1, j + 1) else 0)
+    # A group of n broken springs can start at i.
+    fits(i, n) = i + n <= s.len and '.' not in s[i..<i + n] and s.get(i + n) != '#'
+
+unfold(s, groups) = ([s].repeat(5).join("?"), groups.repeat(5))
+
+part1 = rows.map(arrangements).sum
+part2 = rows.map(r => arrangements(unfold(r))).sum

@@ -1,0 +1,69 @@
+day 2018.1
+
+# A list of frequency changes, such as +6 and -3, starting from 0.
+# Part 1: the frequency after all the changes.
+# Part 2: the first frequency reached twice, going through the list over
+#         and over.
+
+example """
++1
+-2
++3
++1
+"""
+  part1 = 3
+  part2 = 2
+
+example """
++1
+-1
+"""
+  part2 = 0
+
+example """
++3
++3
++4
+-2
+-4
+"""
+  part2 = 10
+
+example """
+-6
++3
++8
++5
+-6
+"""
+  part2 = 5
+
+example """
++7
++7
+-2
+-7
+-4
+"""
+  part2 = 14
+
+example """
+-1
+-2
+-3
+"""
+  part1 = -6
+
+answers
+  part1 = 574
+  part2 = 452
+
+changes = input.ints
+
+part1 = changes.sum
+
+repeat_of(f, i, seen) =
+  if f in seen then f
+  else repeat_of(f + changes[i % changes.len], i + 1, seen.add(f))
+
+part2 = repeat_of(0, 0, set())

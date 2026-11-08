@@ -1,0 +1,46 @@
+day 2018.21
+include "device.tin"
+
+# A device program that halts only when register 0 equals a value it
+# computes. Only register 0 can be set.
+# Part 1: the lowest value for register 0 that halts the program after the
+#         fewest instructions.
+# Part 2: the lowest value that halts it after the most instructions.
+
+answers
+  part1 = 13970209
+  part2 = 6267260
+
+prog = program(input)
+
+# The one instruction that reads register 0 compares it with another
+# register, and the program halts if they are equal. The first value it
+# compares with halts soonest.
+(check, other) = match [(i, if a == 0 then b else a) for (i, (name, a, b, _)) in prog.1.enumerate if name == "eqrr" and 0 in (a, b)]
+  [found] => found
+
+part1 = run(prog, (0, 0, 0, 0, 0, 0), _ == check).1[other]
+
+# Running the program long enough for part 2 is far too slow. Reading it:
+# each time round its main loop, it hashes the bytes of (previous value |
+# 65536), lowest first, starting from a seed, and compares the result with
+# register 0. The seed and multiplier are the values the program sets
+# with `seti` and `muli`.
+seed = prog.1.filter((name, _, _, c) => name == "seti" and c == other).map(.1).max
+multiplier = prog.1.first((name, _, _, _) => name == "muli").2
+
+next_value(v) = hash(v | 65536, seed)
+
+hash(bytes, h) =
+  if bytes < 256 then mixed
+  else hash(bytes / 256, mixed)
+  where
+    mixed = ((h + (bytes & 255)) & 16777215) * multiplier & 16777215
+
+test "the hash gives the first value" = next_value(0) == part1
+
+# The values compared repeat eventually. The last new one before the
+# repeat makes the program run longest before halting.
+part2 = prefix[start + period - 1]
+  where
+    (start, period, prefix) = iterate(next_value(0), next_value).find_cycle

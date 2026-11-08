@@ -1,0 +1,33 @@
+day 2021.1
+
+# Depth measurements from a sonar sweep.
+# Part 1: how many measurements are larger than the one before.
+# Part 2: the same for the sums of sliding windows of three.
+
+example """
+199
+200
+208
+210
+200
+207
+240
+269
+260
+263
+"""
+  part1 = 7
+  part2 = 5
+
+answers
+  part1 = 1754
+  part2 = 1789
+
+depths = input.ints
+
+# Comparing windows of three, the two middle values are shared, so a window
+# is larger exactly when its new value beats the one that dropped out.
+increases(gap) = (gap..<depths.len).count(i => depths[i] > depths[i - gap])
+
+part1 = increases(1)
+part2 = increases(3)

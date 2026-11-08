@@ -1,0 +1,73 @@
+day 2023.11
+
+# An image of galaxies (#). Every row and column with no galaxy is really
+# `older` times as big.
+# Part 1: the sum of the distances between every pair of galaxies, with
+#         empty rows and columns doubled.
+# Part 2: the same, with each empty row and column a million times as big.
+
+example """
+...#......
+.......#..
+#.........
+..........
+......#...
+.#........
+.........#
+..........
+.......#..
+#...#.....
+"""
+  part1 = 374
+
+example """
+...#......
+.......#..
+#.........
+..........
+......#...
+.#........
+.........#
+..........
+.......#..
+#...#.....
+"""
+  with older = 10
+  part2 = 1030
+
+example """
+...#......
+.......#..
+#.........
+..........
+......#...
+.#........
+.........#
+..........
+.......#..
+#...#.....
+"""
+  with older = 100
+  part2 = 8410
+
+answers
+  part1 = 9536038
+  part2 = 447744640566
+
+older = 1000000
+
+galaxies = input.grid.where('#')
+
+# Total distance along one axis: sort the coordinates, and each gap between
+# neighbours is crossed by (galaxies before it) * (galaxies after it) pairs.
+# A gap of g empty lines counts g * factor.
+axis(cs, factor) = sum(gap(a, b) * (i + 1) * (n - i - 1) for (i, (a, b)) in sorted.pairs.enumerate)
+  where
+    sorted = cs.sort
+    n = cs.len
+    gap(a, b) = if b == a then 0 else 1 + (b - a - 1) * factor
+
+distances(factor) = axis(galaxies.map(.0), factor) + axis(galaxies.map(.1), factor)
+
+part1 = distances(2)
+part2 = distances(older)

@@ -1,0 +1,243 @@
+# Comprehensions and collection functions. SPEC sections 4, 5.6 and 9.2.
+
+# --- Literals and comprehensions --------------------------------------------
+test "list comprehension"       = [x * x for x in 1..5 if x % 2 == 1] == [1, 9, 25]
+test "nested comprehension"     = [(a, b) for a in 1..2 for b in 1..2] == [(1, 1), (1, 2), (2, 1), (2, 2)]
+test "set comprehension"        = {x % 3 for x in 1..10} == {0, 1, 2}
+test "map literal"              = {"a": 1, "b": 2}["b"] == 2
+test "map comprehension"        = {x: x * x for x in 1..3} == {1: 1, 2: 4, 3: 9}
+test "repeated keys: the last value wins" = ({x % 2: x for x in 1..4}, {1: "a", 1: "b"}) == ({0: 4, 1: 3}, {1: "b"})
+test "{} is an empty map"       = {}.len == 0 and {}.keys == []
+test "set() is an empty set"    = set().len == 0
+
+# Keys in one map or set need only have the same type (SPEC 4.1), even when
+# `<` can't order them.
+test "none as a set element and map key" = ({none, none}.len, {none: 1}.set(none, 2)) == (1, {none: 2})
+test "sets of ranges and grids" = ({1..2, 3..4}.len, {"a".grid, "b".grid, "a".grid}.len) == (2, 2)
+test "tuples whose elements have different types" = {(1, "a"), (1, 2), (1, "a")}.len == 2
+test_error "keys of different types still can't mix" = {(1, 2), "a"}
+test_error "nor in a set union" = {1} | {"a"}
+test "generator argument"       = sum(x for x in 1..4) == 10
+test "generator with nested loops" = list((a, b) for a in 1..2 for b in "xy") == [(1, 'x'), (1, 'y'), (2, 'x'), (2, 'y')]
+# Generators are single-pass (SPEC 4): a second read is an error.
+read_twice(n) = (list(g), list(g))
+  where
+    g = (x for x in 1..n)
+test_error "a generator can be read only once" = read_twice(3)
+len_then_read(n) = (g.len, list(g))
+  where
+    g = (x for x in 1..n)
+test_error "len uses up a generator" = len_then_read(3)
+test "inner loops see outer variables" = [(a, b) for a in 1..3 for b in a..3 if a != b] == [(1, 2), (1, 3), (2, 3)]
+test "set from list"            = set([3, 1, 3]) == {1, 3}
+test "let binds a name in a comprehension" = [(x, d) for x in 1..5 let d = x * x if d > 5] == [(3, 9), (4, 16), (5, 25)]
+test "let with a pattern" = {q: r for n in [7, 9] let (q, r) = divmod(n, 4)} == {1: 3, 2: 1}
+test "let in a generator" = sum(y for x in 1..3 let y = x * 10) == 60
+# A generator passed straight to a library function (compiled as one loop).
+test "product, and empty sum and product" = (product(x for x in 1..5), sum(x for x in []), product(x for x in [])) == (120, 0, 1)
+test "functions that collect a generator" = (min(x for x in [3, 1, 2]), max(x for x in [] if x), count(x > 1 for x in 1..3), tuple(x for x in "ab"), set(x % 2 for x in 1..5), sort(-x for x in 1..3), reverse(x for x in 1..3), join(x for x in 1..3)) == (1, none, 2, ('a', 'b'), {0, 1}, [-3, -2, -1], [3, 2, 1], "123")
+test "any, all and first stop on an infinite generator" = (any(x > 5 for x in (1..)), all(x < 5 for x in (1..)), first(x for x in (1..) if x * x > 50)) == (true, false, 8)
+test "any, all and first of an empty generator" = (any(x for x in []), all(x for x in []), first(x for x in [])) == (false, true, none)
+test "patterns that don't match skip the item" = sum(a for (a, 1) in [(1, 1), (2, 2), (3, 1)]) == 4
+test "sums large enough to need a bigint" = sum(2 ** 62 for _ in 1..4) == 2 ** 64
+test_error "sum reports adding an element it can't" = sum(x for x in [1, "a"])
+test_error "any needs bool elements" = any(x for x in [false, 2, true])
+test_error "a for over a non-collection" = sum(x for x in 5)
+test "let that doesn't match skips the item" = [a for s in ["1 2", "3"] let [a, b] = s.ints] == [1]
+
+# --- Ordering and iteration ---------------------------------------------------
+test "sets iterate sorted"      = list({3, 1, 2}) == [1, 2, 3]
+test "map keys are sorted"      = {"b": 1, "a": 2}.keys == ["a", "b"]
+test "items"                    = {"b": 1, "a": 2}.items == [("a", 2), ("b", 1)]
+test "maps iterate their keys"  = {"b": 1, "a": 2}.map(_ ++ "!") == ["a!", "b!"]
+test "first, last, min and max of a set" = ({3, 1, 2}.first, {3, 1, 2}.last, {3, 1, 2}.min, {3, 1, 2}.max) == (1, 3, 1, 3)
+test "strings iterate their chars" = ("abca".uniq, "aXbXc".count('X')) == (['a', 'b', 'c'], 2)
+test "tuples compare lexicographically" = [(2, 0), (1, 9), (1, 2)].sort == [(1, 2), (1, 9), (2, 0)]
+
+# --- Lookup -------------------------------------------------------------------
+test "get with default"         = {"a": 1}.get("z", 0) == 0
+test "get missing is none"      = {"a": 1}.get("z") == none
+test_error "indexing a missing key fails" = {"a": 1}["z"]
+test "list get out of range"    = [1, 2].get(5) == none
+test "get with a default that isn't needed" = ({"a": 1}.get("a", 0), [1, 2].get(1, 0)) == (1, 2)
+test "get with default on lists, tuples, strings and grids" = ([1, 2].get(5, 0), [1, 2].get(-1, 0), (1, 2).get(2, 0), "ab".get(1, '?'), "ab".get(9, '?'), "ab".grid.get((5, 0), '.')) == (0, 2, 0, 'b', '?', '.')
+test_error "get with default still checks the index type" = [1, 2].get("a", 0)
+test_error "get with default still checks the collection" = 5.get(1, 0)
+test "in checks map keys"       = "a" in {"a": 1}
+test "in for tuples and strings" = 2 in (1, 2) and "bc" in "abc" and 'z' not in "abc"
+test "negative index"           = [1, 2, 3][-1] == 3
+test "slice bounds can be negative and are clamped" = ([1, 2, 3][-2..], [1, 2, 3][5..], "abc"[..<-1]) == ([2, 3], [], "ab")
+test "the largest inclusive slice bound is clamped too" = ([1][..9223372036854775807], (1, 2)[0..9223372036854775807], "ab"[..9223372036854775807], [1][..-9223372036854775808]) == ([1], (1, 2), "ab", [])
+test "huge negative slice bounds clamp to the start" = ([1, 2, 3][-(2 ** 70)..], [1, 2, 3][..-(2 ** 70)], [1, 2, 3][..<-(2 ** 70)], "abc"[-(2 ** 70)..1], (1, 2, 3)[-inf..-2]) == ([1, 2, 3], [], [], "ab", (1, 2))
+test "infinite slice bounds"     = ([1, 2, 3][..-inf], [1, 2, 3][..inf], [1, 2, 3][2 ** 70..], [1, 2, 3][..2 ** 70]) == ([], [1, 2, 3], [], [1, 2, 3])
+
+# --- Aggregates ---------------------------------------------------------------
+test "sum, product, count"      = ([1, 2, 3, 4].sum, [1, 2, 3, 4].product, [1, 2, 3, 4].count(_ > 2)) == (10, 24, 2)
+test "sum of empty"             = [].sum == 0
+test "count of bools"           = [true, false, true].count == 2
+test "min and max"              = ([3, 1, 2].min, [3, 1, 2].max, min(4, 2), max(4, 9, 1)) == (1, 3, 2, 9)
+test "min of empty is none"     = [].min == none
+test "min and max of a huge range" = ((1..10 ** 12).min, (1..10 ** 12).max, (5..<5).min, (3..).min) == (1, 10 ** 12, none, 3)
+test_error "max of an infinite range" = (3..).max
+test "min_by and max_by"        = (["bb", "a", "ccc"].min_by(.len), ["bb", "a", "ccc"].max_by(.len)) == ("a", "ccc")
+test "any and all"              = [1, 2].any(_ > 1) and not [1, 2].all(_ > 1)
+test "all of bools"             = all([true, true]) and not all([true, false])
+test "first and last"           = ([5, 6, 7].first, [5, 6, 7].last, [5, 6, 7].first(_ > 5)) == (5, 7, 6)
+test "first with no match"      = [1, 2].first(_ > 5) == none
+test "any stops early on an infinite generator" = iterate(1, _ * 2).any(_ > 100)
+test "take"                     = ([1, 2, 3].take(2), [1].take(5), iterate(1, _ * 2).take(4)) == ([1, 2], [1], [1, 2, 4, 8])
+test "take_while"               = ([1, 2, 5, 1].take_while(_ < 3), iterate(1, _ * 3).take_while(_ < 50)) == ([1, 2], [1, 3, 9, 27])
+test "bisect finds the first true" = ((0..100).bisect(_ * _ >= 50), (0..100).bisect(_ >= 0), (0..100).bisect(_ > 100)) == (8, 0, none)
+test "bisect on a huge or infinite range" = ((0..10 ** 30).bisect(_ >= 12345), (7..).bisect(_ ** 2 > 10 ** 20)) == (12345, 10 ** 10 + 1)
+test "bisect on an empty range" = (5..4).bisect(_ > 0) == none
+test_error "bisect needs a range" = [1, 2].bisect(_ > 1)
+test_error "bisect needs a bool predicate" = (0..9).bisect(_ + 1)
+
+# --- Transformations ----------------------------------------------------------
+test "sort"                     = [3, 1, 2].sort == [1, 2, 3]
+test "sort_by"                  = ["bb", "a", "ccc"].sort_by(.len) == ["a", "bb", "ccc"]
+test "reverse"                  = [1, 2, 3].reverse == [3, 2, 1]
+test "reverse keeps strings and tuples" = ("abc".reverse, (1, 2).reverse) == ("cba", (2, 1))
+test "enumerate"                = ["a", "b"].enumerate == [(0, "a"), (1, "b")]
+test "zip"                      = zip([1, 2], "ab") == [(1, 'a'), (2, 'b')]
+test "pairs"                    = [1, 2, 3].pairs == [(1, 2), (2, 3)]
+test "windows"                  = [1, 2, 3, 4].windows(3) == [[1, 2, 3], [2, 3, 4]]
+test "chunks"                   = [1, 2, 3, 4, 5].chunks(2) == [[1, 2], [3, 4], [5]]
+test "scan includes the initial value" = [1, 2, 3].scan(0, (a, x) => a + x) == [0, 1, 3, 6]
+test "repeat"                   = ("ab".repeat(3), [1, 2].repeat(2), "x".repeat(0), [[0]].repeat(2)) == ("ababab", [1, 2, 1, 2], "", [[0], [0]])
+test "unfolding a row"          = ["#.?"].repeat(3).join("?") == "#.??#.??#.?"
+test_error "repeat isn't for tuples" = (1, 2).repeat(2)
+test_error "repeat needs n of 0 or more" = "a".repeat(-1)
+test "repeat of nothing" = ("".repeat(9_000_000_000_000_000_000), [].repeat(10 ** 30), [].repeat(inf)) == ("", [], [])
+test_error "repeat too long: list" = [0, 1].repeat(9_000_000_000_000_000_000)
+test_error "repeat too long: str" = "ab".repeat(9_000_000_000_000_000_000)
+test_error "repeat too long: huge count" = "ab".repeat(10 ** 30)
+test_error "repeat too long: cannot allocate" = [0].repeat(4_000_000_000_000_000_000)
+test_error "repeat over the size limit: str" = "a".repeat(2 ** 45)
+test_error "repeat over the size limit: list" = [1].repeat(2 ** 30)
+test "uniq keeps first occurrences" = [3, 1, 3, 2, 1].uniq == [3, 1, 2]
+test "flatten"                  = [[1], [2, 3], []].flatten == [1, 2, 3]
+test "group_by"                 = [1, 2, 3, 4, 5].group_by(_ % 2) == {0: [2, 4], 1: [1, 3, 5]}
+test "group_by with a value function" = [("a", 1), ("b", 2), ("a", 3)].group_by(.0, .1) == {"a": [1, 3], "b": [2]}
+test "counts"                   = "abca".chars.counts == {'a': 2, 'b': 1, 'c': 1}
+test "subsets order"            = [1, 2, 3].subsets == [[], [1], [2], [3], [1, 2], [1, 3], [2, 3], [1, 2, 3]]
+test "combos give tuples"       = [1, 2, 3].combos(2) == [(1, 2), (1, 3), (2, 3)]
+test "combos spread into functions" = (1..3).combos(2).map((a, b) => a * b) == [2, 3, 6]
+test "counts may be bigints or inf" = ([1, 2].take(2 ** 70), (1..).take(2), [1, 2].take(inf), [1, 2].windows(2 ** 70), [1, 2].chunks(2 ** 70), [1, 2].combos(2 ** 70)) == ([1, 2], [1, 2], [1, 2], [], [[1, 2]], [])
+test_error "a negative bigint count is an error" = [1].take(-(2 ** 70))
+test "perms"                    = [1, 2, 3].perms == [(1, 2, 3), (1, 3, 2), (2, 1, 3), (2, 3, 1), (3, 1, 2), (3, 2, 1)]
+test "count a value"            = "a,b,,c".count(',') == 3
+test "index"                    = ([5, 6, 7].index(6), "ab.S..".index('S'), [1].index(9)) == (1, 3, none)
+test "indices"                  = list("abc".indices) == [0, 1, 2]
+test "tally"                    = [("a", 2), ("b", 1), ("a", 3)].tally == {"a": 5, "b": 1}
+test "transpose strings"        = ["abc", "def"].transpose == ["ad", "be", "cf"]
+test "transpose lists"          = [[1, 2], [3, 4]].transpose == [[1, 3], [2, 4]]
+test "join default separator"   = ['a', 'b'].join == "ab"
+test "join numbers"             = [1, 2, 3].join(",") == "1,2,3"
+
+# --- Sets and maps ------------------------------------------------------------
+test "set union, intersection, difference" = ({1, 2} | {2, 3}, {1, 2} & {2, 3}, {1, 2} - {2, 3}) == ({1, 2, 3}, {2}, {1})
+test "set symmetric difference" = ({1, 2} xor {2, 3}) == {1, 3}
+test "set add/remove return copies" = ({1}.add(2), {1, 2}.remove(1)) == ({1, 2}, {2})
+test "map merge: right wins"    = ({"a": 1, "b": 2} | {"b": 9}) == {"a": 1, "b": 9}
+test "map set/remove"           = ({"a": 1}.set("b", 2), {"a": 1, "b": 2}.remove("a")) == ({"a": 1, "b": 2}, {"b": 2})
+original = {"a": 1}
+test "updates don't change the original" = original.set("a", 5)["a"] == 5 and original["a"] == 1
+test "concat lists with ++"     = [1] ++ [2, 3] == [1, 2, 3]
+
+# Short and long lists are stored differently, which must not be visible.
+long = (1..100).list
+test "long lists slice, concat and compare like short ones" =
+  (long[..<30] ++ long[30..], long[10..<40].len, [x for x in long if x <= 3], long[95..]) == (long, 30, [1, 2, 3], [96, 97, 98, 99, 100])
+test "a short list equals a slice of a long one" = {long[..<3]: 1}[[1, 2, 3]] == 1
+@nomemo
+drop_all([]) = 0
+drop_all([_, ..rest]) = 1 + drop_all(rest)
+test "list patterns on a long list" = drop_all((1..5000).list) == 5000
+test_error "+ on lists is an error" = [1] + [2]
+
+# xs.set(i, v) on lists (SPEC 9.2)
+short_list = [1, 2, 3]
+long_list = list(0..<100)
+test "list set"                 = short_list.set(1, 9) == [1, 9, 3] and short_list == [1, 2, 3]
+test "list set from the end"    = short_list.set(-1, 9) == [1, 2, 9]
+test "list set on a long list"  = long_list.set(50, -1)[49..51] == [49, -1, 51] and long_list[50] == 50
+test_error "list set out of range" = short_list.set(3, 0)
+test_error "list set with a non-int index" = short_list.set("a", 0)
+
+# a.subset(b) (SPEC 9.2)
+test "subset"                   = {1, 2}.subset({1, 2, 3}) and {1, 2}.subset({1, 2}) and set().subset({1})
+test "not a subset"             = not {1, 4}.subset({1, 2, 3})
+test "subset is not ordering"   = {1, 4} <= {2} and not {1, 4}.subset({2})
+test "maps compare by key first, then value" = ({1: 5} < {2: 0}, {1: 5} < {1: 6}, {1: 0} < {1: 0, 2: 0}) == (true, true, true)
+test "unequal keys decide even when the values can't be ordered" = ({1: none} < {2: 0}, [{2: 0}, {1: none}].sort, max({1: none}, {2: "a"})) == (true, [{1: none}, {2: 0}], {2: "a"})
+test_error "equal keys compare their values" = {1: none} < {1: 0}
+test_error "subset of a list"   = {1}.subset([1])
+
+# map, filter, enumerate and zip are lazy on generators and infinite ranges (SPEC 9.2)
+test "enumerate an infinite generator" = iterate(1, _ * 2).enumerate.first((i, x) => x > 100) == (7, 128)
+test "map an infinite range"     = (1..).map(_ * _).first(_ > 50) == 64
+test "filter an infinite range"  = (1..).filter(_ % 7 == 0).take(3) == [7, 14, 21]
+test "zip infinite sources"      = zip(1.., iterate(1, _ * 2)).take(3) == [(1, 1), (2, 2), (3, 4)]
+test "zip with a finite list is a list" = zip(1.., "ab") == [(1, 'a'), (2, 'b')]
+test "map over a list is a list" = [1, 2].map(_ + 1) == [2, 3]
+test "lazy results chain"        = (0..).map(_ * 3).filter(_ % 2 == 0).enumerate.take(2) == [(0, 0), (1, 6)]
+first_twice(g) = (g.first, g.first)
+test_error "a lazy map is single-pass" = first_twice((1..).map(_ + 1))
+test_error "a lazy filter needs a bool" = (1..).filter(_ + 1).first
+
+# filter, map, count, any, all and first with a function, over each kind of
+# finite collection (the IR engines run these as loops).
+test "eager filter"              = [1, 2, 3].filter(_ > 1) == [2, 3] and {3, 1, 2}.filter(_ != 2) == [1, 3]
+test "eager map over a set"      = {3, 1, 2}.map(_ * 2) == [2, 4, 6]
+test "eager map over a map's keys" = {1: "a", 2: "b"}.map(_ + 1) == [2, 3]
+test "eager count over a str"    = "abca".count(_ == 'a') == 2 and [].count(_ > 0) == 0
+test "count of a value"          = [1, 2, 1].count(1) == 2
+test "eager any and all"         = {1: 2}.any(_ == 1) and (1..4).all(_ > 0) and not [].any(_ > 0) and [].all(_ > 0)
+test "eager first"               = "xyz".first(_ != 'x') == 'y' and [1, 2].first(_ > 5) == none
+test "pairs spread into a lambda" = [(1, 2), (3, 4)].map((a, b) => a + b) == [3, 7]
+test "a named function as the predicate" = (1..10).filter(even) == [2, 4, 6, 8, 10]
+even(n) = n % 2 == 0
+test_error "an eager filter needs a bool" = [1, 2].filter(_ + 1)
+test_error "an eager count needs a bool" = [1].count(x => x)
+test_error "an eager first needs a bool" = "ab".first(_ => 1)
+test "eager min_by keeps the first of equal keys" = [(1, 'a'), (1, 'b')].min_by(.0) == (1, 'a') and [].max_by(_ + 1) == none
+test "eager fold and scan" = (1..4).fold(0, (a, x) => a + x) == 10 and [1, 2, 3].scan(0, (a, x) => a + x) == [0, 1, 3, 6]
+test_error "eager min_by keys must be comparable" = [1, "a"].min_by(x => x)
+
+# Group 2 additions (SPEC 9.2)
+test "set on a tuple"            = (1, 2, 3).set(1, 9) == (1, 9, 3) and (1, 2).set(-1, 0) == (1, 0)
+test "set on a str"              = "abc".set(-1, 'z') == "abz"
+test_error "set on a str needs a char" = "abc".set(0, "z")
+test_error "set on a tuple out of range" = (1, 2).set(2, 0)
+test "union of sets"             = [{1}, {2, 3}, {3}].union == {1, 2, 3} and [].union == set()
+test "intersection of sets"      = [{1, 2, 3}, {2, 3}, {3, 4}].intersection == {3}
+test_error "intersection of no sets" = [].intersection
+test "union of rangesets"        = [rangeset([1..3]), rangeset([5])].union == rangeset([1..3, 5])
+test "union of one set"          = [{1, 2}].union == {1, 2} and [rangeset([1..3])].intersection == rangeset([1..3])
+test_error "union of one int"    = [1].union
+test_error "intersection of one int" = [1].intersection
+test_error "union of ints"       = [1, 2].union
+test_error "intersection with an int" = [{1}, 2].intersection
+test "sum of tuples"             = [(1, 2), (3, 4)].sum == (4, 6)
+test "index with a predicate"    = ([5, 7, 9].index(_ > 6), "abc".index(_ == 'c'), [1].index(_ > 5)) == (1, 2, none)
+test "bounds of points"          = [(1, 5), (3, 2), (2, 9)].bounds == ((1, 3), (2, 9))
+test "bounds of ints"            = [4, 1, 9].bounds == (1, 9) and [].bounds == none
+test_error "bounds of mixed points" = [(1, 2), (1, 2, 3)].bounds
+test "sort descending"           = [3, 1, 2].sort(desc: true) == [3, 2, 1]
+test "sort_by descending is stable" = ["bb", "a", "cc"].sort_by(.len, desc: true) == ["bb", "cc", "a"]
+
+# Iterating a set or map copies its elements in chunks of growing size;
+# these cross several chunk boundaries (32, 64, 128, ...).
+test "set iteration in order"    = [x for x in (1..10000).set] == (1..10000).list
+test "set iteration at chunk edges" = [32, 33, 96, 97].all(n => [x for x in (1..n).set] == (1..n).list)
+test "map key iteration in order" = [k for k in {x: -x for x in 1..5000}] == (1..5000).list
+test "sum of a large set"        = (1..10000).set.sum == 50005000
+test "any stops early in a set"  = (1..100000).set.any(x => x == 40) and not {x for x in []}.any(x => true)
+test "empty set and map iterate" = [x for x in {x for x in []}] == [] and [k for k in {x: x for x in []}] == []
+
+# Tuples of small ints compare on a fast path; these mix in big ints, inf
+# and other types, which take the general path.
+test "tuple keys order with big ints and inf" = {(1, 2 ** 70), (1, 5), (1, inf), (1, -inf), (0, 9)}.list == [(0, 9), (1, -inf), (1, 5), (1, 2 ** 70), (1, inf)]
+test "tuple equality across int sizes" = (2 ** 70 - 2 ** 70 + 3, 1) == (3, 1) and (1, 2) != (1, 2, 3) and (1, 'a') != (1, "a")
+test "shorter tuple sorts first" = {(1, 2, 3), (1, 2), (1, 1, 9)}.list == [(1, 1, 9), (1, 2), (1, 2, 3)]

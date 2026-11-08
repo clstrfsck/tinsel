@@ -1,0 +1,58 @@
+day 2021.24
+
+# MONAD, a program for an ALU with registers w, x, y and z, checks a
+# 14-digit model number (digits 1 to 9), read one digit at a time. A number
+# is valid when z ends at 0.
+# Part 1: the largest valid model number.
+# Part 2: the smallest valid model number.
+#
+# The program is 14 near-identical blocks, one per digit, differing only in
+# three constants. Each block either pushes (digit + a) onto z as a base-26
+# stack, or pops the top and compares it, plus b, with its digit; z can
+# only end at 0 if every comparison matches. So the digits pair up, and in
+# each pair digit j = digit i + a_i + b_j.
+
+answers
+  part1 = "39999698799429"
+  part2 = "18116121134117"
+
+program = input.lines
+blocks = program.chunks(18)
+
+# (pushes, b, a) for each block: line 4 divides z by 1 (push) or 26 (pop),
+# line 5 adds b to x, and line 15 adds a to y.
+params = blocks.map(bl => (bl[4].ints[0] == 1, bl[5].ints[0], bl[15].ints[0]))
+
+# Pair each popping block with the block whose push it pops: (i, j, the
+# difference digit j - digit i).
+pairs = params.enumerate.fold(([], []), pair_up).0
+
+pair_up((found, stack), (j, (pushes, b, a))) =
+  if pushes then (found, [(j, a)] ++ stack)
+  else (found ++ [(stack[0].0, j, stack[0].1 + b)], stack[1..])
+
+# Choose each pair's digits as high (or low) as the difference allows.
+model(pick) = [digits[i] for i in 0..<14].join
+  where
+    digits = pairs.fold({}, (m, (i, j, diff)) => m.set(i, pick(diff)).set(j, pick(diff) + diff))
+
+part1 = model(diff => min(9, 9 - diff))
+part2 = model(diff => max(1, 1 - diff))
+
+# Check both answers by running the program itself.
+alu(number) = program.fold(({'w': 0, 'x': 0, 'y': 0, 'z': 0}, number.chars.map(int)), exec).0['z']
+
+exec((regs, digits), line) = match line.words
+  ["inp", r] => (regs.set(r[0], digits[0]), digits[1..])
+  [op, r, arg] => (regs.set(r[0], calc(op, regs[r[0]], operand(regs, arg))), digits)
+
+operand(regs, arg) = if arg[0] in "wxyz" then regs[arg[0]] else int(arg)
+
+calc("add", a, b) = a + b
+calc("mul", a, b) = a * b
+calc("div", a, b) = if a * b >= 0 then a / b else -(abs(a) / abs(b))
+calc("mod", a, b) = a % b
+calc("eql", a, b) = int(a == b)
+
+test "the largest number passes MONAD" = alu(part1) == 0
+test "the smallest number passes MONAD" = alu(part2) == 0

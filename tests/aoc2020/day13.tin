@@ -1,0 +1,30 @@
+day 2020.13
+
+# The earliest time you could leave, then the bus IDs in service (x for
+# out of service). Bus n leaves at every multiple of n.
+# Part 1: the earliest bus you can take: its ID times the minutes you wait.
+# Part 2: the earliest time t at which the bus at index i in the list
+#         leaves at t + i, for every bus in service.
+
+example """
+939
+7,13,x,x,59,x,31,19
+"""
+  part1 = 295
+  part2 = 1068781
+
+answers
+  part1 = 4315
+  part2 = 556100168221141
+
+[now_line, list] = input.lines
+now = int(now_line)
+buses = [(i, int(b)) for (i, b) in list.split(",").enumerate if b != "x"]
+
+wait(id) = (-now) % id
+first_bus = buses.map(.1).min_by(wait)
+
+part1 = first_bus * wait(first_bus)
+
+# t + i is a multiple of bus n, so t = -i (mod n).
+part2 = crt(buses.map((i, n) => ((-i) % n, n))).0

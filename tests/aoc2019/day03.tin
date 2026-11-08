@@ -1,0 +1,46 @@
+day 2019.3
+
+# Two wires run from a central port, as lists of moves like R8,U5.
+# Part 1: the Manhattan distance from the port to the nearest crossing.
+# Part 2: the fewest combined steps along both wires to a crossing.
+
+example """
+R8,U5,L5,D3
+U7,R6,D4,L4
+"""
+  part1 = 6
+  part2 = 30
+
+example """
+R75,D30,R83,U83,L12,D49,R71,U7,L72
+U62,R66,U55,R34,D71,R55,D58,R83
+"""
+  part1 = 159
+  part2 = 610
+
+example """
+R98,U47,R26,D63,R33,U87,L62,D20,R33,U53,R51
+U98,R91,D20,R16,D67,R40,U7,R15,U6,R7
+"""
+  part1 = 135
+  part2 = 410
+
+answers
+  part1 = 221
+  part2 = 18542
+
+dirs = {'U': N, 'R': E, 'D': S, 'L': W}
+
+# The cells a wire passes through, in order, after leaving the port.
+path(line) = [dirs[c] for "{c:char}{n:int}" in line.split(",") for _ in 1..n]
+  .scan((0, 0), (p, d) => p + d)[1..]
+
+# The number of steps to reach each cell first. In a map comprehension the
+# last value wins, so go through the path backwards.
+steps(line) = {p: i + 1 for (i, p) in path(line).enumerate.reverse}
+
+[a, b] = input.lines.map(steps)
+crossings = set(a.keys) & set(b.keys)
+
+part1 = crossings.map(manhattan(_, (0, 0))).min
+part2 = crossings.map(p => a[p] + b[p]).min

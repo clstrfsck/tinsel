@@ -1,0 +1,140 @@
+# Integers, booleans, none/inf, strings and ranges. SPEC sections 3, 4, 5.1 and 9.1.
+
+# --- Integers ---------------------------------------------------------------
+test "floor division"                = -7 / 2 == -4
+test "modulo takes divisor's sign"   = (-7 % 3, 7 % -3) == (2, -2)
+test "div/mod identity"              = (-7 / 3) * 3 + -7 % 3 == -7
+test "power"                         = 2 ** 10 == 1024
+test "power is right associative"    = 2 ** 3 ** 2 == 512
+test "big integers"                  = 2 ** 100 == 1267650600228229401496703205376
+test "i64 overflow promotes"         = 2 ** 63 * 2 == 18446744073709551616
+test "digit separators"              = 1_000_000 == 1000000
+test "abs and sign"                  = (abs(-5), sign(-5), sign(0), sign(7)) == (5, -1, 0, 1)
+test "gcd and lcm"                   = (gcd(12, 18), lcm(4, 6)) == (6, 12)
+test "divmod"                        = divmod(-7, 2) == (-4, 1)
+test "isqrt rounds down"              = [0, 1, 15, 16, 17, 2 ** 62, 10 ** 40 + 5].map(isqrt) == [0, 1, 3, 4, 4, 2 ** 31, 10 ** 20]
+test "isqrt of the largest small int"  = isqrt(9223372036854775807) == 3037000499
+test_error "isqrt of a negative int"   = isqrt(-1)
+test_error "isqrt of inf"              = isqrt(inf)
+test "bitwise"                       = (6 | 3, 6 & 3, 6 xor 3, 1 << 4, 256 >> 2) == (7, 2, 5, 16, 64)
+test "large shifts and powers"        = (0 << 2 ** 62, (1 << 100000) >> 99999, 2 ** 100000 == 1 << 100000) == (0, 2, true)
+test_error "a shift over the size limit is an error" = 1 << 2 ** 40
+test_error "a huge shift is an error" = 1 << 2 ** 62
+test_error "a power over the size limit is an error" = (2 ** 64) ** (2 ** 31)
+
+# --- Booleans ---------------------------------------------------------------
+test_error "no arithmetic on bools"  = true + 1
+test_error "no sum of bools"         = [true, true].sum
+test_error "no bool * int"           = 3 * (1 < 2)
+test_error "if needs a bool"         = if 1 then "y" else "n"
+test_error "and needs bools"         = 1 and true
+test_error "not needs a bool"        = not 0
+test_error "filter predicate must give a bool" = [1, 2].filter(_ % 2)
+test_error "count with no argument needs bools" = [1, 0].count
+test "count bools"                   = [true, false, true].count == 2
+test "int of bool"                   = (int(true), int(false)) == (1, 0)
+test "and/or/not"                    = (true and not false) or false
+test "chained comparison"            = 0 <= 3 < 5
+test "chained comparison fails"      = not (0 <= 7 < 5)
+
+# --- Comparing different types (SPEC 4.1, Q8) -------------------------------
+test "equality across types is false, not an error" = (1 == "1", true == 1, none == 0, 'a' == "a") == (false, false, false, false)
+test "!= across types"               = 1 != "1"
+test_error "ordering str against int" = "5" < 3
+test_error "ordering tuple against int" = (1, 2) < 0
+test_error "ordering tuple against list" = (1, 2) < [1, 2]
+test_error "ordering none"           = none < 1
+test_error "sorting mixed types"     = [1, "a"].sort
+test_error "min of mixed types"      = min(1, "a")
+test_error "mixed map keys"          = {1: "a", "b": 2}
+test_error "mixed set elements"      = {1, "a"}
+test "inf orders against ints"       = 5 < inf
+test "bools order false before true" = [true, false].sort == [false, true]
+test "1 and true are different keys" = {1: "one"}.get(true) == none
+
+# --- none and inf -----------------------------------------------------------
+test "?? picks the first non-none"   = (none ?? 4, 3 ?? 4) == (4, 3)
+test "?? is right associative"       = (none ?? none ?? 9) == 9
+test "?? binds looser than =="       = (none ?? 1 == 2) == false
+test "inf is above every int"        = 2 ** 200 < inf and -inf < -(2 ** 200)
+test "inf absorbs addition"          = inf + 1 == inf
+test "min with inf"                  = min(3, inf) == 3
+test_error "inf - inf is undefined"  = inf - inf
+
+# --- Strings ----------------------------------------------------------------
+test "concat"                        = "ab" ++ "cd" == "abcd"
+test "interpolation"                 = "x={1 + 2}" == "x=3"
+test "escaped braces"                = "{{x}}" == "{{" ++ "x" ++ "}}"
+test "strings nested in interpolation" = "<{["a", "b"].join(",")}>" == "<a,b>"
+test "indexing gives chars"          = ("hello"[0], "hello"[-1]) == ('h', 'o')
+test "slicing"                       = ("hello"[1..], "hello"[..<2], "hello"[1..3]) == ("ello", "he", "ell")
+test "chars"                         = "abc".chars == ['a', 'b', 'c']
+test "escapes"                       = ("\"\\\n\t".chars, '\'', '\"', '\\') == (['"', '\\', '\n', '\t'], "'".chars.0, "\"".chars.0, "\\".chars.0)
+test "display forms (SPEC 10)"        = [str(-12), str(-inf), str(true), str(none), str("ab"), str('c'), str((1,)), str((1, "a", 'b')), str([1, 2]), str({1, 2}), str(set()), str({"a": 1}), str({}), str(1..5), str(1..), str(0..<5), str(5..<1), str(1..<inf), str("abc".indices), (0..<5) == (0..4), str(rangeset([1..5, 7])), str("ab\ncd\nef\n".grid), str(x => x), str(chr), str((x for x in [1]))] == ["-12", "-inf", "true", "none", "ab", "c", "(1,)", "(1, \"a\", 'b')", "[1, 2]", "{{1, 2}}", "set()", "{{\"a\": 1}}", "{{}}", "1..5", "1..", "0..<5", "5..<1", "1..<inf", "0..<3", true, "rangeset([1..5, 7..7])", "<grid 2x3>", "<function <lambda>>", "<function chr>", "<generator>"]
+test "strings inside collections are quoted and escaped" = (str(["a", 'b']), "{["x\ty"]}") == ("[\"a\", 'b']", "[\"x\\ty\"]")
+test "words"                         = "  a  bb c ".words == ["a", "bb", "c"]
+test "lines drop one trailing newline" = "a\n\nb\n".lines == ["a", "", "b"]
+test "blocks"                        = "a\nb\n\nc\n".blocks == ["a\nb", "c"]
+test "ints"                          = "x=-3, y=+4..10".ints == [-3, 4, 10]
+test "ints: hyphen between numbers is not a sign" = "11-22,95-115".ints == [11, 22, 95, 115]
+test "int parses"                    = int(" -42 ") == -42
+test "split and join"                = "a,b,,c".split(",").join(";") == "a;b;;c"
+test "replace"                       = ("a-b-c".replace("-", "+"), "aaa".replace("aa", "b"), "x.y".replace('.', "")) == ("a+b+c", "ba", "xy")
+test_error "replace needs a non-empty old" = "abc".replace("", "x")
+test "ord and chr"                   = (ord('a'), chr(97), chr(ord('A') + 25)) == (97, 'a', 'Z')
+test "letter priorities with ord"    = "aZ".chars.map(c => if c >= 'a' then ord(c) - ord('a') + 1 else ord(c) - ord('A') + 27) == [1, 52]
+test_error "chr of a negative number" = chr(-1)
+test_error "chr of a surrogate"       = chr(55296)
+test_error "ord of a str"             = ord("a")
+test "int in a base"                 = (int("ff", 16), int("FF", 16), int(" -101 ", 2), int("z", 36)) == (255, 255, -5, 35)
+test "int in a base beyond i64"      = int("400000000000000000", 16) == 2 ** 70
+test_error "digits must suit the base" = int("12", 2)
+test_error "bases go from 2 to 36"   = int("1", 37)
+test "str in a base"                 = (str(255, 16), str(-5, 2), str(0, 2), str(35, 36)) == ("ff", "-101", "0", "z")
+test "str in a base beyond i64"      = str(2 ** 70, 16) == "400000000000000000"
+test_error "str with a base needs an int" = str("a", 16)
+test "trim and affixes"              = (" x ".trim, "abc".starts_with("ab"), "abc".ends_with("bc")) == ("x", true, true)
+test "triple-quoted strings drop the first newline" = """
+ab
+""" == "ab\n"
+
+# --- Ranges -----------------------------------------------------------------
+test "inclusive range"               = list(1..4) == [1, 2, 3, 4]
+test "exclusive range"               = list(1..<4) == [1, 2, 3]
+test "empty range"                   = list(5..1) == []
+test "range membership"              = 3 in 1..5 and 6 not in 1..5
+test "infinite range with first"     = (1..).first(_ * _ > 50) == 8
+test "..< leaves out an infinite end" = (inf in (inf..<inf), (inf..<inf).len, list(inf..<inf), (inf..<inf).max, -inf in (-inf..<-inf), (-inf..<-inf).len, inf in (1..<inf), inf in (1..inf), 5 in (1..<inf)) == (false, 0, [], none, false, 0, false, true, true)
+test "ranges are equal when their elements are" = ((0..<5) == (0..4), (1..<inf) == (1..inf), (inf..<inf) == (inf..inf), (1..inf) == (1..), (1..<inf) == (1..), {1..inf, 1..}.len, inf in (1..)) == (true, false, false, true, false, 1, true)
+test "empty ranges are all equal" = ((5..1) == (10..2), (5..<5) == (inf..<inf), (3..-inf) == (0..<0), {5..1, 10..2, inf..<inf, 0..<0}.len, (5..1) == (5..5)) == (true, true, true, 1, false)
+test "an end of inf is no end"       = ((1..inf).first, (1..inf).take(2), (1..inf).bisect(n => n > 5), 5 in (-inf..inf)) == (1, [1, 2], 6, true)
+test "infinite ends keep finite answers" = ((-inf..5).max, (-inf..5).last, (inf..5).len, list(inf..5), (5..-inf).max) == (5, 5, 0, [], none)
+test_error "len of a range ending at inf"   = (1..inf).len
+test_error "max of a range ending at inf"   = (1..inf).max
+test_error "last of a range ending at inf"  = (1..<inf).last
+test_error "len of a range from -inf"       = (-inf..5).len
+test_error "min of a range from -inf"       = (-inf..5).min
+test_error "iterating a range from -inf"    = [x for x in -inf..5]
+test_error "first of a range from -inf"     = (-inf..5).first
+
+# --- Item words as names (SPEC 3) --------------------------------------------
+# day, example, answers, test and test_error only start an item in column 1
+# when followed by what the item needs.
+day(n) = n + 1
+test(x) = x * 2
+example = 5
+answers = 7
+pass_through(test_error) = test_error
+test "item words as names" = (day(1), test(3), example, answers, pass_through(4)) == (2, 6, 5, 7, 4)
+test "item words as lambda parameters" = [1, 2].map(day => day + 1) == [2, 3]
+test "item words in interpolation" = "{day(1)} {example}" == "2 5"
+
+# --- Bits --------------------------------------------------------------------
+test "bitwise not"                   = (~0, ~5, ~(-1), ~(2 ** 70)) == (-1, -6, 0, -(2 ** 70) - 1)
+test "bitwise not binds tightly"     = ~1 + 1 == -1
+test_error "bitwise not needs an int" = ~true
+test "bit length"                    = (0.bits, 1.bits, 255.bits, 256.bits, (2 ** 100).bits) == (0, 1, 8, 9, 101)
+test_error "bit length of a negative" = (-1).bits
+test "str with a width"              = (str(5, 2, 8), str(-5, 2, 4), str(255, 16, 1)) == ("00000101", "-0101", "ff")
+test_error "a str width too large to build is an error" = str(5, 10, 9223372036854775807)
+test_error "a str width over the size limit is an error" = str(5, 10, 2 ** 45)

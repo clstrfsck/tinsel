@@ -1,0 +1,48 @@
+day 2018.22
+
+# A cave whose regions are rocky, wet or narrow, worked out from a depth
+# and the target's position: each region's erosion level comes from its
+# geologic index, which for most regions is the product of the erosion
+# levels to its left and above.
+# Part 1: the total risk (0 rocky, 1 wet, 2 narrow) of the rectangle from
+#         0,0 to the target.
+# Part 2: the fewest minutes to reach the target with the torch. Rocky
+#         regions allow the climbing gear or torch, wet ones the gear or
+#         neither, narrow ones the torch or neither. Moving takes 1
+#         minute, and changing tools 7.
+
+example """
+depth: 510
+target: 10,10
+"""
+  part1 = 114
+  part2 = 45
+
+answers
+  part1 = 7380
+  part2 = 1013
+
+[depth, tx, ty] = input.ints
+
+target = (tx, ty)
+
+# Memoized automatically, since it calls itself twice.
+erosion(p) = (geologic(p) + depth) % 20183
+
+geologic((0, 0)) = 0
+geologic(p) when p == target = 0
+geologic((x, 0)) = x * 16807
+geologic((0, y)) = y * 48271
+geologic((x, y)) = erosion((x - 1, y)) * erosion((x, y - 1))
+
+kind(p) = erosion(p) % 3
+
+part1 = [kind((x, y)) for x in 0..tx for y in 0..ty].sum
+
+# Tools are numbered so that a tool is allowed in a region exactly when
+# its number isn't the region's kind: 0 neither, 1 torch, 2 climbing gear.
+torch = 1
+
+moves((p, tool)) = [((p, 3 - kind(p) - tool), 7)] ++ [((q, tool), 1) for q in nbrs4(p) if q.0 >= 0 and q.1 >= 0 and kind(q) != tool]
+
+part2 = dijkstra(((0, 0), torch), moves, goal: (target, torch)).0

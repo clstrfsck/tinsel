@@ -1,0 +1,72 @@
+day 2023.16
+
+# A beam of light crosses a grid of mirrors (/ and \) and splitters (| and
+# -). A splitter met side-on splits the beam both ways.
+# Part 1: how many tiles are energized by a beam entering the top left,
+#         heading right.
+# Part 2: the most tiles energized by a beam entering from any edge tile,
+#         heading inwards.
+
+example """
+.|...\....
+|.-.\.....
+.....|-...
+........|.
+..........
+.........\
+..../.\\..
+.-.-/..|..
+.|....-|.\
+..//.|....
+"""
+  part1 = 46
+  part2 = 51
+
+answers
+  part1 = 7543
+  part2 = 8231
+
+contraption = input.grid
+
+# Directions a beam leaves a tile in, given the one it enters with.
+turn(c, (dx, dy)) = match c
+  '/' => [(-dy, -dx)]
+  '\\' => [(dy, dx)]
+  '|' when dx != 0 => [N, S]
+  '-' when dy != 0 => [E, W]
+  _ => [(dx, dy)]
+
+# Between mirrors and splitters a beam goes straight, so precompute each
+# straight run: from p heading d, the empty cells crossed and the next tile
+# hit (none if the beam leaves the grid).
+run(p, d) = go(p + d, [])
+  where
+    go(q, cells) =
+      if q not in contraption then (cells, none)
+      else if contraption[q] != '.' then (cells, q)
+      else go(q + d, cells ++ [q])
+
+tiles = contraption.where(_ != '.')
+runs = {(t, d): run(t, d) for t in tiles for d in DIRS4}
+
+# Search over (tile, direction entered), jumping from tile to tile.
+next((t, d)) = [(q, e) for e in turn(contraption[t], d) let q = runs[(t, e)].1 if q != none]
+
+energized(p, d) = (set(cells) | beyond(t, d)).len
+  where
+    (cells, t) = run(p, d)
+
+# The cells energized once the beam reaches tile t heading d.
+beyond(none, _) = set()
+beyond(t, d) = {q for (q, _) in seen}
+               | set([c for (q, e) in seen for f in turn(contraption[q], e) for c in runs[(q, f)].0])
+  where
+    seen = bfs((t, d), next).keys
+
+w = contraption.width
+h = contraption.height
+edges = [((-1, y), E) for y in 0..<h] ++ [((w, y), W) for y in 0..<h]
+     ++ [((x, -1), S) for x in 0..<w] ++ [((x, h), N) for x in 0..<w]
+
+part1 = energized((-1, 0), E)
+part2 = edges.map(energized).max

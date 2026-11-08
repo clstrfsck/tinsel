@@ -1,0 +1,119 @@
+day 2019.10
+
+# A map of asteroids (#). A station on an asteroid can see another unless a
+# third lies exactly on the line between them.
+# Part 1: the most asteroids a station can see, choosing the best asteroid.
+# Part 2: from there, a laser starts pointing up and turns clockwise,
+#         destroying the nearest asteroid in each direction it passes. Give
+#         x * 100 + y for the 200th asteroid destroyed.
+
+example """
+.#..#
+.....
+#####
+....#
+...##
+"""
+  part1 = 8
+
+example """
+......#.#.
+#..#.#....
+..#######.
+.#.#.###..
+.#..#.....
+..#....#.#
+#..#....#.
+.##.#..###
+##...#..#.
+.#....####
+"""
+  part1 = 33
+
+example """
+#.#...#.#.
+.###....#.
+.#....#...
+##.#.#.#.#
+....#.#.#.
+.##..###.#
+..#...##..
+..##....##
+......#...
+.####.###.
+"""
+  part1 = 35
+
+example """
+.#..#..###
+####.###.#
+....###.#.
+..###.##.#
+##.##.#.#.
+....###..#
+..#.#..#.#
+#..#.#.###
+.##...##.#
+.....#.#..
+"""
+  part1 = 41
+
+example """
+.#..##.###...#######
+##.############..##.
+.#.######.########.#
+.###.#######.####.#.
+#####.##.#.##.###.##
+..#####..#.#########
+####################
+#.####....###.#.#.##
+##.#################
+#####.##.###..####..
+..######..##.#######
+####.##.####...##..#
+.#####..#.######.###
+##...#.##########...
+#.##########.#######
+.####.#.###.###.#.##
+....##.##.###..#####
+.#.#.###########.###
+#.#.#.#####.####.###
+###.##.####.##.#..##
+"""
+  part1 = 210
+  part2 = 802
+
+answers
+  part1 = 344
+  part2 = 2732
+
+asteroids = input.grid.where('#')
+
+# The direction from a to b, as the smallest whole step along that line.
+direction(a, b) = (dx / g, dy / g)
+  where
+    (dx, dy) = b - a
+    g = gcd(abs(dx), abs(dy))
+
+visible(a) = set((asteroids - {a}).map(direction(a, _))).len
+
+station = asteroids.max_by(visible)
+
+part1 = visible(station)
+
+# Clockwise from straight up, with y increasing downwards: first the
+# directions with dx > 0 (and straight up), then those with dx < 0 (and
+# straight down). Within each half, the angle grows with dy / dx. Directions
+# are whole steps no bigger than the map, so scaling dy / dx by 10 ** 9
+# keeps different slopes apart without fractions.
+angle((dx, dy)) = (if dx > 0 or (dx == 0 and dy < 0) then 0 else 1,
+                   if dx == 0 then -inf else dy * 10 ** 9 / dx)
+
+# An asteroid is destroyed on the turn given by how many others in its
+# direction are nearer; within a turn, in order of angle.
+order = [(turn, angle(d), b)
+         for (d, bs) in (asteroids - {station}).group_by(direction(station, _)).items
+         for (turn, b) in bs.sort_by(manhattan(station, _)).enumerate].sort
+
+part2 = match order[199]
+  (_, _, (x, y)) => 100 * x + y

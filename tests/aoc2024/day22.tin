@@ -1,0 +1,49 @@
+day 2024.22
+
+# Each buyer's secret number evolves by a fixed pseudorandom step; the price
+# is its last digit.
+# Part 1: the sum of each buyer's 2000th new secret number.
+# Part 2: the most bananas from one sequence of four price changes. Each
+#         buyer sells the first time that sequence appears.
+
+example """
+1
+10
+100
+2024
+"""
+  part1 = 37327623
+
+example """
+1
+2
+3
+2024
+"""
+  part2 = 23
+
+answers
+  part1 = 13022553808
+  part2 = 1555
+
+M = 16777216
+
+next(s) = c
+  where
+    a = ((s * 64) xor s) % M
+    b = ((a / 32) xor a) % M
+    c = ((b * 2048) xor b) % M
+
+secrets = input.ints.map(s => (0..<2000).scan(s, (x, _) => next(x)))
+
+part1 = secrets.map(.last).sum
+
+# Encode each run of four changes as one int: each change is -9 to 9, so
+# use base 19, keeping the last four digits as the changes roll in. For each
+# buyer, keep the price at the first time each run appears.
+first_prices(ss) = {key: price for (key, price) in zip(keys, prices)[4..].reverse}
+  where
+    prices = ss.map(_ % 10)
+    keys = prices.pairs.scan(0, (k, (a, b)) => (k * 19 + b - a + 9) % 19 ** 4)
+
+part2 = secrets.map(first_prices).map(.items).flatten.tally.values.max

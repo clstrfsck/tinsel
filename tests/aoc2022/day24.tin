@@ -1,0 +1,54 @@
+day 2022.24
+
+# A valley walled in by #, full of blizzards (> < ^ v) that each move one
+# step a minute, wrapping round when they reach a wall. Each minute you can
+# move one step or wait, but never share a cell with a blizzard.
+# Part 1: the fewest minutes from the gap in the top wall to the gap in the
+#         bottom wall.
+# Part 2: the fewest minutes to go there, back to the start, and there
+#         again.
+
+example """
+#.######
+#>>.<^<#
+#.<..<<#
+#>v.><>#
+#<^v^^>#
+######.#
+"""
+  part1 = 18
+  part2 = 54
+
+answers
+  part1 = 269
+  part2 = 825
+
+rows = input.lines
+
+# The inside of the valley, with (0, 0) its top left corner. The start is
+# just above the inside, and the goal just below.
+inside = rows[1..<-1].map(_[1..<-1]).join("\n").grid
+w = inside.width
+h = inside.height
+start = (rows[0].index('.') - 1, -1)
+goal = (rows[-1].index('.') - 1, h)
+
+# A blizzard is at (x, y) at minute t if it started t steps behind.
+free(p, t) = p == start or p == goal or
+  (p in inside and
+   inside[((x - t) % w, y)] != '>' and inside[((x + t) % w, y)] != '<' and
+   inside[(x, (y - t) % h)] != 'v' and inside[(x, (y + t) % h)] != '^')
+  where
+    (x, y) = p
+
+# Breadth first, a minute at a time: everywhere you could be at minute t.
+cross(from, to, t) = reach({from}, to, t)
+
+reach(front, to, t) =
+  if to in front then t
+  else reach({q for p in front for q in [p] ++ nbrs4(p) if free(q, t + 1)}, to, t + 1)
+
+there = cross(start, goal, 0)
+
+part1 = there
+part2 = cross(start, goal, cross(goal, start, there))

@@ -1,0 +1,54 @@
+day 2018.4
+
+# Guard records, out of order: a guard begins a shift, then falls asleep
+# and wakes up at minutes of the midnight hour.
+# Part 1: the guard asleep the most minutes, times the minute that guard
+#         is most often asleep.
+# Part 2: the guard and minute most often seen together asleep, multiplied.
+
+example """
+[1518-11-01 00:00] Guard #10 begins shift
+[1518-11-01 00:05] falls asleep
+[1518-11-01 00:25] wakes up
+[1518-11-01 00:30] falls asleep
+[1518-11-01 00:55] wakes up
+[1518-11-01 23:58] Guard #99 begins shift
+[1518-11-02 00:40] falls asleep
+[1518-11-02 00:50] wakes up
+[1518-11-03 00:05] Guard #10 begins shift
+[1518-11-03 00:24] falls asleep
+[1518-11-03 00:29] wakes up
+[1518-11-04 00:02] Guard #99 begins shift
+[1518-11-04 00:36] falls asleep
+[1518-11-04 00:46] wakes up
+[1518-11-05 00:03] Guard #99 begins shift
+[1518-11-05 00:45] falls asleep
+[1518-11-05 00:55] wakes up
+"""
+  part1 = 240
+  part2 = 4455
+
+answers
+  part1 = 94040
+  part2 = 39940
+
+# The timestamps sort correctly as text.
+naps = input.lines.sort.fold((none, none, []), record).2
+
+record((guard, start, naps), line) = match line
+  "{_} Guard #{id:int} begins shift" => (id, none, naps)
+  "[{_}:{m:int}] falls asleep" => (guard, m, naps)
+  "[{_}:{m:int}] wakes up" => (guard, none, naps ++ [(guard, start, m)])
+
+# One (guard, minute) entry for each minute asleep.
+asleep = [(guard, m) for (guard, a, b) in naps for m in a..<b]
+
+most_common(xs) = xs.counts.items.max_by(.1).0
+
+part1 = guard * minute
+  where
+    guard = most_common(asleep.map(.0))
+    minute = most_common([m for (g, m) in asleep if g == guard])
+
+part2 = match most_common(asleep)
+  (guard, minute) => guard * minute

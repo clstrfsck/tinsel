@@ -1,0 +1,98 @@
+day 2019.25
+include "intcode.tin"
+
+# An Intcode text adventure. A droid explores Santa's ship on commands like
+# "north" or "take <item>". To get through the pressure-sensitive floor
+# beyond the security checkpoint, the droid must carry exactly the right
+# weight of items; it is then told the password for the airlock.
+# Part 1: the password.
+
+answers
+  part1 = 2155873288
+
+# Everything is found by playing the game: explore every room, pick up every
+# item that is safe to carry, then try sets of items on the floor.
+
+# Give the droid commands; gives (status, machine, text it printed).
+say(m, cmds) = (status, m2, outs.map(chr).join)
+  where
+    (status, m2, outs) = run(m, (cmds.join("\n") ++ "\n").chars.map(ord))
+
+# The name of the last room described in some text, or none if no room
+# was described.
+room(text) = [name for "== {name} ==" in text.lines].last
+
+# The "- " lines after a header, such as "Doors here lead:", in the last
+# room described.
+listed(text, header) = after(text.split("== ").last.lines, header)
+
+after(lines, header) = match lines.index(header)
+  none => []
+  i => lines[i + 1..].take_while(_.starts_with("- ")).map(_[2..])
+
+(_, arrival, welcome) = say(intcode(input), [])
+entrance = room(welcome)
+
+# Explore breadth first, keeping a droid standing in each room. rooms maps
+# a room's name to (its description, a droid there); links maps it to the
+# (door, room) pairs leading out. Walking onto the pressure-sensitive floor
+# throws the droid back to the checkpoint, so that door leads back to the
+# same room.
+explore([], rooms, links) = (rooms, links)
+explore([name, ..rest], rooms, links) = explore(rest ++ new.keys, rooms | new, links.set(name, exits))
+  where
+    (text, m) = rooms[name]
+    moves = [(d, say(m, [d])) for d in listed(text, "Doors here lead:")]
+    exits = [(d, room(t)) for (d, (_, _, t)) in moves]
+    new = {room(t): (t, m2) for (_, (_, m2, t)) in moves if room(t) not in rooms}
+
+(rooms, links) = explore([entrance], {entrance: (welcome, arrival)}, {})
+
+(checkpoint, floor_door) = [(r, d) for (r, exits) in links.items for (d, to) in exits if to == r][0]
+
+# Some items are traps. Taking them ends the game, or stops the droid
+# moving. One, the infinite loop, makes the program run for ever, so it is
+# left alone by name: there's no way to try it and see.
+safe(item, name) =
+  item != "infinite loop" and
+  match say(rooms[name].1, ["take " ++ item])
+    ("halt", _, _) => false
+    (_, m, _) => match say(m, [links[name][0].0])
+      ("halt", _, _) => false
+      (_, _, t) => room(t) != none
+
+items = [(item, r) for (r, (text, _)) in rooms.items for item in listed(text, "Items here:") if safe(item, r)]
+
+# The doors to go through from one room to another.
+route(from, to) = bfs(from, r => links[r].map(.1), goal: to).1.pairs.map(doors_between)
+doors_between(a, b) = links[a].first(_.1 == b).0
+
+# Collect every safe item, then go to the checkpoint.
+stops = [entrance] ++ items.map(.1) ++ [checkpoint]
+commands = [c for (i, (a, b)) in stops.pairs.enumerate
+              for c in route(a, b) ++ (if i < items.len then ["take " ++ items[i].0] else [])]
+(_, ready, _) = say(arrival, commands)
+
+# Try keeping each set of items (as a bitmask) and stepping onto the floor.
+# If one set is too heavy, so is every set containing it; if one is too
+# light, so is every set inside it.
+verdict(keep) =
+  if text.index("lighter") != none then "heavy"
+  else if text.index("heavier") != none then "light"
+  else text.ints.max
+  where
+    drops = ["drop " ++ item for (i, (item, _)) in items.enumerate if keep & (1 << i) == 0]
+    (_, _, text) = say(ready, drops ++ [floor_door])
+
+# Sets of middling size come first: those prune in both directions.
+size(keep) = items.indices.count(i => keep & (1 << i) != 0)
+order = (0..<1 << items.len).sort_by(keep => abs(2 * size(keep) - items.len))
+
+search([keep, ..rest], heavy, light) =
+  if heavy.any(h => keep & h == h) or light.any(l => keep & l == keep) then search(rest, heavy, light)
+  else match verdict(keep)
+    "heavy" => search(rest, heavy ++ [keep], light)
+    "light" => search(rest, heavy, light ++ [keep])
+    password => password
+
+part1 = search(order, [], [])

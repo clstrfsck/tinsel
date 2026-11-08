@@ -1,0 +1,38 @@
+day 2023.7
+
+# Camel Cards: hands of five cards, each with a bid.
+# Part 1: rank the hands (by type, then card by card) and add up
+#         bid * rank.
+# Part 2: J is now a joker: the weakest card on its own, but it counts as
+#         whatever card makes the best type.
+
+example """
+32T3K 765
+T55J5 684
+KK677 28
+KTJJT 220
+QQQJA 483
+"""
+  part1 = 6440
+  part2 = 5905
+
+answers
+  part1 = 246795406
+  part2 = 249356515
+
+hands = [(cards, bid) for "{cards} {bid:int}" in input.lines]
+
+# Sorting by the card counts, largest first, orders the types correctly:
+# five of a kind [5] beats four of a kind [4, 1], and so on. Jokers join the
+# largest group.
+strength(cards, order, jokers) = (counts, cards.chars.map(c => order.index(c)))
+  where
+    n = if jokers then cards.count('J') else 0
+    rest = (if jokers then cards.replace("J", "") else cards).chars.counts.values.sort(desc: true)
+    counts = if rest == [] then [5] else [rest[0] + n] ++ rest[1..]
+
+winnings(order, jokers) =
+  hands.sort_by((c, _) => strength(c, order, jokers)).enumerate.map((i, (_, bid)) => (i + 1) * bid).sum
+
+part1 = winnings("23456789TJQKA", false)
+part2 = winnings("J23456789TQKA", true)

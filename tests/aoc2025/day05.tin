@@ -1,0 +1,35 @@
+day 2025.5
+
+# Ranges of fresh ingredient IDs, then a list of available IDs.
+# Part 1: how many available IDs are fresh.
+# Part 2: how many IDs the ranges cover in total (they overlap).
+# Reference: reference/2025/d05.py
+
+example """
+3-5
+10-14
+16-20
+12-18
+
+1
+5
+8
+11
+17
+32
+"""
+  part1 = 3
+  part2 = 14
+
+answers
+  part1 = 744
+  part2 = 347468726696961
+
+[range_text, id_text] = input.blocks
+ids = id_text.lines.map(int)
+
+# The ranges overlap; a rangeset merges them (SPEC 9.8).
+fresh = rangeset(range_text.lines.map("{lo:int}-{hi:int}" => lo..hi))
+
+part1 = ids.count(_ in fresh)
+part2 = fresh.len

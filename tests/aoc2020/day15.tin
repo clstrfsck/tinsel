@@ -1,0 +1,39 @@
+day 2020.15
+
+# A memory game: after the starting numbers, each player says 0 if the last
+# number was new, or else how many turns ago it was said before that.
+# Part 1: the 2020th number spoken.
+# Part 2: the 30000000th number spoken.
+
+example """
+0,3,6
+"""
+  part1 = 436
+
+answers
+  part1 = 620
+  part2 = 110871
+
+starts = input.ints
+
+# seen[n] is the turn number n was last said, or 0 if it hasn't been, for
+# every number except the last one said. The last number was said on turn
+# t. Every number said after the start is a gap between turns, so it is
+# less than the limit, and a list indexed by number holds them all. A list
+# updated where it is last used changes in place, and is about twice as
+# fast as a map here.
+play(limit) = speak(starts.len, starts.last, first_seen, limit)
+  where
+    size = max(limit, starts.max + 1)
+    first_seen = starts[..<-1].enumerate.fold([0].repeat(size), (seen, (i, n)) => seen.set(n, i + 1))
+
+speak(t, last, seen, limit) =
+  if t == limit then last
+  else say(t, last, seen[last], seen, limit)
+
+# `before` is read from seen first, so that seen.set is its last use.
+say(t, last, before, seen, limit) =
+  speak(t + 1, if before == 0 then 0 else t - before, seen.set(last, t), limit)
+
+part1 = play(2020)
+part2 = play(30000000)

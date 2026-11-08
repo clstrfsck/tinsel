@@ -1,0 +1,33 @@
+day 2024.4
+
+# A word search.
+# Part 1: count every XMAS, in any of the eight directions.
+# Part 2: count every X-MAS: two diagonal MASes crossing at their A.
+
+example """
+MMMSXXMASM
+MSAMXMSMSA
+AMXSXMAAMM
+MSAMASMSMX
+XMASAMXAMM
+XXAMMXXAMA
+SMSMSASXSS
+SAXAMASAAA
+MAMMMXMMMM
+MXMXAXMASX
+"""
+  part1 = 18
+  part2 = 9
+
+answers
+  part1 = 2530
+  part2 = 1921
+
+g = input.grid
+
+word_at(p, d) = (0..<4).all(i => g.get(p + d * i) == "XMAS"[i])
+
+diagonal(p, d) = "{g.get(p - d)}{g.get(p + d)}" in ["MS", "SM"]
+
+part1 = sum(DIRS8.count(d => word_at(p, d)) for p in g.where('X'))
+part2 = g.where('A').count(p => diagonal(p, (1, 1)) and diagonal(p, (1, -1)))

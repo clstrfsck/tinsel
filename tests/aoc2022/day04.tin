@@ -1,0 +1,25 @@
+day 2022.4
+
+# Each line gives two Elves' section ranges, as "a-b,c-d".
+# Part 1: pairs where one range fully contains the other.
+# Part 2: pairs whose ranges overlap at all.
+
+example """
+2-4,6-8
+2-3,4-5
+5-7,7-9
+2-8,3-7
+6-6,4-6
+2-6,4-8
+"""
+  part1 = 2
+  part2 = 4
+
+answers
+  part1 = 573
+  part2 = 867
+
+pairs = input.lines.map(.ints)
+
+part1 = pairs.count([a, b, c, d] => (a <= c and d <= b) or (c <= a and b <= d))
+part2 = pairs.count([a, b, c, d] => a <= d and c <= b)

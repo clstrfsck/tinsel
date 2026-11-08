@@ -1,0 +1,28 @@
+day 2021.7
+
+# Crab positions. Every crab must move to the same position.
+# Part 1: each step costs 1 fuel. The least fuel needed.
+# Part 2: the nth step costs n fuel. The least fuel needed.
+
+example """
+16,1,2,0,4,2,7,1,2,14
+"""
+  part1 = 37
+  part2 = 168
+
+answers
+  part1 = 339321
+  part2 = 95476244
+
+crabs = input.ints
+
+total(cost, p) = crabs.map(c => cost(abs(c - p))).sum
+
+# With a cost of d, the median position is best. With d * (d + 1) / 2, the
+# best position is within 1/2 of the mean, so one of the two whole numbers
+# either side of it.
+median = crabs.sort[crabs.len / 2]
+mean = crabs.sum / crabs.len
+
+part1 = total(d => d, median)
+part2 = [mean, mean + 1].map(total(d => d * (d + 1) / 2, _)).min

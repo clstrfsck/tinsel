@@ -1,0 +1,54 @@
+day 2018.6
+
+# Coordinates on an infinite grid. Each location belongs to the coordinate
+# nearest to it by Manhattan distance, unless there is a tie.
+# Part 1: the size of the largest area that isn't infinite.
+# Part 2: the number of locations whose distances to all the coordinates
+#         add up to less than 10000.
+
+example """
+1, 1
+1, 6
+8, 3
+3, 4
+5, 5
+8, 9
+"""
+  with limit = 32
+  part1 = 17
+  part2 = 16
+
+answers
+  part1 = 3660
+  part2 = 35928
+
+points = [(x, y) for "{x:int}, {y:int}" in input.lines]
+
+((x0, x1), (y0, y1)) = points.bounds
+
+# The index of the nearest coordinate, or none for a tie.
+owner(p) = if ds.count(nearest) == 1 then ds.index(nearest) else none
+  where
+    ds = points.map(manhattan(_, p))
+    nearest = ds.min
+
+# An area that reaches the edge of the bounding box goes on forever.
+owners = [(p, o) for x in x0..x1 for y in y0..y1 let p = (x, y) let o = owner(p) if o != none]
+
+infinite = {o for ((x, y), o) in owners if x in (x0, x1) or y in (y0, y1)}
+
+part1 = owners.map(.1).filter(_ not in infinite).counts.values.max
+
+limit = 10000
+
+# The total distance is the total along x plus the total along y, so the
+# two are worked out separately. A location in the region is at most
+# limit / points.len outside the bounding box.
+margin = limit / points.len
+
+totals(cs, low, high) = (low - margin..high + margin).map(v => cs.map(c => abs(c - v)).sum)
+
+part2 = [ys.count(_ < limit - tx) for tx in xs].sum
+  where
+    xs = totals(points.map(.0), x0, x1)
+    ys = totals(points.map(.1), y0, y1)

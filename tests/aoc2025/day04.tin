@@ -1,0 +1,29 @@
+day 2025.4
+
+# Rolls of paper (@) on a grid. A roll is accessible when fewer than 4 of
+# its 8 neighbours are rolls.
+# Part 1: how many rolls are accessible.
+# Part 2: keep removing accessible rolls until none are left. How many go?
+# Reference: reference/2025/d04.rkt (and a Python port, d04.py)
+
+example """
+.@@.@@@.
+@@@@.@@@
+.@@@@@.@
+@@.@@@@@
+.@@@.@@.
+@@..@@@@
+"""
+  part1 = 9
+  part2 = 36
+
+answers
+  part1 = 1389
+  part2 = 9000
+
+rolls = input.grid.where('@')
+
+accessible(rs) = {p for p in rs if nbrs8(p).count(_ in rs) < 4}
+
+part1 = accessible(rolls).len
+part2 = rolls.len - fixpoint(rolls, rs => rs - accessible(rs)).len

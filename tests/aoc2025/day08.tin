@@ -1,0 +1,66 @@
+day 2025.8
+
+# Junction boxes in 3D. Connect pairs in order of distance, closest first.
+# Part 1: after the closest `pairs` pairs, multiply the three largest
+#         circuit sizes.
+# Part 2: keep going until everything is one circuit, then multiply the x
+#         coordinates of the last pair connected.
+# Reference: reference/2025/d08.go (union-find). Here, union-find is a fold
+# over two persistent maps.
+
+example """
+571,84,661
+857,489,969
+177,541,0
+380,996,384
+583,237,67
+391,410,100
+44,121,785
+216,384,101
+421,50,627
+28,567,522
+68,797,922
+198,788,193
+27,725,233
+804,962,800
+654,407,943
+471,362,532
+934,31,609
+113,559,202
+213,124,249
+620,33,118
+"""
+  with pairs = 10
+  part1 = 24
+  part2 = 689028
+
+answers
+  part1 = 112230
+  part2 = 2573952864
+
+pairs = 1000
+
+boxes = input.lines.map(.ints.tuple)
+
+dist2(i, j) = sum(d * d for d in boxes[i] - boxes[j])
+edges = boxes.indices.combos(2).sort_by(dist2)
+
+# Circuit state: which circuit each box is in, and the boxes in each circuit.
+# Joining two circuits moves the smaller one into the larger.
+initial = ({i: i for i in boxes.indices}, {i: [i] for i in boxes.indices})
+
+connect((owner, members), (a, b)) =
+  if x == y then (owner, members)
+  else (owner | {m: big for m in members[small]},
+        members.set(big, members[big] ++ members[small]).remove(small))
+  where
+    x = owner[a]
+    y = owner[b]
+    (small, big) = if members[x].len < members[y].len then (x, y) else (y, x)
+
+part1 = edges[..<pairs].fold(initial, connect).1.values.map(.len).sort(desc: true)[..<3].product
+
+# The edge after which only one circuit is left.
+states = edges.scan(initial, connect)
+(u, v) = zip(edges, states[1..]).first((_, (_, members)) => members.len == 1).0
+part2 = boxes[u].0 * boxes[v].0

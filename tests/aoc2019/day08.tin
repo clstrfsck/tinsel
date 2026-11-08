@@ -1,0 +1,38 @@
+day 2019.8
+include "../lib/ocr.tin"
+
+# An image of 25x6 pixels in layers, as digits: 0 black, 1 white and 2
+# transparent.
+# Part 1: in the layer with the fewest 0s, the number of 1s times the
+#         number of 2s.
+# Part 2: stack the layers, the first on top, and read the message.
+
+example """
+123456789012
+"""
+  with width = 3
+  with height = 2
+  part1 = 1
+
+answers
+  part1 = 1548
+  part2 = "CEKUA"
+
+width = 25
+height = 6
+
+layers = input.trim.chars.map(int).chunks(width * height)
+
+fewest_zeros = layers.min_by(.count(0))
+
+part1 = fewest_zeros.count(1) * fewest_zeros.count(2)
+
+# The first pixel at each position that isn't transparent.
+image = (0..<width * height).map(i => layers.map(_[i]).first(_ != 2))
+
+picture = image.chunks(width).map(row => row.map(p => if p == 1 then '#' else '.').join)
+
+test "stacking layers" = with_layers("0222112222120000", 2, 2) == [0, 1, 1, 0]
+with_layers(s, w, h) = (0..<w * h).map(i => s.chars.map(int).chunks(w * h).map(_[i]).first(_ != 2))
+
+part2 = ocr(picture)

@@ -1,0 +1,39 @@
+day 2021.15
+
+# A grid of risk levels. Find the path from the top left to the bottom
+# right with the lowest total risk (not counting the starting cell).
+# Part 1: on the grid as given.
+# Part 2: the grid tiled 5x5, each tile's risks one higher than the tile
+#         above or to its left, wrapping from 9 back to 1.
+
+example """
+1163751742
+1381373672
+2136511328
+3694931569
+7463417111
+1319128137
+1359912421
+3125421639
+1293138521
+2311944581
+"""
+  part1 = 40
+  part2 = 315
+
+answers
+  part1 = 366
+  part2 = 2829
+
+cave = input.grid(int)
+w = cave.width
+h = cave.height
+
+risk((x, y)) = (cave[(x % w, y % h)] + x / w + y / h - 1) % 9 + 1
+
+safest(tiles) = dijkstra((0, 0), next, goal: (tiles * w - 1, tiles * h - 1)).0
+  where
+    next((x, y)) = [(q, risk(q)) for q in nbrs4((x, y)) if 0 <= q.0 < tiles * w and 0 <= q.1 < tiles * h]
+
+part1 = safest(1)
+part2 = safest(5)

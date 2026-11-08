@@ -1,0 +1,17 @@
+# SPEC 2.8: include
+
+include "include/shapes.tin"
+# Including a file a second time has no further effect.
+include "include/shapes.tin"
+
+test "included function" = area((2, 3)) == 6
+test "included constant" = UNIT == (1, 1)
+test "nested include, relative to the including file" = perimeter((2, 3)) == 10
+test "main file's code sees included definitions" = big == 12
+test_error "runtime error inside included code" = area("box")
+
+big = area((3, 4))
+
+# `include` is not a keyword.
+include(x) = x + 1
+test "include is still usable as a name" = include(1) == 2

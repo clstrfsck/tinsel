@@ -1,0 +1,53 @@
+day 2024.9
+
+# A disk map: digits alternate between file lengths and free-space lengths.
+# Files are numbered 0, 1, 2, ... in order.
+# Part 1: move file blocks one at a time from the end into the leftmost free
+#         block, then compute the checksum (sum of position * file number).
+# Part 2: move whole files instead, highest number first, each into the
+#         leftmost free span to its left that fits it, if there is one.
+
+example """
+2333133121414131402
+"""
+  part1 = 1928
+  part2 = 2858
+
+answers
+  part1 = 6461289671426
+  part2 = 6488291456470
+
+sizes = input.trim.chars.map(int)
+
+# (start, length) of each file and each free span.
+starts = sizes.scan(0, (a, b) => a + b)
+files = [(starts[i], sizes[i]) for i in sizes.indices if i % 2 == 0]
+spans = [(starts[i], sizes[i]) for i in sizes.indices if i % 2 == 1]
+
+# Part 1: the disk ends up as one solid run of blocks. Each free block, read
+# left to right, is filled by the next file block read from the end.
+blocks = [id for (id, (_, n)) in files.enumerate for _ in 0..<n]
+disk = [b for (id, (_, n)) in files.enumerate
+          for b in [id].repeat(n) ++ [none].repeat(spans.get(id, (0, 0)).1)]
+free_rank = disk.scan(0, (k, b) => k + int(b == none))
+part1 = sum(i * (disk[i] ?? blocks[-1 - free_rank[i]]) for i in 0..<blocks.len)
+
+# Part 2: free spans are kept by size, each size as a set of start positions.
+# A file of length n goes to the leftmost span of size n or more.
+initial = {n: {s for (s, len) in spans if len == n} for n in 1..9}
+
+# Each step takes (free spans, _) and a file, and gives the updated free
+# spans and where the file ends up.
+move((free, _), (start, n)) = match best
+    none => (free, start)
+    (s, size) => (free.set(size, free[size].remove(s))
+                      .set(size - n, free.get(size - n, set()).add(s + n)),
+                  s)
+  where
+    best = [(s, size) for size in n..9 let s = free[size].first
+              if s != none and s < start].min
+
+moved = files.reverse.scan((initial, none), move)[1..].map(.1).reverse
+
+part2 = sum(id * p for (id, (s, (_, n))) in zip(moved, files).enumerate
+                   for p in s..<s + n)

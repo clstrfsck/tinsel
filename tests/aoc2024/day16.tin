@@ -1,0 +1,68 @@
+day 2024.16
+
+# A reindeer starts on S facing east and races to E. Moving forward one tile
+# costs 1; turning 90 degrees costs 1000.
+# Part 1: the lowest possible score.
+# Part 2: how many tiles lie on at least one lowest-scoring path.
+# Reference: reference/2024/d16.py
+
+example """
+###############
+#.......#....E#
+#.#.###.#.###.#
+#.....#.#...#.#
+#.###.#####.#.#
+#.#.#.......#.#
+#.#.#####.###.#
+#...........#.#
+###.#.#####.#.#
+#...#.....#.#.#
+#.#.#.###.#.#.#
+#.....#...#.#.#
+#.###.#.#.#.#.#
+#S..#.....#...#
+###############
+"""
+  part1 = 7036
+  part2 = 45
+
+example """
+#################
+#...#...#...#..E#
+#.#.#.#.#.#.#.#.#
+#.#.#.#...#...#.#
+#.#.#.#.###.#.#.#
+#...#.#.#.....#.#
+#.#.#.#.#.#####.#
+#.#...#.#.#.....#
+#.#.#####.#.###.#
+#.#.#.......#...#
+#.#.###.#####.###
+#.#.#...#.....#.#
+#.#.#.#####.###.#
+#.#.#.........#.#
+#.#.#.#########.#
+#S#.............#
+#################
+"""
+  part1 = 11048
+  part2 = 64
+
+answers
+  part1 = 79404
+  part2 = 451
+
+maze = input.grid
+start = maze.find('S')
+end = maze.find('E')
+
+open(p) = maze.get(p, '#') != '#'
+
+# A state is (position, facing).
+moves((p, d)) = [((p, cw(d)), 1000), ((p, ccw(d)), 1000)] ++ (if open(p + d) then [((p + d, d), 1)] else [])
+
+# all_paths gives every state on any lowest-scoring path (SPEC 9.7).
+(best, on_best) = dijkstra((start, E), moves, goal: ((p, _)) => p == end, all_paths: true)
+
+part1 = best
+part2 = {p for (p, _) in on_best}.len

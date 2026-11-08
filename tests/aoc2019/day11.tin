@@ -1,0 +1,35 @@
+day 2019.11
+include "intcode.tin"
+include "../lib/ocr.tin"
+
+# A painting robot runs an Intcode program. Given the colour under it (0
+# black, 1 white), it outputs a colour to paint there and a turn (0 left, 1
+# right), then moves forward one panel. It starts facing up, on black.
+# Part 1: how many panels it paints at least once.
+# Part 2: starting on a white panel instead, the letters it paints.
+
+answers
+  part1 = 1885
+  part2 = "BFEAGHAF"
+
+# Run the robot until it halts, giving the map of painted panels.
+paint(m, pos, d, panels) = moved(run(m, [panels.get(pos, 0)]), pos, d, panels)
+
+moved((status, m, outs), pos, d, panels) =
+  if status == "halt" then set_if(panels, outs, pos)
+  else paint(m, pos + turned, turned, panels.set(pos, outs[0]))
+  where
+    turned = if outs[1] == 0 then ccw(d) else cw(d)
+
+set_if(panels, [colour, ..], pos) = panels.set(pos, colour)
+set_if(panels, [], _) = panels
+
+robot(start) = paint(intcode(input), (0, 0), N, start)
+
+part1 = robot({}).len
+
+hull = robot({(0, 0): 1})
+white = set(hull.keys.filter(hull[_] == 1))
+((x0, x1), (y0, y1)) = white.bounds
+
+part2 = ocr([[if (x, y) in white then '#' else '.' for x in x0..x1].join for y in y0..y1])

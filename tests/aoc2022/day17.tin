@@ -1,0 +1,69 @@
+day 2022.17
+
+# Rocks of five shapes fall in turn into a chamber 7 units wide. Jets of gas,
+# in a repeating pattern, push each rock left or right as it falls.
+# Part 1: tower height after 2022 rocks.
+# Part 2: tower height after a trillion rocks. find_cycle notices when the
+#         falling pattern repeats, and the height is extrapolated from there
+#         (SPEC 9.4).
+# Reference: reference/2022/d17.py
+
+example """
+>><<<>><>>>><<><><<>>><<<><>><
+"""
+  part1 = 3135
+  part2 = 1550000000000
+
+answers
+  part1 = 3124
+  part2 = 1561176470569
+
+jets = input.trim.chars.map(c => if c == '>' then 1 else -1)
+
+rocks = [
+  [(0, 0), (1, 0), (2, 0), (3, 0)],
+  [(1, 0), (0, 1), (1, 1), (2, 1), (1, 2)],
+  [(0, 0), (1, 0), (2, 0), (2, 1), (2, 2)],
+  [(0, 0), (0, 1), (0, 2), (0, 3)],
+  [(0, 0), (1, 0), (0, 1), (1, 1)],
+]
+
+# In this puzzle y increases upwards; y = 0 is the floor.
+fits(filled, rock, pos) =
+  all(0 <= x < 7 and y >= 0 and (x, y) not in filled for (x, y) in rock.map(_ + pos))
+
+# Push, then fall, until the rock can't fall any further. Every recursive
+# call is a tail call, so this is a loop and isn't memoized (SPEC 8.1).
+fall(filled, rock, pos, jet) =
+  if fits(filled, rock, below) then fall(filled, rock, below, next_jet)
+  else (pushed, next_jet)
+  where
+    shifted  = pos + (jets[jet], 0)
+    pushed   = if fits(filled, rock, shifted) then shifted else pos
+    below    = pushed + (0, -1)
+    next_jet = (jet + 1) % jets.len
+
+# State between rocks: (rocks dropped, next jet, top of each column, filled cells)
+start = (0, 0, (0, 0, 0, 0, 0, 0, 0), set())
+
+drop(n, jet, tops, filled) = (n + 1, next_jet, new_tops, filled | cells)
+  where
+    rock = rocks[n % 5]
+    (pos, next_jet) = fall(filled, rock, (2, tops.max + 3), jet)
+    cells = set(rock.map(_ + pos))
+    new_tops = tuple(max(tops[x], cells.filter(_.0 == x).map(_.1 + 1).max ?? 0) for x in 0..<7)
+
+# From the same rock shape, jet and column profile, the tower grows the same
+# way, so the height gain repeats with each period.
+profile(n, jet, tops, _) = (n % 5, jet, tops - tops.max)
+
+(lead, period, seen) = iterate(start, drop).find_cycle(key: profile)
+heights = seen.map(.2.max)
+
+height(n) when n < heights.len = heights[n]
+height(n) = heights[lead + r] + q * (heights[lead + period] - heights[lead])
+  where
+    (q, r) = divmod(n - lead, period)
+
+part1 = height(2022)
+part2 = height(1_000_000_000_000)

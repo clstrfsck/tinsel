@@ -1,0 +1,47 @@
+day 2023.25
+
+# A wiring diagram of components. Cutting exactly three wires splits it in
+# two.
+# Part 1: multiply the sizes of the two groups.
+# There is no part 2.
+
+example """
+jqt: rhn xhk nvd
+rsh: frs pzl lsr
+xhk: hfx
+cmg: qnr nvd lhk bvb
+rhn: xhk bvb hfx
+bvb: xhk hfx
+pzl: lsr hfx nvd
+qnr: nvd
+ntq: jqt hfx bvb xhk
+nvd: lhk
+lsr: lhk
+rzs: qnr cmg lsr rsh
+frs: qnr lhk lsr
+"""
+  part1 = 54
+
+answers
+  part1 = 567606
+
+pairs = [(a, b) for "{a}: {bs}" in input.lines for b in bs.words]
+adj = (pairs ++ pairs.map(.reverse)).group_by(.0, .1)
+nodes = adj.keys
+
+# Max flow with unit capacities (Edmonds-Karp): push flow along shortest
+# augmenting paths. If only three paths fit, the components still reachable
+# from s form one side of the cut. `flow` maps (u, v) to the flow on it.
+side(s, t) = augment({}, 0)
+  where
+    open(flow, u) = adj[u].filter(v => flow.get((u, v), 0) < 1)
+    augment(flow, k) = match bfs(s, u => open(flow, u), goal: t)
+      none => if k == 3 then bfs(s, u => open(flow, u)).keys else none
+      _ when k == 3 => none
+      (_, path) => augment(path.pairs.fold(flow, (f, (u, v)) =>
+                       f.set((u, v), f.get((u, v), 0) + 1).set((v, u), f.get((v, u), 0) - 1)), k + 1)
+
+# Some component t is on the other side from the first one.
+part1 = group.len * (nodes.len - group.len)
+  where
+    group = (side(nodes[0], t) for t in nodes[1..]).first(_ != none)

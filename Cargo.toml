@@ -1,0 +1,32 @@
+[package]
+name = "tinsel"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+ariadne = "0.6.0"
+cranelift-codegen = "0.137.1"
+cranelift-frontend = "0.137.1"
+cranelift-jit = "0.137.1"
+cranelift-module = "0.137.1"
+imbl = "7.0.2"
+logos = "0.16.1"
+mimalloc = "0.1.52"
+num-bigint = "0.5.1"
+stacker = "0.1.25"
+
+[[test]]
+name = "run_tin"
+path = "tests/run_tin.rs"
+harness = false
+
+[profile.dev]
+# Light optimisation keeps the evaluator's stack frames small, so deep
+# recursion in the tests (SPEC 8.2) doesn't need gigabytes of stack.
+opt-level = 1
+
+[profile.release]
+# Whole-program optimisation: about 3% faster on the slow solutions, at the
+# cost of a slower release build (about 15 s).
+lto = "fat"
+codegen-units = 1

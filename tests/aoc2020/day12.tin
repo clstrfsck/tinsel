@@ -1,0 +1,46 @@
+day 2020.12
+
+# Navigation instructions: N, S, E, W move, L and R turn by degrees, and F
+# moves forward.
+# Part 1: the ship moves and turns itself, starting facing east. Its
+#         Manhattan distance from the start at the end.
+# Part 2: N, S, E, W, L and R move or turn a waypoint (relative to the
+#         ship, starting 10 east and 1 north), and F n moves the ship to the
+#         waypoint n times.
+
+example """
+F10
+N3
+F7
+R90
+F11
+"""
+  part1 = 25
+  part2 = 286
+
+answers
+  part1 = 1032
+  part2 = 156735
+
+moves = [(c, n) for "{c:char}{n:int}" in input.lines]
+
+compass = {'N': N, 'S': S, 'E': E, 'W': W}
+
+turn(d, 'R', deg) = iterate(d, cw, times: deg / 90)
+turn(d, 'L', deg) = iterate(d, ccw, times: deg / 90)
+
+# Part 1's state is (ship, heading); part 2's is (ship, waypoint).
+sail((ship, d), (c, n)) = match c
+  'F' => (ship + d * n, d)
+  'L' => (ship, turn(d, c, n))
+  'R' => (ship, turn(d, c, n))
+  _ => (ship + compass[c] * n, d)
+
+steer((ship, wp), (c, n)) = match c
+  'F' => (ship + wp * n, wp)
+  'L' => (ship, turn(wp, c, n))
+  'R' => (ship, turn(wp, c, n))
+  _ => (ship, wp + compass[c] * n)
+
+part1 = manhattan(moves.fold(((0, 0), E), sail).0, (0, 0))
+part2 = manhattan(moves.fold(((0, 0), (10, -1)), steer).0, (0, 0))

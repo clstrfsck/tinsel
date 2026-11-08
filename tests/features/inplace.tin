@@ -1,0 +1,117 @@
+# SPEC 4.1: an update may happen in place when nothing else refers to the
+# value, and this never changes a result. These cases share a value in
+# some other way, so it must not change under them.
+
+# The same map through two parameters.
+both(m) = pair(m, m)
+pair(x, y) = (x.set(1, 9), y)
+test "aliased parameters" = both({1: 1}) == ({1: 9}, {1: 1})
+
+# Used again after the update.
+again(m) = (m.set(1, 9), m)
+test "used after the update" = again({1: 1}) == ({1: 9}, {1: 1})
+
+# Used as the receiver and again in the arguments.
+grow(m) = m.set(m.len, m.len)
+test "receiver used in the arguments" = grow({0: 0}) == {0: 0, 1: 1}
+
+# A lambda that reads the map later.
+later(m) = reader(m.set(1, 9), x => m.get(1))
+reader(_, f) = f(0)
+test "captured by a lambda" = later({1: 1}) == 1
+
+# A lazy `where` constant that reads the map.
+lazy(m) = (m.set(1, 9), old)
+  where
+    old = m.get(1)
+test "read by a where constant" = lazy({1: 1}) == ({1: 9}, 1)
+
+# A guard that fails sends the match on to the next arm, which still sees
+# the original map.
+guarded(m) = match m.set(1, 9)
+  n when n.get(2) == 2 => n
+  _ => m
+test "failed guard" = guarded({1: 1}) == {1: 1}
+
+# Each branch of an if has its own last use.
+branch(m, flag) = if flag then m.set(1, 9) else m.remove(1)
+test "both branches" = branch({1: 1}, true) == {1: 9} and branch({1: 1}, false) == {}
+
+# A long loop of updates, as in a simulation.
+count(m, 0) = m
+count(m, n) = count(m.set(n % 10, m.get(n % 10, 0) + 1), n - 1)
+test "loop of updates" = count({}, 1000).values == [100].repeat(10)
+
+# Sets too.
+mark(s, 0) = s
+mark(s, n) = mark(s.add(n).remove(n + 1), n - 1)
+start = {100}
+test "set updates" = mark(start, 100) == {1} and start == {100}
+
+# A value held by a top-level constant is shared, so it never changes.
+base = {1: 1}
+test "constants are unchanged" = again(base).0 == {1: 9} and base == {1: 1}
+
+# Lists too: a successor table updated in a loop, and the starting list
+# left alone.
+ring = list(1..1000) ++ [0]
+spin(xs, 0) = xs
+spin(xs, n) = spin(xs.set(n % 1000, xs[(n + 1) % 1000]), n - 1)
+test "list updates" = spin(ring, 2000)[0] == ring[1] and ring == list(1..1000) ++ [0]
+
+# Grids too: cells painted one at a time, with the starting grid left
+# alone, and a grid still in use after the update keeping its old cell.
+board = "....\n....\n....".grid
+paint(g, 0) = g
+paint(g, n) = paint(g.set((n % 4, n / 4 % 3), '#'), n - 1)
+test "grid updates" = paint(board, 12).where('#').len == 12 and board.where('#').len == 0
+keep(g) = (g.set((0, 0), '#'), g[(0, 0)])
+test "grid used after the update" = keep(board) == (board.set((0, 0), '#'), '.')
+test_error "grid update outside" = paint(board, 12).set((4, 0), '#')
+
+# The operators `|` and `-` on sets, `|` on maps and `++` on lists update
+# an unshared left side in place, and leave a shared one alone.
+unite(s, 0) = s
+unite(s, n) = unite(s | {n}, n - 1)
+drop(s, 0) = s
+drop(s, n) = drop(s - {n}, n - 1)
+seen = set(1..50)
+test "set operators" = unite(seen, 100) == set(1..100) and drop(seen, 25) == set(26..50) and seen == set(1..50)
+test "set operators keep the other operand" = (seen | {0}, {0} | seen, seen - {1}, seen) == (set(0..50), set(0..50), set(2..50), set(1..50))
+
+merge(m, 0) = m
+merge(m, n) = merge(m | {n % 7: n}, n - 1)
+table = {0: 0}
+test "map union" = merge(table, 20) == {0: 7, 1: 1, 2: 2, 3: 3, 4: 4, 5: 5, 6: 6} and table == {0: 0}
+
+long = list(1..40)
+test "list append" = long.fold(long, (acc, x) => acc ++ [x]).len == 80 and long == list(1..40)
+test "list prepend" = ([0] ++ long, long ++ long, long) == (list(0..40), list(1..40) ++ list(1..40), list(1..40))
+both_ends(xs) = (xs ++ [0], xs)
+test "list used after append" = both_ends(long) == (long ++ [0], list(1..40))
+
+# A large list updated in place stays correct when parts of it are also
+# kept as slices, or when an earlier version is still in use.
+fill(xs, 0) = xs
+fill(xs, n) = fill(xs.set(n - 1, n), n - 1)
+big = [0].repeat(100)
+test "large list filled in place" = fill(big, 100) == list(1..100) and big == [0].repeat(100)
+split(xs) = (head, tail.set(0, -1), xs)
+  where
+    head = xs[..<50]
+    tail = xs[50..]
+test "slices of a large list" = split(list(1..100)) == (list(1..50), [-1] ++ list(52..100), list(1..100))
+grow_tail(xs) = (xs[60..] ++ [0], xs[..<40] ++ [0], xs)
+test "slices of a large list extended" = grow_tail(list(0..<100)) == (list(60..<100) ++ [0], list(0..<40) ++ [0], list(0..<100))
+walk([], acc) = acc
+walk([x, ..rest], acc) = walk(rest, acc + x)
+test "rest patterns over a large list" = walk(list(1..10000), 0) == 50005000
+versions(xs, 0, seen) = seen ++ [xs]
+versions(xs, n, seen) = versions(xs.set(n, n), n - 1, seen ++ [xs])
+test "earlier versions kept" = versions([0].repeat(50), 3, []).map(_.sum) == [0, 3, 5, 6]
+shared = list(1..100)
+test "updates branching from one shared large list" = [shared.set(i, 0).sum for i in 0..<100] == [5050 - i - 1 for i in 0..<100] and shared == list(1..100)
+test "large list joined with a large list" = (shared.set(0, 0) ++ shared.set(1, 0)).sum == 2 * 5050 - 3
+append_chunk(acc, 0) = acc
+append_chunk(acc, k) = append_chunk(acc ++ shared, k - 1)
+test "long list appended repeatedly" = append_chunk(list(1..50), 1000).len == 100_050 and shared == list(1..100)

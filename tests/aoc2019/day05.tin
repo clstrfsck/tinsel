@@ -1,0 +1,15 @@
+day 2019.5
+include "intcode.tin"
+
+# Intcode gains input and output, parameter modes, jumps and comparisons.
+# Run the diagnostic program, which outputs test results and then a code.
+# Part 1: the code for system ID 1.
+# Part 2: the code for system ID 5.
+# The examples are tests in intcode.tin.
+
+answers
+  part1 = 7839346
+  part2 = 447803
+
+part1 = outputs(input, [1]).last
+part2 = outputs(input, [5]).last

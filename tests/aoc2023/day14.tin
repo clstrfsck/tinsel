@@ -1,0 +1,42 @@
+day 2023.14
+
+# A platform of round rocks (O), which roll, and cube rocks (#), which don't.
+# Part 1: tilt the platform north, then add up the load on the north side.
+# Part 2: one spin cycle tilts north, west, south, then east. Run a billion
+#         spin cycles. iterate(..., times:) notices when the platform repeats
+#         and skips ahead (SPEC 9.4).
+# Reference: reference/2023/d14.py
+
+example """
+O..#.O..
+.O#..O.#
+..O.O..O
+#O..#.O.
+.O.O..#.
+O.#..O..
+..O#.O.O
+.O..O#..
+"""
+  part1 = 110
+  part2 = 59
+
+answers
+  part1 = 106378
+  part2 = 90795
+
+platform = input.lines
+
+# Os first. Booleans sort false before true.
+roll(segment) = segment.sort_by(_ != 'O').join
+
+tilt_west(rows)  = rows.map(.split("#").map(roll).join("#"))
+tilt_north(rows) = rows.transpose.tilt_west.transpose
+rotate(rows)     = rows.reverse.transpose            # clockwise
+
+# Tilt north, then rotate so the next direction is north. Four times.
+spin(rows) = iterate(rows, .tilt_north.rotate, times: 4)
+
+load(rows) = sum(row.count('O') * (rows.len - y) for (y, row) in rows.enumerate)
+
+part1 = load(tilt_north(platform))
+part2 = load(iterate(platform, spin, times: 1_000_000_000))

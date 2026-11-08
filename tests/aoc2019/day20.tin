@@ -1,0 +1,120 @@
+day 2019.20
+
+# A donut-shaped maze of passages (.) and walls (#). Pairs of two-letter
+# labels next to passages are portals: stepping onto one moves you to the
+# passage next to the other in one step. Start at AA and end at ZZ.
+# Part 1: the fewest steps from AA to ZZ.
+# Part 2: the maze is recursive: an inner portal leads one level down, into
+#         a copy of the maze, and an outer portal one level up. At the top
+#         level the outer portals are walls, and AA and ZZ exist only there.
+
+example """
+         A           
+         A           
+  #######.#########  
+  #######.........#  
+  #######.#######.#  
+  #######.#######.#  
+  #######.#######.#  
+  #####  B    ###.#  
+BC...##  C    ###.#  
+  ##.##       ###.#  
+  ##...DE  F  ###.#  
+  #####    G  ###.#  
+  #########.#####.#  
+DE..#######...###.#  
+  #.#########.###.#  
+FG..#########.....#  
+  ###########.#####  
+             Z       
+             Z       
+"""
+  part1 = 23
+  part2 = 26
+
+example """
+                   A               
+                   A               
+  #################.#############  
+  #.#...#...................#.#.#  
+  #.#.#.###.###.###.#########.#.#  
+  #.#.#.......#...#.....#.#.#...#  
+  #.#########.###.#####.#.#.###.#  
+  #.............#.#.....#.......#  
+  ###.###########.###.#####.#.#.#  
+  #.....#        A   C    #.#.#.#  
+  #######        S   P    #####.#  
+  #.#...#                 #......VT
+  #.#.#.#                 #.#####  
+  #...#.#               YN....#.#  
+  #.###.#                 #####.#  
+DI....#.#                 #.....#  
+  #####.#                 #.###.#  
+ZZ......#               QG....#..AS
+  ###.###                 #######  
+JO..#.#.#                 #.....#  
+  #.#.#.#                 ###.#.#  
+  #...#..DI             BU....#..LF
+  #####.#                 #.#####  
+YN......#               VT..#....QG
+  #.###.#                 #.###.#  
+  #.#...#                 #.....#  
+  ###.###    J L     J    #.#.###  
+  #.....#    O F     P    #.#...#  
+  #.###.#####.#.#####.#####.###.#  
+  #...#.#.#...#.....#.....#.#...#  
+  #.#####.###.###.#.#.#########.#  
+  #...#.#.....#...#.#.#.#.....#.#  
+  #.###.#####.###.###.#.#.#######  
+  #.#.........#...#.............#  
+  #########.###.###.#############  
+           B   J   C               
+           U   P   P               
+"""
+  part1 = 58
+
+answers
+  part1 = 400
+  part2 = 4986
+
+cells = {(x, y): c for (y, line) in input.lines.enumerate for (x, c) in line.chars.enumerate if c != ' '}
+
+letter(c) = c != none and 'A' <= c <= 'Z'
+
+# Each label reads left to right or top to bottom, with the passage just
+# before or just after it.
+labels = [(label, dot)
+          for (p, c) in cells.items if letter(c)
+          for d in [E, S]
+          let q = p + d
+          if letter(cells.get(q))
+          let label = "{c}{cells[q]}"
+          let dot = if cells.get(p - d) == '.' then p - d else q + d]
+
+maze = cells.keys.filter(p => cells[p] in ['#', '.'])
+((x0, x1), (y0, y1)) = maze.bounds
+outer((x, y)) = x in [x0, x1] or y in [y0, y1]
+
+start = labels.first(_.0 == "AA").1
+end = labels.first(_.0 == "ZZ").1
+
+# Each portal's passage leads to its partner's, one level up from an outer
+# portal and one level down from an inner one.
+warps = {a: (b, if outer(a) then -1 else 1)
+         for (_, ends) in labels.group_by(.0, .1).items if ends.len == 2
+         for (a, b) in [(ends[0], ends[1]), (ends[1], ends[0])]}
+
+walk(p) = nbrs4(p).filter(cells.get(_) == '.')
+
+part1 = bfs(start, p => walk(p) ++ (if p in warps then [warps[p].0] else []), goal: end).0
+
+# Going deeper than there are portals never helps.
+depth_limit = warps.len
+
+part2 = bfs((start, 0), recursive, goal: (end, 0)).0
+
+recursive((p, level)) = walk(p).map(q => (q, level)) ++ through(p, level)
+
+through(p, level) = match warps.get(p)
+  (q, change) when 0 <= level + change <= depth_limit => [(q, level + change)]
+  _ => []

@@ -1,0 +1,33 @@
+day 2019.13
+include "intcode.tin"
+
+# An arcade cabinet runs an Intcode program that outputs (x, y, tile)
+# triples: tile 2 is a block, 3 the paddle and 4 the ball. (-1, 0, n) sets
+# the score to n instead.
+# Part 1: how many blocks are on the screen when the game ends.
+# Part 2: with 2 coins inserted (2 at address 0), play by moving the
+#         joystick (-1, 0 or 1) to keep the paddle under the ball. The score
+#         after the last block breaks.
+
+answers
+  part1 = 315
+  part2 = 16171
+
+part1 = outputs(input, []).chunks(3).count(_[2] == 2)
+
+# The game state that matters: (ball x, paddle x, score).
+update((ball, paddle, score), [x, y, tile]) =
+  if x == -1 and y == 0 then (ball, paddle, tile)
+  else if tile == 4 then (x, paddle, score)
+  else if tile == 3 then (ball, x, score)
+  else (ball, paddle, score)
+
+play(m, state, inputs) = after(run(m, inputs), state)
+
+after((status, m, outs), state) =
+  if status == "halt" then seen.2
+  else play(m, seen, [sign(seen.0 - seen.1)])
+  where
+    seen = outs.chunks(3).fold(state, update)
+
+part2 = play(poke(intcode(input), 0, 2), (0, 0, 0), [])

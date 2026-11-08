@@ -1,0 +1,71 @@
+day 2022.19
+
+# Blueprints give the costs of four kinds of robot: ore, clay, obsidian and
+# geode. Each robot collects one of its resource per minute, and building a
+# robot takes a minute. You start with one ore robot.
+# Part 1: the sum over blueprints of id * the most geodes opened in 24
+#         minutes.
+# Part 2: the product of the most geodes opened in 32 minutes by the first
+#         three blueprints.
+
+example """
+Blueprint 1: Each ore robot costs 4 ore. Each clay robot costs 2 ore. Each obsidian robot costs 3 ore and 14 clay. Each geode robot costs 2 ore and 7 obsidian.
+Blueprint 2: Each ore robot costs 2 ore. Each clay robot costs 3 ore. Each obsidian robot costs 3 ore and 8 clay. Each geode robot costs 3 ore and 12 obsidian.
+"""
+  part1 = 33
+  part2 = 3472
+
+answers
+  part1 = 2193
+  part2 = 7200
+
+blueprints = input.lines.map(.ints)
+
+# Robot kinds, as (cost, robot gained, most of that robot worth having),
+# with resources as (ore, clay, obsidian) vectors. A geode robot gains no
+# collecting robot: its geodes are counted up front instead. There's no
+# point in collecting a resource faster than it can be spent.
+kinds([_, ro, co, oo, oc, go, gob]) = [
+  ((go, 0, gob), (0, 0, 0), inf),
+  ((oo, oc, 0), (0, 0, 1), gob),
+  ((co, 0, 0), (0, 1, 0), oc),
+  ((ro, 0, 0), (1, 0, 0), max(ro, co, oo, go)),
+]
+
+# Minutes to wait until stock covers cost, or none if it never will.
+wait(cost, stock, robots) =
+  if all(stock .>= cost) then 0
+  else if any(c > 0 and r == 0 for (c, r) in zip(cost, robots)) then none
+  else (0..<3).map(i => max(0, (cost[i] - stock[i] + robots[i] - 1) / max(robots[i], 1))).max
+
+# A state is (minutes left, robots, stock, geodes opened by the end). Each
+# move waits until the next robot can be built, then builds it.
+moves(kinds, (t, robots, stock, g)) =
+  [(t2, robots + gain, stock + robots * (w + 1) - cost, if gain == (0, 0, 0) then g + t2 else g)
+   for (cost, gain, cap) in kinds
+   if sum(robots * gain) < cap
+   let w = wait(cost, stock, robots)
+   if w != none
+   let t2 = t - w - 1
+   if t2 > 0]
+
+# An upper bound on the geodes: pretend ore and clay are free, so an
+# obsidian robot can be built every minute, and a geode robot too whenever
+# there is enough obsidian.
+bound(gob, (t, (_, _, r), (_, _, c), g)) = optimistic(gob, t, r, c, g)
+
+optimistic(_, 0, _, _, g) = g
+optimistic(gob, t, r, c, g) =
+  if c >= gob then optimistic(gob, t - 1, r + 1, c - gob + r, g + t - 1)
+  else optimistic(gob, t - 1, r + 1, c + r, g)
+
+# Depth-first branch and bound, passing the best so far along.
+@nomemo
+search(kinds, gob, state, best) =
+  moves(kinds, state).fold(max(best, state.3),
+                           (b, s) => if bound(gob, s) <= b then b else search(kinds, gob, s, b))
+
+geodes(bp, minutes) = search(kinds(bp), bp[6], (minutes, (1, 0, 0), (0, 0, 0), 0), 0)
+
+part1 = blueprints.map(bp => bp[0] * geodes(bp, 24)).sum
+part2 = blueprints.take(3).map(geodes(_, 32)).product

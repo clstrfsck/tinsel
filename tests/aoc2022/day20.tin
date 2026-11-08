@@ -1,0 +1,45 @@
+day 2022.20
+
+# A circular list of numbers is "mixed": each number, in its original
+# order, moves forward (or back, if negative) by its own value.
+# Part 1: after mixing once, the sum of the numbers 1000, 2000 and 3000
+#         places after the 0.
+# Part 2: the same, with every number first multiplied by 811589153, and
+#         ten rounds of mixing.
+
+example """
+1
+2
+-3
+3
+-2
+0
+4
+"""
+  part1 = 3
+  part2 = 1623178306
+
+answers
+  part1 = 27726
+  part2 = 4275451658004
+
+nums = input.ints
+
+# The list holds the original indices of the numbers, so that equal numbers
+# stay distinct. Moving a number takes it out, leaving n - 1 gaps to put it
+# back in.
+move(vals, order, i) = rest[..<q] ++ [i] ++ rest[q..]
+  where
+    p = order.index(i)
+    rest = order[..<p] ++ order[p + 1..]
+    q = (p + vals[i]) % (vals.len - 1)
+
+grove(vals, rounds) = [mixed[(z + k) % n] for k in [1000, 2000, 3000]].sum
+  where
+    n = vals.len
+    order = (0..<n * rounds).fold(list(0..<n), (o, k) => move(vals, o, k % n))
+    mixed = order.map(vals[_])
+    z = mixed.index(0)
+
+part1 = grove(nums, 1)
+part2 = grove(nums.map(_ * 811589153), 10)

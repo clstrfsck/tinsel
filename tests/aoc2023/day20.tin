@@ -1,0 +1,80 @@
+day 2023.20
+
+# Modules pass high and low pulses: flip-flops (%) toggle on low pulses,
+# conjunctions (&) send low only when every input last sent high, and the
+# broadcaster repeats what it gets. Pressing the button sends one low pulse
+# to the broadcaster. Pulses are handled in the order they are sent.
+# Part 1: after 1000 presses, low pulses sent times high pulses sent.
+# Part 2: the fewest presses before a single low pulse reaches rx.
+
+example """
+broadcaster -> a, b, c
+%a -> b
+%b -> c
+%c -> inv
+&inv -> a
+"""
+  part1 = 32000000
+
+example """
+broadcaster -> a
+%a -> inv, con
+&inv -> b
+%b -> con
+&con -> output
+"""
+  part1 = 11687500
+
+answers
+  part1 = 856482136
+  part2 = 224046542165867
+
+parse("broadcaster -> {outs}") = ("broadcaster", ('b', outs.split(", ")))
+parse("{kind:char}{name} -> {outs}") = (name, (kind, outs.split(", ")))
+modules = {name: m for (name, m) in input.lines.map(parse)}
+
+inputs = [(dst, src) for (src, (_, outs)) in modules.items for dst in outs].group_by(.0, .1)
+
+# State: the flip-flops that are on, and each conjunction's memory of which
+# inputs last sent high.
+initial = (set(), {name: set() for (name, (k, _)) in modules.items if k == '&'})
+
+# Press the button once. Gives the new state and every pulse sent, as
+# (from, to, high).
+press(state) = go([("button", "broadcaster", false)], 0, state)
+  where
+    go(queue, i, state) when i == queue.len = (state, queue)
+    go(queue, i, (on, mem)) = match modules.get(to)
+        none => go(queue, i + 1, (on, mem))
+        ('b', outs) => go(queue ++ send(outs, high), i + 1, (on, mem))
+        ('%', _) when high => go(queue, i + 1, (on, mem))
+        ('%', outs) =>
+          if to in on then go(queue ++ send(outs, false), i + 1, (on.remove(to), mem))
+          else go(queue ++ send(outs, true), i + 1, (on.add(to), mem))
+        ('&', outs) => go(queue ++ send(outs, not all_high), i + 1, (on, mem.set(to, seen)))
+      where
+        (from, to, high) = queue[i]
+        send(outs, h) = [(to, o, h) for o in outs]
+        seen = if high then mem[to].add(from) else mem[to].remove(from)
+        all_high = seen.len == inputs[to].len
+
+part1 = lows * highs
+  where
+    pulses = (0..<1000).scan((initial, []), ((s, _), _) => press(s))[1..].map(.1).flatten
+    highs = pulses.count((_, _, h) => h)
+    lows = pulses.len - highs
+
+# rx is fed by one conjunction, which is fed by several counters. Each
+# counter sends its high pulse on a fixed cycle, so rx gets a low pulse at
+# the lcm of the cycles. Find each counter's first high pulse.
+part2 = feeders.map(first_high).fold(1, lcm)
+  where
+    hub = inputs["rx"][0]
+    feeders = inputs[hub]
+    first_high(f) = find(initial, 1)
+      where
+        find(s, n) =
+          if pulses.any((from, to, h) => from == f and to == hub and h) then n
+          else find(next, n + 1)
+          where
+            (next, pulses) = press(s)

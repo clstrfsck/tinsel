@@ -1,0 +1,51 @@
+day 2022.9
+
+# A rope's head moves step by step; each knot follows the one before it,
+# moving one step (diagonally if needed) whenever they stop touching.
+# Part 1: how many positions the tail of a 2-knot rope visits.
+# Part 2: the same for a 10-knot rope.
+
+example """
+R 4
+U 4
+L 3
+D 1
+R 4
+D 1
+L 5
+R 2
+"""
+  part1 = 13
+  part2 = 1
+
+example """
+R 5
+U 8
+L 8
+D 3
+R 17
+D 10
+L 25
+U 20
+"""
+  part2 = 36
+
+answers
+  part1 = 6011
+  part2 = 2419
+
+dirs = {'U': N, 'R': E, 'D': S, 'L': W}
+
+steps = [dirs[c] for "{c:char} {n:int}" in input.lines for _ in 1..n]
+
+follow(knot, (hx, hy)) =
+  if max(abs(dx), abs(dy)) <= 1 then knot else knot + (sign(dx), sign(dy))
+  where
+    (dx, dy) = (hx, hy) - knot
+
+move(rope, d) = rope[1..].scan(rope[0] + d, (ahead, knot) => follow(knot, ahead))
+
+tail_visits(n) = steps.scan([(0, 0)].repeat(n), move).map(.last).set.len
+
+part1 = tail_visits(2)
+part2 = tail_visits(10)

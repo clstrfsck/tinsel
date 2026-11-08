@@ -1,0 +1,90 @@
+day 2019.16
+
+# A signal of digits goes through 100 phases. In a phase, output digit i
+# (from 1) is the last digit of the sum of the input digits times a pattern:
+# 0, 1, 0, -1, each repeated i times, skipping the very first value.
+# Part 1: the first eight digits after 100 phases.
+# Part 2: the signal is the input repeated 10000 times, and its first seven
+#         digits give an offset. The eight digits at that offset after 100
+#         phases.
+
+example """
+80871224585914546619083218645595
+"""
+  part1 = "24176176"
+
+example """
+19617804207202209144916044189917
+"""
+  part1 = "73745418"
+
+example """
+69317163492948606335995924319873
+"""
+  part1 = "52432133"
+
+example """
+03036732577212944063491565474664
+"""
+  part2 = "84462026"
+
+example """
+02935109699940807407585447034323
+"""
+  part2 = "78725270"
+
+example """
+03081770884921959731165446850517
+"""
+  part2 = "53553731"
+
+answers
+  part1 = "94960436"
+  part2 = "57762756"
+
+signal = input.trim.chars.map(int)
+
+# Output digit r is made of runs of r input digits, alternately added and
+# taken away, with gaps of r between them. Prefix sums give each run's sum
+# in one step.
+phase(xs) = (1..n).map(digit)
+  where
+    n = xs.len
+    sums = xs.scan(0, (a, b) => a + b)
+    digit(r) = abs(sum((if t % 2 == 0 then 1 else -1) * (sums[min(n, k + r)] - sums[k])
+                       for t in 0..n / (2 * r)
+                       let k = r - 1 + 2 * r * t
+                       if k < n)) % 10
+
+part1 = iterate(signal, phase, times: 100).take(8).join
+
+# Part 2: the offset is in the second half of the signal, where the pattern
+# is 0 before digit i and 1 from there on. So a phase replaces each digit
+# with the sum of the digits from there to the end, and after 100 phases
+# digit k is the sum of C(j + 99, 99) * x[k + j] over j >= 0 (mod 10).
+#
+# Only a few of these coefficients are non-zero mod 10. By Lucas's theorem,
+# C(j + 99, 99) is odd when j has no bits in common with 99, and isn't a
+# multiple of 5 when j + 99 has no carries in base 5: 99 is 344 in base 5,
+# so j is 125a (giving 1 mod 5) or 125a + 25 (giving C(4, 3) = 4 mod 5).
+# By the Chinese remainder theorem, c mod 10 = (5 * (c mod 2) + 6 * (c mod 5)) % 10.
+offset = signal.take(7).join.int
+length = 10000 * signal.len - offset
+
+free_bits = (0..).take_while(b => 1 << b < length).filter(b => 99 & (1 << b) == 0)
+odd = free_bits.fold([0], (js, b) => js ++ js.map(_ + (1 << b))).filter(_ < length)
+not_fives = [j for a in 0..length / 125 for j in [125 * a, 125 * a + 25] if j < length]
+
+mod5(j) = match j % 125
+  0 => 1
+  25 => 4
+  _ => 0
+
+coefficients = [(j, c) for j in set(odd) | set(not_fives)
+                       let c = (5 * int(j & 99 == 0) + 6 * mod5(j)) % 10
+                       if c != 0]
+
+real_digit(k) = sum(c * signal[(offset + k + j) % signal.len]
+                    for (j, c) in coefficients if j + k < length) % 10
+
+part2 = (0..<8).map(real_digit).join

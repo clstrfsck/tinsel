@@ -1,0 +1,88 @@
+day 2018.14
+
+# Two elves make recipes with scores 0-9, starting from 3 and 7. Each
+# round, the digits of the sum of their current scores are new recipes,
+# and each elf moves forward 1 + their current score.
+# Part 1: the scores of the ten recipes after the number in the input.
+# Part 2: how many recipes come before the input's digits first appear.
+
+example """
+9
+"""
+  part1 = "5158916779"
+
+example """
+5
+"""
+  part1 = "0124515891"
+
+example """
+18
+"""
+  part1 = "9251071085"
+
+example """
+2018
+"""
+  part1 = "5941429882"
+
+example """
+51589
+"""
+  part2 = 9
+
+example """
+01245
+"""
+  part2 = 5
+
+example """
+92510
+"""
+  part2 = 18
+
+example """
+59414
+"""
+  part2 = 2018
+
+answers
+  part1 = "7162937112"
+  part2 = 20195890
+
+after = int(input.trim)
+
+# The board is the last argument everywhere, so each `++` is its last use
+# and extends it in place.
+cook(a, b, board) =
+  if board.len >= after + 10 then board[after..<after + 10].join
+  else add(a, b, board[a], board[b], board)
+
+add(a, b, sa, sb, board) = step(a, b, sa, sb, board ++ digits(sa + sb))
+
+step(a, b, sa, sb, board) = cook((a + 1 + sa) % board.len, (b + 1 + sb) % board.len, board)
+
+digits(n) = if n >= 10 then [n / 10, n % 10] else [n]
+
+part1 = cook(0, 1, [3, 7])
+
+# The last k digits are kept as a number, and compared with the input's
+# digits after each new recipe.
+k = input.trim.len
+wanted = int(input.trim)
+modulus = 10 ** k
+
+search(a, b, last, board) = new(a, b, board[a], board[b], last, board)
+
+new(a, b, sa, sb, last, board) =
+  if sa + sb < 10 then check(a, b, sa, sb, (last * 10 + sa + sb) % modulus, board ++ [sa + sb])
+  else if tens == wanted and board.len + 1 >= k then board.len + 1 - k
+  else check(a, b, sa, sb, (tens * 10 + sa + sb - 10) % modulus, board ++ [1, sa + sb - 10])
+  where
+    tens = (last * 10 + 1) % modulus
+
+check(a, b, sa, sb, last, board) =
+  if last == wanted and board.len >= k then board.len - k
+  else search((a + 1 + sa) % board.len, (b + 1 + sb) % board.len, last, board)
+
+part2 = search(0, 1, 37 % modulus, [3, 7])

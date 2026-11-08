@@ -1,0 +1,186 @@
+# Definitions, clauses, guards, where, lambdas and shorthands. SPEC sections 2.1, 5.2, 5.4 and 7.
+
+# --- Clauses and guards -----------------------------------------------------
+fact(0) = 1
+fact(n) = n * fact(n - 1)
+test "literal pattern clause" = fact(20) == 2432902008176640000
+
+classify(n) when n < 0 = "neg"
+classify(0) = "zero"
+classify(_) = "pos"
+test "guards and clause order" = [-2, 0, 3].map(classify) == ["neg", "zero", "pos"]
+
+only_zero(0) = "ok"
+test_error "no matching clause is an error" = only_zero(1)
+
+# --- where ------------------------------------------------------------------
+hyp(a, b) = root(sq(a) + sq(b))
+  where
+    sq(x) = x * x
+    root(n) = (0..n).first(r => r * r >= n)
+test "where functions" = hyp(3, 4) == 5
+
+scaled(xs, k) = total * k
+  where
+    total = xs.sum
+test "where constants see parameters" = scaled([1, 2, 3], 10) == 60
+
+# A where block belongs to the clause it follows, and its guard can see it.
+size(n) when n > limit = "big"
+  where
+    limit = 10
+size(_) = "small"
+test "guards see the clause's where block" = (size(11), size(3)) == ("big", "small")
+
+# When the body is a match, the where block can follow the arms, at their
+# indentation (SPEC 7.2).
+amount(x) = match x
+  0 => "none"
+  n when n > lots => "lots"
+  _ => "some"
+  where
+    lots = 100
+test "where after match arms" = [0, 5, 500].map(amount) == ["none", "some", "lots"]
+
+chosen = match 2
+  2 => picked
+  where
+    picked = "two"
+test "where after match arms in a constant" = chosen == "two"
+
+# Numbered placeholders (SPEC 5.4): each number is its own parameter.
+plus(a, b) = a + b
+minus = _1 - _2
+test "numbered placeholders spread pairs" = [(1, 2), (3, 4)].map(_1 * 10 + _2) == [12, 34]
+test "numbered placeholders in a fold" = [1, 2, 3].fold(0, _1 * 10 + _2) == 123
+test "numbered placeholder partial application" = [1, 2].map(plus(_1, 100)) == [101, 102]
+test "numbered placeholders in any order" = [(1, 20)].map(minus(_2, _1)) == [19]
+test "numbered placeholders on a right-hand side" = minus(10, 3) == 7
+test "the highest number sets the arity" = [(1, 2)].map(_2 * 3) == [6]
+
+# --- Order independence and laziness ---------------------------------------
+test "forward reference" = later == 42
+later = 6 * 7
+
+never_used = 1 / 0
+test "unused constants are never evaluated" = true
+
+# --- Lambdas and shorthands -------------------------------------------------
+test "lambda"                  = [1, 2, 3].map(x => x * 10) == [10, 20, 30]
+test "two-parameter lambda spreads tuples" = [(1, 2), (3, 4)].map((a, b) => a + b) == [3, 7]
+test "nested pattern parameter" = [((1, 2), 3)].map(((a, b), c) => a + b + c) == [6]
+test "placeholder"             = [1, 2, 3].map(_ * 2) == [2, 4, 6]
+inc = _ + 1
+test "placeholder covers a definition's right-hand side" = inc(4) == 5
+test "placeholder in comparison" = [1, 5, 9].filter(_ > 4) == [5, 9]
+test "all _ are the same argument" = [1, 2, 3].map(_ * _) == [1, 4, 9]
+test "placeholder on the right of in" = [[1], [2, 3]].count(2 in _) == 1
+# A `_` that is a whole argument by itself belongs to the next argument out.
+add10 = add(_, 10)
+test "a lone _ argument makes a partial application" = [1, 2].map(add(_, 10)) == [11, 12]
+test "the lambda covers the enclosing argument" = [1, 5, 9].count(double(_) > 9) == 2
+test "a lone _ argument in a definition" = add10(5) == 15
+test "a lone _ named argument" = [1, 2, 1].find_cycle(key: double(_)) == (0, 2, [1, 2, 1])
+test "dot shorthand"           = ["ab", "c"].map(.len) == [2, 1]
+test "tuple index shorthand"   = [(1, 'a'), (2, 'b')].map(.1) == ['a', 'b']
+test "dot chain"               = ["a b"].map(.words.len) == [2]
+test "dot chain with index and arguments" = [("a,b", 1)].map(.0.split(",")) == [["a", "b"]]
+test "dot chain with built-ins acts as composition" = ["1,2", "3"].map(.ints.tuple) == [(1, 2), (3,)]
+test "leading-dot index"       = ([[1, 2], [3, 4]].map(.[1]), [{"a": 5}].map(.["a"]), [[[7]]].map(.[0][0])) == ([2, 4], [5], [7])
+# A lambda that uses no local names from around it is built once, so it is
+# the same function each time. One that captures a local is a new function.
+test "a closed lambda is the same value each time" = [1, 2].map(_ => (x => x * 2)).uniq.len == 1
+test "a capturing lambda is new each time" = [1, 2].map(k => (x => x * k)).uniq.len == 2
+test "lambdas compose explicitly" = [1, 2].map(x => (y => y * 10)((z => z + 1)(x))) == [20, 30]
+test "pipeline reads left to right" = "a b\nc d e".lines.map(.words.len).sum == 5
+test ">> is only a shift"       = 256 >> 2 == 64
+test_error ">> on functions is an error" = (x => x) >> (x => x)
+
+# --- Method-call syntax and spreading ---------------------------------------
+double(x) = x * 2
+add(a, b) = a + b
+test "method call on user function"   = 5.double == double(5)
+test "method call with arguments"     = 3.add(4) == 7
+test "property-style call"            = [1, 2, 3].sum == 6
+test "named functions spread tuples"  = [(1, 2), (3, 4)].map(add) == [3, 7]
+test "library functions with a fixed arity spread tuples" =
+  ([(12, 18), (4, 6)].map(gcd), [((1, 2), (4, 6))].map(manhattan), [("a,b", ",")].map(split)) == ([6, 2], [7], [["a", "b"]])
+test "min doesn't spread: one argument means a collection" = [(3, 1)].map(min) == [1]
+ident(p) = p
+test "one-parameter functions don't spread" = ident((1, 2)) == (1, 2)
+test_error "lambda arity mismatch" = ((a, b) => a)(1, 2, 3)
+not_a_function = 5
+test_error "method call on a non-function" = 3.not_a_function
+
+# In method syntax, a constant or variable doesn't hide a library function
+# of the same name (SPEC 5.2).
+width = 101
+test "a constant doesn't hide a library method" = ("ab\ncd".grid.width, width) == (2, 101)
+scale(sum) = [1, 2].sum * sum
+test "a parameter doesn't hide a library method" = scale(2) == 6
+apply(x, f) = x.f
+test "a function-valued parameter works as a method" = apply(3, _ + 1) == 4
+test "fold"                           = [1, 2, 3].fold(10, (acc, x) => acc + x) == 16
+
+# --- if / match ---------------------------------------------------------------
+test "if expression" = (if 1 < 2 then "y" else "n") == "y"
+
+# The type pattern means the guard `n < 0` only ever sees ints. Without it,
+# (1, 2) < 0 would be an error (SPEC 4.1).
+describe(x) = match x
+  0 => "zero"
+  n: int when n < 0 => "negative"
+  (a, b) => "pair"
+  [first, ..rest] => "list of {rest.len + 1}"
+  _ => "other"
+test "match" = [0, -1, (1, 2), [7, 8], "s"].map(describe) == ["zero", "negative", "pair", "list of 2", "other"]
+
+# A match inside a lambda inside a call: the arms are a block even though
+# they are inside brackets.
+signs(k) = [1, 2].map(y => match y
+    1 => k
+    _ => -k)
+test "multi-line match inside a call" = signs(5) == [5, -5]
+
+# The scrutinee can contain brackets, even across lines: the arms' block
+# starts only after them.
+first_kind(xs) = match xs.get(0)
+  none => "empty"
+  n: int => "int {n}"
+  _ => "other"
+test "match on a call" = [first_kind([]), first_kind([7]), first_kind(["s"])] == ["empty", "int 7", "other"]
+pair_kind(a, b) = match (a, b)
+  (0, _) => "left zero"
+  _ => "neither"
+test "match on a tuple" = (pair_kind(0, 5), pair_kind(1, 0)) == ("left zero", "neither")
+over_lines(x) = match ident(
+    x)
+  1 => "one"
+  _ => "other"
+test "scrutinee over two lines" = over_lines(1) == "one"
+by_length(xs) = [1, 2].map(y => match (y, xs.len)
+    (1, n) => n
+    _ => 0)
+test "bracketed scrutinee inside a call" = by_length([9, 9]) == [2, 0]
+
+unguarded(x) = match x
+  n when n < 0 => "negative"
+  _ => "other"
+test_error "a guard comparing across types is an error" = unguarded((1, 2))
+
+# `=>` after a guard ends the guard, even when the guard ends in a name.
+# A lambda inside brackets in a guard still works.
+below(x, limit) = match x
+  [a, ..rest] when rest.any(r => r > a) => "rising"
+  n: int when n < limit => "below"
+  _ => "other"
+test "guard ending in a name" = below(1, 5) == "below"
+test "lambda inside a guard" = [below([1, 2], 0), below([2, 1], 0)] == ["rising", "other"]
+
+kind(_: int) = "int"
+kind(_: str) = "str"
+kind(_: tuple) = "tuple"
+kind(_) = "other"
+test "type patterns in clauses" = [1, inf, "a", (1,), [1], none].map(kind) == ["int", "int", "str", "tuple", "other", "other"]
+test "type pattern in a lambda" = ((n: int) => n + 1)(4) == 5
+test_error "type pattern mismatch in a lambda" = ((n: int) => n + 1)("4")

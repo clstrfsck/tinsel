@@ -1,0 +1,95 @@
+# Directions and search. SPEC section 9.7.
+# Expected values were checked with an independent Python implementation.
+
+# --- Directions ---------------------------------------------------------------
+test "unit steps, y downwards" = (N, E, S, W) == ((0, -1), (1, 0), (0, 1), (-1, 0))
+test "DIRS4 matches nbrs4"     = DIRS4 == [N, E, S, W] and DIRS4 == nbrs4((0, 0))
+test "DIRS8 matches nbrs8"     = DIRS8.len == 8 and DIRS8 == nbrs8((0, 0))
+test "cw turns clockwise"      = [N, E, S, W].map(cw) == [E, S, W, N]
+test "ccw turns anticlockwise" = [N, E, S, W].map(ccw) == [W, N, E, S]
+test "four turns go round"     = iterate(N, cw, times: 4) == N
+test "turning any vector"      = (cw((2, 1)), ccw((2, 1))) == ((-1, 2), (1, -2))
+test "manhattan"               = (manhattan((1, 2), (4, -2)), manhattan((0, 0, 0), (1, -2, 3))) == (7, 6)
+test_error "manhattan needs equal lengths" = manhattan((1, 2), (1, 2, 3))
+test_error "cw needs a position"           = cw(3)
+
+# --- bfs ----------------------------------------------------------------------
+maze = """
+#########
+#S..#...#
+#.#.#.#.#
+#.#...#E#
+#########
+""".grid
+open_nbrs(p) = maze.nbrs4(p).filter(q => maze[q] != '#')
+
+test "bfs to a goal" = bfs(maze.find('S'), open_nbrs, goal: maze.find('E')).0 == 12
+test "the path runs from start to goal, inclusive" =
+  bfs(maze.find('S'), open_nbrs, goal: maze.find('E')).1.len == 13
+test "bfs without a goal gives every reachable state" = bfs(maze.find('S'), open_nbrs).len == 15
+
+graph = {"a": ["b", "c"], "b": ["d"], "c": ["d"], "d": [], "z": []}
+test "distances map"           = bfs("a", graph[_]) == {"a": 0, "b": 1, "c": 1, "d": 2}
+test "goal as a value"         = bfs("a", graph[_], goal: "d") == (2, ["a", "b", "d"])
+test "goal as a predicate"     = bfs("a", graph[_], goal: _ > "c") == (2, ["a", "b", "d"])
+test "an unreachable goal"     = bfs("a", graph[_], goal: "z") == none
+test "the start can be the goal" = bfs("a", graph[_], goal: "a") == (0, ["a"])
+test "an unbounded state space" = bfs(1, n => [n + 1, n * 2], goal: 10) == (4, [1, 2, 4, 5, 10])
+test "next can give a set"     = bfs(0, n => {(n + 1) % 3}) == {0: 0, 1: 1, 2: 2}
+test_error "goal predicates must give bools" = bfs("a", graph[_], goal: _.len)
+test_error "next must give an iterable"      = bfs("a", _ => 1)
+
+# --- dijkstra -------------------------------------------------------------------
+weighted = {"a": [("b", 7), ("c", 2)], "c": [("b", 3), ("d", 8)], "b": [("d", 1)], "d": []}
+test "dijkstra to a goal"      = dijkstra("a", weighted[_], goal: "d") == (6, ["a", "c", "b", "d"])
+test "dijkstra distances"      = dijkstra("a", weighted[_]) == {"a": 0, "b": 5, "c": 2, "d": 6}
+test "zero-cost steps"         = dijkstra("a", {"a": [("b", 0)], "b": [("c", 0), ("a", 0)], "c": []}[_], goal: "c") == (0, ["a", "b", "c"])
+test_error "negative costs are an error" = dijkstra("a", _ => [("b", -1)], goal: "b")
+test_error "next must give (state, cost) pairs" = dijkstra("a", _ => ["b"], goal: "b")
+
+# The cost of a step is the digit of the cell entered.
+risk = "1163\n1381\n2136".grid(int)
+risky(p) = [(q, risk[q]) for q in risk.nbrs4(p)]
+test "dijkstra on a grid" =
+  dijkstra((0, 0), risky, goal: (3, 2)) == (13, [(0, 0), (0, 1), (0, 2), (1, 2), (2, 2), (3, 2)])
+
+# --- bfs_from and dijkstra_from: several starts ---------------------------------
+test "every start is at distance 0" = bfs_from(["a", "c"], graph[_]) == {"a": 0, "b": 1, "c": 0, "d": 1}
+test "ties go to the earlier start" =
+  (bfs_from(["b", "c"], graph[_], goal: "d"), bfs_from(["c", "b"], graph[_], goal: "d")) == ((1, ["b", "d"]), (1, ["c", "d"]))
+test "repeated starts don't matter" = bfs_from(["a", "a"], graph[_]) == bfs("a", graph[_])
+test "no starts"                  = (bfs_from([], graph[_]), bfs_from([], graph[_], goal: "d")) == ({}, none)
+test "a start can be the goal"    = bfs_from(["z", "a"], graph[_], goal: _ in ["a", "z"]) == (0, ["z"])
+test "starts can be any iterable" = bfs_from({"c", "a"}, graph[_]) == bfs_from(["a", "c"], graph[_])
+test "dijkstra_from distances"    = dijkstra_from(["a", "b"], weighted[_]) == {"a": 0, "b": 0, "c": 2, "d": 1}
+test "dijkstra_from to a goal"    = dijkstra_from(["a", "c"], weighted[_], goal: "d") == (4, ["c", "b", "d"])
+graph_next(s) = graph[s]
+test "fixed arity: spreads tuples" = [(["a"], graph_next)].map(bfs_from) == [bfs("a", graph_next)]
+
+# --- all_paths: every state on a shortest path ------------------------------------
+# Checked by brute force: a state is on a shortest path when its distance from
+# the start plus its own shortest distance to a goal equals the best.
+test "both sides of a diamond"   = bfs("a", graph[_], goal: "d", all_paths: true) == (2, {"a", "b", "c", "d"})
+test "several goals at the best distance" =
+  bfs("a", graph[_], goal: _ in ["b", "c"], all_paths: true) == (1, {"a", "b", "c"})
+test "an unreachable goal is still none" = bfs("a", graph[_], goal: "z", all_paths: true) == none
+test "all_paths: false changes nothing" = bfs("a", graph[_], goal: "d", all_paths: false) == bfs("a", graph[_], goal: "d")
+test "with several starts"       = bfs_from(["b", "c"], graph[_], goal: "d", all_paths: true) == (1, {"b", "c", "d"})
+equal = {"a": [("b", 1), ("c", 2)], "b": [("d", 2)], "c": [("d", 1)], "d": []}
+test "dijkstra: equal-cost paths" = dijkstra("a", equal[_], goal: "d", all_paths: true) == (3, {"a", "b", "c", "d"})
+test "dijkstra: one best path"   = dijkstra("a", weighted[_], goal: "d", all_paths: true) == (6, {"a", "b", "c", "d"})
+test "dijkstra: a zero-cost cycle" =
+  dijkstra("a", {"a": [("b", 0)], "b": [("a", 0), ("c", 1)], "c": []}[_], goal: "c", all_paths: true) == (1, {"a", "b", "c"})
+test "dijkstra: a goal reached from another at no cost" =
+  dijkstra("a", {"a": [("g1", 1)], "g1": [("g2", 0)], "g2": []}[_], goal: _ in ["g1", "g2"], all_paths: true) == (1, {"a", "g1", "g2"})
+square(p) = [q for q in nbrs4(p) if all((0, 0) .<= q) and all(q .< (3, 3))]
+test "every cell of a grid's rectangle" = bfs((0, 0), square, goal: (2, 2), all_paths: true).1.len == 9
+test "only one way along a row"  = bfs((0, 0), square, goal: (2, 0), all_paths: true) == (2, {(0, 0), (1, 0), (2, 0)})
+test_error "all_paths needs a goal" = bfs("a", graph[_], all_paths: true)
+test_error "all_paths must be a bool" = bfs("a", graph[_], goal: "d", all_paths: 1)
+
+# --- components -----------------------------------------------------------------
+links = {1: [2], 2: [1, 3], 3: [2], 4: [5], 5: [4], 6: []}
+test "components"              = components(1..6, links[_]) == [{1, 2, 3}, {4, 5}, {6}]
+test "next is followed only between nodes" = components([1, 2, 4], n => links.get(n, [])) == [{1, 2}, {4}]
+test "components of no nodes"  = components([], _ => []) == []

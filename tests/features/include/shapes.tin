@@ -1,0 +1,10 @@
+# A library for tests/features/include.tin (SPEC 2.8). It has no `day`
+# header, and its tests run only when this file is tested by itself.
+
+include "edges.tin"
+
+UNIT = (1, 1)
+
+area((w, h)) = w * h
+
+test "area on its own" = area(UNIT) == 1

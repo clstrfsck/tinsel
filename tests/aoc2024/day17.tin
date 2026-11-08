@@ -1,0 +1,56 @@
+day 2024.17
+
+# A 3-bit computer with registers A, B and C and eight instructions.
+# Part 1: run the program and join its output with commas.
+# Part 2: the lowest positive value of A that makes the program output a
+#         copy of itself.
+
+example """
+Register A: 729
+Register B: 0
+Register C: 0
+
+Program: 0,1,5,4,3,0
+"""
+  part1 = "4,6,3,5,6,3,5,2,1,0"
+
+example """
+Register A: 2024
+Register B: 0
+Register C: 0
+
+Program: 0,3,5,4,3,0
+"""
+  part2 = 117440
+
+answers
+  part1 = "2,7,2,5,1,2,7,3,7"
+  part2 = 247839002892474
+
+[a0, b0, c0, ..program] = input.ints
+
+run(a, b, c) = go(0, a, b, c, [])
+  where
+    go(ip, _, _, _, out) when ip >= program.len = out
+    go(ip, a, b, c, out) = match program[ip]
+        0 => go(ip + 2, a >> combo, b, c, out)
+        1 => go(ip + 2, a, b xor op, c, out)
+        2 => go(ip + 2, a, combo % 8, c, out)
+        3 => go(if a == 0 then ip + 2 else op, a, b, c, out)
+        4 => go(ip + 2, a, b xor c, c, out)
+        5 => go(ip + 2, a, b, c, out ++ [combo % 8])
+        6 => go(ip + 2, a, a >> combo, c, out)
+        7 => go(ip + 2, a, b, a >> combo, out)
+      where
+        op = program[ip + 1]
+        combo = [0, 1, 2, 3, a, b, c][op]
+
+part1 = run(a0, b0, c0).join(",")
+
+# The program consumes A three bits at a time, and the last output depends
+# only on the highest bits. So build A from the top, three bits at a time,
+# keeping every candidate whose output matches the end of the program.
+part2 = program.indices.fold([0], (cands, k) =>
+          [a * 8 + d for a in cands for d in 0..7
+                     if run(a * 8 + d, b0, c0) == program[-1 - k..]])
+          .filter(_ > 0).min

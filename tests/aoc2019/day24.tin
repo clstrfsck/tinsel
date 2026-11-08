@@ -1,0 +1,62 @@
+day 2019.24
+
+# A 5x5 grid of bugs (#) and empty cells. Each minute, a bug survives only
+# if exactly one neighbour has a bug, and an empty cell gets a bug if one or
+# two neighbours have bugs.
+# Part 1: the first layout to appear twice, as its biodiversity: the sum of
+#         2 ** i over cells with bugs, numbering cells 0 to 24 in row order.
+# Part 2: the grid is recursive: its middle cell holds another 5x5 grid,
+#         and the whole grid sits in the middle of a bigger one. After 200
+#         minutes, starting from the input at level 0, how many bugs are
+#         there?
+
+example """
+....#
+#..#.
+#..##
+..#..
+#....
+"""
+  with minutes = 10
+  part1 = 2129920
+  part2 = 99
+
+answers
+  part1 = 32526865
+  part2 = 2009
+
+minutes = 200
+
+bugs = input.grid.where('#')
+
+# One minute, given each cell's neighbours: count the bugs next to each cell.
+step(nbrs, bugs) = {c for (c, k) in [n for b in bugs for n in nbrs(b)].counts.items
+                      if k == 1 or (k == 2 and c not in bugs)}
+
+flat(p) = nbrs4(p).filter(((x, y)) => 0 <= x < 5 and 0 <= y < 5)
+
+biodiversity(bugs) = bugs.map(((x, y)) => 2 ** (5 * y + x)).sum
+
+part1 = biodiversity(iterate(bugs, step(flat, _)).find_cycle().2.last)
+
+# Part 2: cells are (x, y, level), with deeper levels inside. A step off the
+# edge lands next to the middle cell one level out; a step into the middle
+# cell lands on the whole facing edge one level in.
+deep((x, y, level)) = [n for d in DIRS4 for n in deep_step(x, y, level, d)]
+
+deep_step(x, y, level, d) =
+  if not (0 <= nx < 5 and 0 <= ny < 5) then [(2 + d.0, 2 + d.1, level - 1)]
+  else if (nx, ny) == (2, 2) then [(ix, iy, level + 1) for (ix, iy) in edge(d)]
+  else [(nx, ny, level)]
+  where
+    (nx, ny) = (x, y) + d
+
+# The edge of the inner grid that you reach moving in direction d: moving
+# down (S) reaches its top row, and so on.
+edge(d) = [(x, y) for x in 0..<5 for y in 0..<5 if match d
+  (0, 1) => y == 0
+  (0, -1) => y == 4
+  (1, 0) => x == 0
+  (-1, 0) => x == 4]
+
+part2 = iterate({(x, y, 0) for (x, y) in bugs}, step(deep, _), times: minutes).len

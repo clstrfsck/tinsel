@@ -1,0 +1,35 @@
+day 2020.6
+
+# Groups of people's answers: each line is the questions (a-z) one person
+# answered "yes" to.
+# Part 1: the sum over groups of the questions anyone answered "yes" to.
+# Part 2: the sum over groups of the questions everyone answered "yes" to.
+
+example """
+abc
+
+a
+b
+c
+
+ab
+ac
+
+a
+a
+a
+a
+
+b
+"""
+  part1 = 11
+  part2 = 6
+
+answers
+  part1 = 6587
+  part2 = 3235
+
+groups = input.blocks.map(b => b.lines.map(set))
+
+part1 = groups.map(.union.len).sum
+part2 = groups.map(.intersection.len).sum

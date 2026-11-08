@@ -1,0 +1,27 @@
+day 2024.1
+
+# Two lists of location IDs, side by side.
+# Part 1: pair the lists up in sorted order and add the distances.
+# Part 2: add each left number times how often it appears on the right.
+
+example """
+3   4
+4   3
+2   5
+1   3
+3   9
+3   3
+"""
+  part1 = 11
+  part2 = 31
+
+answers
+  part1 = 2769675
+  part2 = 24643097
+
+[left, right] = input.lines.map(.ints).transpose
+
+part1 = zip(left.sort, right.sort).map((a, b) => abs(a - b)).sum
+
+seen = right.counts
+part2 = left.map(n => n * seen.get(n, 0)).sum

@@ -1,0 +1,81 @@
+day 2018.13
+
+# Carts on tracks of straight pieces, curves (/ and \) and intersections
+# (+). At each intersection a cart turns left, goes straight and turns
+# right, in that order, over and over. Each tick, the carts move one step
+# each, in reading order of where they are.
+# Part 1: where the first crash happens.
+# Part 2: carts that crash are removed at once. Where the last cart is at
+#         the end of the first tick that leaves only one.
+
+example """
+/->-\        
+|   |  /----\
+| /-+--+-\  |
+| | |  | v  |
+\-+-/  \-+--/
+  \------/   
+"""
+  part1 = "7,3"
+
+example """
+/>-<\  
+|   |  
+| /<+-\
+| | | v
+\>+</ |
+  |   ^
+  \<->/
+"""
+  part2 = "6,4"
+
+answers
+  part1 = "100,21"
+  part2 = "113,109"
+
+rows = input.lines
+
+# Only curves and intersections matter: a cart goes straight on anything
+# else.
+turns = {(x, y): c for (y, row) in rows.enumerate for (x, c) in row.chars.enumerate if c in "/\\+"}
+
+heading = {'^': N, 'v': S, '<': W, '>': E}
+
+# A cart is (position, direction, intersections passed).
+carts = [((x, y), heading[c], 0) for (y, row) in rows.enumerate for (x, c) in row.chars.enumerate if c in heading]
+
+move((p, d, k)) = match turns.get(q)
+  '/' => (q, (-d.1, -d.0), k)
+  '\\' => (q, (d.1, d.0), k)
+  '+' => (q, [ccw(d), d, cw(d)][k % 3], k + 1)
+  _ => (q, d, k)
+  where
+    q = p + d
+
+# One tick: (the carts left, the places where carts crashed). Carts that
+# crash are removed at once.
+tick(cs) = run(cs.sort_by(c => (c.0.1, c.0.0)), [], [])
+
+run([], done, crashes) = (done, crashes)
+run([c, ..rest], done, crashes) =
+  if at(rest, p) or at(done, p) then run(rest.filter(_.0 != p), done.filter(_.0 != p), crashes ++ [p])
+  else run(rest, done ++ [moved], crashes)
+  where
+    moved = move(c)
+    p = moved.0
+
+at(cs, p) = cs.any(_.0 == p)
+
+first_crash(cs) = match tick(cs)
+  (_, [p, ..]) => p
+  (next, []) => first_crash(next)
+
+show((x, y)) = "{x},{y}"
+
+part1 = show(first_crash(carts))
+
+last_cart(cs) = match tick(cs)
+  ([(p, _, _)], _) => p
+  (left, _) => last_cart(left)
+
+part2 = show(last_cart(carts))

@@ -1,0 +1,31 @@
+# Advent of Code puzzle inputs. AoC asks that these not be published.
+/input/
+aocdl
+aoc-kotlin/
+
+# Rust build output
+/target/
+**/*.rs.bk
+
+# Compiled reference solutions and caches
+reference/**/*.class
+reference/**/*.jar
+reference/**/*.fasl
+__pycache__/
+*.pyc
+nimcache/
+*.hi
+*.o
+
+# Packaged editor extensions
+*.vsix
+
+# Editors and OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~
+
+# Local Claude Code settings (shared settings in .claude/settings.json are kept)
+.claude/settings.local.json

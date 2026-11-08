@@ -1,0 +1,672 @@
+//! Name resolution. Rewrites every `ExprKind::Name` into a frame slot,
+//! global or builtin, assigns slots to pattern bindings, and computes frame
+//! sizes. Along the way it records the static call graph between named
+//! functions, which decides memoization (SPEC 8.1). Also groups top-level
+//! items into a [`Program`].
+
+use crate::ast::*;
+use crate::builtins;
+use crate::error::{Error, Result, SourceFile, Span};
+use crate::parser::group_defs;
+use std::cell::RefCell;
+use std::collections::{HashMap, HashSet};
+use std::path::PathBuf;
+use std::rc::Rc;
+
+pub enum GlobalDef {
+    /// A constant; `slot` is the binding's slot in the constant's own frame.
+    Const {
+        def: Rc<ConstDef>,
+        slot: usize,
+    },
+    Func(Rc<FnDef>),
+}
+
+pub struct Program {
+    /// The source of every file in the program, one after another.
+    pub src: String,
+    /// Where each file starts in `src` (SPEC 2.8). Empty when the program
+    /// wasn't loaded from a file.
+    pub files: Vec<SourceFile>,
+    pub day: Option<(u32, u32)>,
+    pub globals: Vec<GlobalDef>,
+    pub global_names: Vec<Name>,
+    pub global_index: HashMap<Name, usize>,
+    pub tests: Vec<(Check, bool)>,
+    pub examples: Vec<Example>,
+    pub answers: Option<(Vec<Check>, Span)>,
+    /// Whether each function (by `FnDef::id`) is memoized.
+    pub memo: Vec<bool>,
+    /// How many lambdas are closed (`Lambda::closed`).
+    pub closed_lambdas: usize,
+    /// The main file, for messages. Empty when the program wasn't loaded
+    /// from a file.
+    pub path: PathBuf,
+    /// Functions (by `FnDef::id`) already warned about for large memo keys
+    /// (SPEC 8.1), so each warning is given once per run.
+    pub memo_warned: RefCell<HashSet<usize>>,
+}
+
+impl Program {
+    pub fn global(&self, name: &str) -> Option<usize> {
+        self.global_index.get(name).copied()
+    }
+}
+
+/// A name may be bound only once in a pattern, or across a function's or
+/// lambda's parameters (SPEC 6).
+fn unique_bindings(pats: &[Pattern]) -> Result<()> {
+    let mut seen: Vec<Name> = Vec::new();
+    for p in pats {
+        let mut bindings = Vec::new();
+        p.clone()
+            .bindings_mut(&mut |b| bindings.push((b.name.clone(), b.span)));
+        for (name, span) in bindings {
+            if seen.contains(&name) {
+                return Err(Error::new(
+                    format!("`{name}` is bound twice in this pattern"),
+                    span,
+                ));
+            }
+            seen.push(name);
+        }
+    }
+    Ok(())
+}
+
+fn rc_mut<T>(rc: &mut Rc<T>) -> &mut T {
+    Rc::get_mut(rc).expect("AST nodes are uniquely owned during resolution")
+}
+
+pub fn build_program(src: String, items: Vec<Item>) -> Result<Program> {
+    let mut day = None;
+    let mut raw_defs = Vec::new();
+    let mut tests = Vec::new();
+    let mut examples = Vec::new();
+    let mut answers = None;
+    for item in items {
+        if !matches!(item, Item::Def(_)) {
+            // Anything else between two clauses separates them.
+            raw_defs.push(None);
+        }
+        match item {
+            Item::Day { year, day: d, span } => {
+                if day.is_some() {
+                    return Err(Error::new("duplicate `day` header", span));
+                }
+                day = Some((year, d));
+            }
+            Item::Example(e) => examples.push(e),
+            Item::Answers { expects, span } => {
+                if answers.is_some() {
+                    return Err(Error::new("duplicate `answers` block", span));
+                }
+                answers = Some((expects, span));
+            }
+            Item::Test {
+                check,
+                expect_error,
+            } => tests.push((check, expect_error)),
+            Item::Def(d) => raw_defs.push(Some(d)),
+            Item::Include { span, .. } => {
+                return Err(Error::new(
+                    "`include` works only in a program loaded from a file",
+                    span,
+                ));
+            }
+        }
+    }
+    let (mut fns, consts) = group_defs(raw_defs)?;
+
+    // Global table.
+    let mut global_index: HashMap<Name, usize> = HashMap::new();
+    let mut global_names = Vec::new();
+    let mut declare = |name: &Name, span: Span| -> Result<usize> {
+        if global_index.contains_key(name) {
+            return Err(Error::new(
+                format!("`{name}` is defined more than once"),
+                span,
+            ));
+        }
+        let i = global_names.len();
+        global_index.insert(name.clone(), i);
+        global_names.push(name.clone());
+        Ok(i)
+    };
+    let mut const_globals = Vec::new();
+    for c in &consts {
+        unique_bindings(std::slice::from_ref(&c.pat))?;
+        let mut names = Vec::new();
+        let mut copy = c.pat.clone();
+        copy.bindings_mut(&mut |b| names.push((b.name.clone(), b.span)));
+        let mut idxs = Vec::new();
+        for (n, span) in names {
+            idxs.push(declare(&n, span)?);
+        }
+        const_globals.push(idxs);
+    }
+
+    let mut r = Resolver {
+        frames: Vec::new(),
+        globals: HashMap::new(),
+        annotations: Vec::new(),
+        edges: Vec::new(),
+        current_fn: Vec::new(),
+        lambda_reach: Vec::new(),
+        closed_lambdas: 0,
+    };
+    let mut fn_globals = Vec::new();
+    for f in &mut fns {
+        let gi = declare(&f.name, f.span)?;
+        f.id = r.new_fn(f.annotation);
+        r.globals.insert(f.name.clone(), (gi, Some(f.id)));
+        fn_globals.push(gi);
+    }
+    for (name, &gi) in &global_index {
+        r.globals.entry(name.clone()).or_insert((gi, None));
+    }
+
+    let mut globals: Vec<Option<GlobalDef>> = (0..global_names.len()).map(|_| None).collect();
+    for (mut c, idxs) in consts.into_iter().zip(const_globals) {
+        let slots = r.top_const(&mut c)?;
+        crate::moves::constant(&mut c);
+        let def = Rc::new(c);
+        for (gi, slot) in idxs.into_iter().zip(slots) {
+            globals[gi] = Some(GlobalDef::Const {
+                def: def.clone(),
+                slot,
+            });
+        }
+    }
+    for (mut f, gi) in fns.into_iter().zip(fn_globals) {
+        r.fn_def(&mut f)?;
+        crate::moves::function(&mut f);
+        globals[gi] = Some(GlobalDef::Func(Rc::new(f)));
+    }
+    let globals = globals
+        .into_iter()
+        .map(|g| g.ok_or_else(|| Error::msg("internal: unresolved global")))
+        .collect::<Result<Vec<_>>>()?;
+
+    for (check, _) in &mut tests {
+        r.check(check)?;
+    }
+    for ex in &mut examples {
+        for (name, def, span) in &mut ex.withs {
+            match global_index.get(name).map(|&i| &globals[i]) {
+                Some(GlobalDef::Const { .. }) => {}
+                _ => {
+                    return Err(Error::new(
+                        format!("`with` must name a top-level constant, not `{name}`"),
+                        *span,
+                    ));
+                }
+            }
+            r.top_const(rc_mut(def))?;
+            crate::moves::constant(rc_mut(def));
+        }
+        for check in &mut ex.expects {
+            r.check(check)?;
+        }
+    }
+    if let Some((expects, _)) = &mut answers {
+        for check in expects {
+            r.check(check)?;
+        }
+    }
+
+    let memo = crate::memo::decide(&r.annotations, &r.edges);
+    Ok(Program {
+        src,
+        files: Vec::new(),
+        day,
+        globals,
+        global_names,
+        global_index,
+        tests,
+        examples,
+        answers,
+        memo,
+        closed_lambdas: r.closed_lambdas,
+        path: PathBuf::new(),
+        memo_warned: RefCell::new(HashSet::new()),
+    })
+}
+
+struct FrameScope {
+    /// name -> (slot, function id if it names a `where` function)
+    scopes: Vec<HashMap<Name, (usize, Option<usize>)>>,
+    size: usize,
+}
+
+struct Resolver {
+    frames: Vec<FrameScope>,
+    /// name -> (global index, function id if it names a function)
+    globals: HashMap<Name, (usize, Option<usize>)>,
+    annotations: Vec<Option<Annotation>>,
+    /// Call graph: (caller, callee, is the reference a tail call).
+    edges: Vec<(usize, usize, bool)>,
+    current_fn: Vec<usize>,
+    /// For each lambda being resolved: the index of its frame, and the
+    /// outermost frame index any name inside it has resolved to.
+    lambda_reach: Vec<(usize, usize)>,
+    closed_lambdas: usize,
+}
+
+impl Resolver {
+    fn new_fn(&mut self, annotation: Option<Annotation>) -> usize {
+        self.annotations.push(annotation);
+        self.annotations.len() - 1
+    }
+
+    fn push_frame(&mut self) {
+        self.frames.push(FrameScope {
+            scopes: vec![HashMap::new()],
+            size: 0,
+        });
+    }
+
+    fn pop_frame(&mut self) -> usize {
+        self.frames.pop().map_or(0, |f| f.size)
+    }
+
+    fn frame(&mut self) -> &mut FrameScope {
+        self.frames
+            .last_mut()
+            .expect("resolver always has a frame here")
+    }
+
+    fn push_scope(&mut self) {
+        self.frame().scopes.push(HashMap::new());
+    }
+
+    fn pop_scope(&mut self) {
+        self.frame().scopes.pop();
+    }
+
+    fn declare(&mut self, name: &Name, fn_id: Option<usize>) -> usize {
+        let f = self.frame();
+        let slot = f.size;
+        f.size += 1;
+        if let Some(scope) = f.scopes.last_mut() {
+            scope.insert(name.clone(), (slot, fn_id));
+        }
+        slot
+    }
+
+    fn declare_pattern(&mut self, p: &mut Pattern) {
+        p.bindings_mut(&mut |b| b.slot = self.declare(&b.name, None));
+    }
+
+    /// Finds a local or global binding: its resolved form, and the function
+    /// id if it is a function definition.
+    fn find(&self, name: &Name) -> Option<(ExprKind, Option<usize>)> {
+        for (depth, frame) in self.frames.iter().rev().enumerate() {
+            for scope in frame.scopes.iter().rev() {
+                if let Some(&(slot, fn_id)) = scope.get(name) {
+                    let local = ExprKind::Local {
+                        depth,
+                        slot,
+                        name: name.clone(),
+                        moved: false,
+                    };
+                    return Some((local, fn_id));
+                }
+            }
+        }
+        self.globals
+            .get(name)
+            .map(|&(g, fn_id)| (ExprKind::Global(g), fn_id))
+    }
+
+    /// Resolves a name, recording a call-graph edge if it names a function.
+    fn lookup(&mut self, name: &Name, span: Span, tail_call: bool) -> Result<ExprKind> {
+        match self.find(name) {
+            Some((kind, fn_id)) => {
+                if let ExprKind::Local { depth, .. } = &kind {
+                    let reached = self.frames.len() - 1 - depth;
+                    for (_, outermost) in &mut self.lambda_reach {
+                        *outermost = (*outermost).min(reached);
+                    }
+                }
+                if let (Some(callee), Some(&caller)) = (fn_id, self.current_fn.last()) {
+                    self.edges.push((caller, callee, tail_call));
+                }
+                Ok(kind)
+            }
+            None => match builtins::lookup(name) {
+                Some(b) => Ok(ExprKind::Builtin(b)),
+                None if crate::parser::is_placeholder(name) => Err(Error::new(
+                    format!(
+                        "`{name}` here isn't inside a call argument or a definition's right-hand side, so it can't become a lambda; write `x => ...`"
+                    ),
+                    span,
+                )),
+                None => Err(Error::new(format!("unknown name `{name}`"), span)),
+            },
+        }
+    }
+
+    fn check(&mut self, c: &mut Check) -> Result<()> {
+        self.push_frame();
+        self.expr(&mut c.expr, false)?;
+        c.frame_size = self.pop_frame();
+        crate::moves::lambdas(&mut c.expr);
+        Ok(())
+    }
+
+    /// Resolves a top-level constant in its own frame. Returns the slots of
+    /// its pattern bindings, in source order.
+    fn top_const(&mut self, c: &mut ConstDef) -> Result<Vec<usize>> {
+        self.push_frame();
+        // The bindings get slots, but aren't in scope: inside the body the
+        // names refer to the globals, so self-reference is a detected cycle.
+        let mut slots = Vec::new();
+        c.pat.bindings_mut(&mut |b| {
+            b.slot = slots.len();
+            slots.push(b.slot);
+        });
+        self.frame().size = slots.len();
+        self.declare_wheres(&mut c.wheres)?;
+        self.expr(&mut c.body, false)?;
+        self.where_bodies(&mut c.wheres)?;
+        c.frame_size = self.pop_frame();
+        Ok(slots)
+    }
+
+    fn fn_def(&mut self, f: &mut FnDef) -> Result<()> {
+        self.current_fn.push(f.id);
+        for clause in &mut f.clauses {
+            unique_bindings(&clause.params)?;
+            self.push_frame();
+            for p in &mut clause.params {
+                self.declare_pattern(p);
+            }
+            self.push_scope();
+            self.declare_wheres(&mut clause.wheres)?;
+            if let Some(g) = &mut clause.guard {
+                self.expr(g, false)?;
+            }
+            self.expr(&mut clause.body, true)?;
+            self.where_bodies(&mut clause.wheres)?;
+            clause.frame_size = self.pop_frame();
+        }
+        self.current_fn.pop();
+        Ok(())
+    }
+
+    fn declare_wheres(&mut self, w: &mut Wheres) -> Result<()> {
+        // As at top level, each name is defined once per `where` block.
+        let mut defined: Vec<(Name, Span)> = Vec::new();
+        for c in &w.consts {
+            unique_bindings(std::slice::from_ref(&c.pat))?;
+            c.pat
+                .clone()
+                .bindings_mut(&mut |b| defined.push((b.name.clone(), b.span)));
+        }
+        defined.extend(w.fns.iter().map(|(f, _)| (f.name.clone(), f.span)));
+        defined.sort_by_key(|(_, span)| span.start);
+        for (i, (name, span)) in defined.iter().enumerate() {
+            if defined[..i].iter().any(|(n, _)| n == name) {
+                return Err(Error::new(
+                    format!("`{name}` is defined more than once"),
+                    *span,
+                ));
+            }
+        }
+        for c in &mut w.consts {
+            self.declare_pattern(&mut rc_mut(c).pat);
+        }
+        for (f, slot) in &mut w.fns {
+            let f = rc_mut(f);
+            f.id = self.new_fn(f.annotation);
+            *slot = self.declare(&f.name, Some(f.id));
+        }
+        Ok(())
+    }
+
+    fn where_bodies(&mut self, w: &mut Wheres) -> Result<()> {
+        for c in &mut w.consts {
+            let c = rc_mut(c);
+            self.push_scope();
+            self.declare_wheres(&mut c.wheres)?;
+            self.expr(&mut c.body, false)?;
+            self.where_bodies(&mut c.wheres)?;
+            self.pop_scope();
+        }
+        for (f, _) in &mut w.fns {
+            self.fn_def(rc_mut(f))?;
+        }
+        Ok(())
+    }
+
+    /// `tail` is true when `e` is in tail position (SPEC 8.1).
+    fn expr(&mut self, e: &mut Expr, tail: bool) -> Result<()> {
+        match &mut e.kind {
+            ExprKind::Name(n) => {
+                let n = n.clone();
+                e.kind = self.lookup(&n, e.span, false)?;
+            }
+            ExprKind::Lit(_)
+            | ExprKind::Local { .. }
+            | ExprKind::Global(_)
+            | ExprKind::Builtin(_) => {}
+            ExprKind::Interp(parts) => {
+                for p in parts {
+                    if let InterpPart::Expr(e) = p {
+                        self.expr(e, false)?;
+                    }
+                }
+            }
+            ExprKind::Tuple(xs) | ExprKind::List(xs) | ExprKind::Set(xs) => {
+                for x in xs {
+                    self.expr(x, false)?;
+                }
+            }
+            ExprKind::Map(entries) => {
+                for (k, v) in entries {
+                    self.expr(k, false)?;
+                    self.expr(v, false)?;
+                }
+            }
+            ExprKind::Comp(comp) => {
+                let comp = rc_mut(comp);
+                let mut pushed = Vec::new();
+                for (i, clause) in comp.clauses.iter_mut().enumerate() {
+                    match clause {
+                        CompClause::For { pat, iter, .. } => {
+                            self.expr(iter, false)?;
+                            unique_bindings(std::slice::from_ref(pat))?;
+                            self.push_frame();
+                            self.declare_pattern(pat);
+                            pushed.push(i);
+                        }
+                        CompClause::If(c) => self.expr(c, false)?,
+                    }
+                }
+                self.expr(&mut comp.body, false)?;
+                if let Some(v) = &mut comp.value {
+                    self.expr(v, false)?;
+                }
+                for i in pushed.into_iter().rev() {
+                    let size = self.pop_frame();
+                    if let CompClause::For { frame_size, .. } = &mut comp.clauses[i] {
+                        *frame_size = size;
+                    }
+                }
+            }
+            ExprKind::Call { func, args, method } => {
+                if let ExprKind::Name(n) = &func.kind {
+                    let n = n.clone();
+                    // In `x.f`, a constant or variable doesn't hide a library
+                    // function of the same name (SPEC 5.2).
+                    let names_fn = matches!(self.find(&n), Some((_, Some(_))));
+                    func.kind = match builtins::lookup(&n) {
+                        Some(b) if *method && !names_fn => ExprKind::Builtin(b),
+                        _ => self.lookup(&n, func.span, tail)?,
+                    };
+                } else {
+                    self.expr(func, false)?;
+                }
+                for a in args {
+                    self.expr(&mut a.value, false)?;
+                }
+            }
+            ExprKind::TupleIndex(x, _) | ExprKind::Unary(_, x) => self.expr(x, false)?,
+            ExprKind::Index(a, b)
+            | ExprKind::Binary(_, a, b)
+            | ExprKind::And(a, b)
+            | ExprKind::Or(a, b)
+            | ExprKind::Coalesce(a, b) => {
+                self.expr(a, false)?;
+                self.expr(b, false)?;
+            }
+            ExprKind::Compare(first, rest) => {
+                self.expr(first, false)?;
+                for (_, x) in rest {
+                    self.expr(x, false)?;
+                }
+            }
+            ExprKind::If(c, a, b) => {
+                self.expr(c, false)?;
+                self.expr(a, tail)?;
+                self.expr(b, tail)?;
+            }
+            ExprKind::Lambda(lam) => {
+                // A lambda body is a tail position for the trampoline, but
+                // calls inside it aren't tail calls of the enclosing function.
+                let lam = rc_mut(lam);
+                unique_bindings(&lam.params)?;
+                self.push_frame();
+                let own = self.frames.len() - 1;
+                self.lambda_reach.push((own, own));
+                for p in &mut lam.params {
+                    self.declare_pattern(p);
+                }
+                self.expr(&mut lam.body, false)?;
+                lam.frame_size = self.pop_frame();
+                if let Some((own, outermost)) = self.lambda_reach.pop()
+                    && outermost >= own
+                {
+                    lam.closed = Some(self.closed_lambdas);
+                    self.closed_lambdas += 1;
+                }
+            }
+            ExprKind::Match(scrutinee, arms) => {
+                self.expr(scrutinee, false)?;
+                for arm in arms {
+                    unique_bindings(std::slice::from_ref(&arm.pat))?;
+                    self.push_scope();
+                    self.declare_pattern(&mut arm.pat);
+                    if let Some(g) = &mut arm.guard {
+                        self.expr(g, false)?;
+                    }
+                    self.expr(&mut arm.body, tail)?;
+                    self.pop_scope();
+                }
+            }
+            ExprKind::Range { lo, hi, .. } => {
+                if let Some(lo) = lo {
+                    self.expr(lo, false)?;
+                }
+                if let Some(hi) = hi {
+                    self.expr(hi, false)?;
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::runner::compile;
+
+    fn error(src: &str) -> String {
+        match compile(src.to_string()) {
+            Ok(_) => "compiled".into(),
+            Err(e) => e.into_msg(),
+        }
+    }
+
+    #[test]
+    fn where_among_match_arms_needs_the_match_as_the_body() {
+        let src = "f(x) = 1 + match x\n  0 => 1\n  where\n    a = 1\n";
+        assert!(
+            error(src).contains("whole body is that `match`"),
+            "{}",
+            error(src)
+        );
+        let src = "f(x) = match x\n  where\n    a = 1\n  0 => 1\n";
+        assert!(
+            error(src).contains("after its `where` block"),
+            "{}",
+            error(src)
+        );
+        let src = "f(x) = match x\n  0 => a\n  where\n    a = 1\n  where\n    b = 2\n";
+        assert!(error(src).contains("one `where` block"), "{}", error(src));
+    }
+
+    #[test]
+    fn numbered_placeholder_errors() {
+        assert!(error("f = [1].map(_ + _1)").contains("can't be mixed"));
+        assert!(error("f(_1) = 1").contains("is a placeholder"));
+        assert!(error("f(x) when _1 > 0 = 1").contains("`_1` here isn't inside"));
+    }
+
+    // Compile errors can't be tested from a .tin file, since they stop the
+    // whole file, so the duplicate-binding rule (SPEC 6) is tested here.
+    #[test]
+    fn names_bound_twice_are_rejected() {
+        let twice = "`x` is bound twice in this pattern";
+        assert_eq!(error("f(x, x) = 1"), twice);
+        assert_eq!(error("f((x, [x])) = 1"), twice);
+        assert_eq!(error("g = (x, x) => 1"), twice);
+        assert_eq!(error("g = match 1\n  (x, x) => 1"), twice);
+        assert_eq!(error("g = [1 for (x, x) in []]"), twice);
+        assert_eq!(error("(x, x) = (1, 2)"), twice);
+        assert_eq!(error("f(s) = y\n  where\n    (x, x) = s\n    y = 1"), twice);
+        assert_eq!(error("f(\"{x} {x}\") = 1"), twice);
+    }
+
+    #[test]
+    fn clauses_separated_by_another_item_are_rejected() {
+        let apart = "clauses of `f` must be next to each other";
+        assert_eq!(error("f(0) = 1\ntest \"t\" = true\nf(n) = n"), apart);
+        assert_eq!(error("f(0) = 1\ntest_error \"t\" = 1 / 0\nf(n) = n"), apart);
+        assert_eq!(error("f(0) = 1\nanswers\n  part1 = 1\nf(n) = n"), apart);
+    }
+
+    #[test]
+    fn only_the_listed_escapes_are_accepted() {
+        assert_eq!(error("x = \"\\r\""), "unknown escape `\\r`");
+        assert_eq!(error("x = \"\\0\""), "unknown escape `\\0`");
+        assert_eq!(error("x = \"\\'\""), "unknown escape `\\'`");
+        assert_eq!(error("x = '\\r'"), "unknown escape in character literal");
+        assert_eq!(error("x = '\\0'"), "unknown escape in character literal");
+    }
+
+    #[test]
+    fn where_names_are_defined_once() {
+        let twice = "`a` is defined more than once";
+        assert_eq!(error("f(x) = a\n  where\n    a = 1\n    a = 2"), twice);
+        assert_eq!(
+            error("f(x) = a\n  where\n    a = 1\n    (b, a) = (2, 3)"),
+            twice
+        );
+        assert_eq!(error("f(x) = a\n  where\n    a = 1\n    a(y) = y"), twice);
+        // Separate where blocks, and a where name shadowing a parameter, are fine.
+        assert_eq!(
+            error("f(a) = a\n  where\n    b = 1\ng(x) = b\n  where\n    b = 2"),
+            "compiled"
+        );
+    }
+
+    #[test]
+    fn the_same_name_in_separate_patterns_is_fine() {
+        assert_eq!(
+            error("f(x) = 1\ng = match 1\n  x => x\n  (x, y) => y"),
+            "compiled"
+        );
+    }
+}

@@ -1,0 +1,45 @@
+day 2023.13
+
+# Patterns of ash (.) and rocks (#), each with a line of reflection between
+# two rows or two columns.
+# Part 1: add up the columns left of each vertical line plus 100 times the
+#         rows above each horizontal line.
+# Part 2: each pattern has exactly one smudge; the line to use is the one
+#         that appears when the smudge is fixed.
+
+example """
+#.##..##.
+..#.##.#.
+##......#
+##......#
+..#.##.#.
+..##..##.
+#.#.##.#.
+
+#...##..#
+#....#..#
+..##..###
+#####.##.
+#####.##.
+..##..###
+#....#..#
+"""
+  part1 = 405
+  part2 = 400
+
+answers
+  part1 = 27300
+  part2 = 29276
+
+patterns = input.blocks.map(.grid)
+
+# The line after `r` of these rows, compared outwards, with `smudges`
+# mismatched cells in total.
+mirror(lines, smudges) = (1..<lines.len).first(r =>
+  sum(zip(lines[r - 1 - i], lines[r + i]).count((a, b) => a != b)
+      for i in 0..<min(r, lines.len - r)) == smudges)
+
+summary(g, smudges) = mirror(g.cols, smudges) ?? 100 * mirror(g.rows, smudges)
+
+part1 = patterns.map(summary(_, 0)).sum
+part2 = patterns.map(summary(_, 1)).sum

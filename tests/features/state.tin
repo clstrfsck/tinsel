@@ -1,0 +1,134 @@
+# Carrying state: iteration helpers, cycles, loops and pattern definitions.
+# SPEC sections 7.1, 8.1 and 9.4.
+
+# --- Pattern definitions ------------------------------------------------------
+[head, ..tail] = [1, 2, 3]
+(qq, rr) = divmod(17, 5)
+test "top-level pattern definitions" = (head, tail, qq, rr) == (1, [2, 3], 3, 2)
+
+pair_sum(p) = a + b
+  where
+    (a, b) = p
+test "where pattern definitions" = pair_sum((3, 4)) == 7
+
+# --- Tail-recursive loops ---------------------------------------------------
+# All recursive calls are tail calls, so this is a loop. It must run in
+# constant stack space and is not memoized (SPEC 8.1).
+count_up(n, acc) = if n == 0 then acc else count_up(n - 1, acc + 1)
+test "tail calls run in constant stack space" = count_up(1_000_000, 0) == 1_000_000
+
+collatz_steps(1, steps) = steps
+collatz_steps(n, steps) when n % 2 == 0 = collatz_steps(n / 2, steps + 1)
+collatz_steps(n, steps) = collatz_steps(3 * n + 1, steps + 1)
+test "tail calls across clauses" = collatz_steps(27, 0) == 111
+
+# --- iterate, fixpoint ----------------------------------------------------------
+test "iterate is lazy and infinite" = iterate(1, _ * 2).first(_ > 1000) == 1024
+test "iterate with times"           = iterate(0, _ + 3, times: 4) == 12
+test "iterate times: 0"             = iterate("x", _ ++ "y", times: 0) == "x"
+
+# The state cycles with period 4 (0, 1, 2, 3, 0, ...). A billion steps must
+# finish instantly by skipping cycles.
+test "iterate skips cycles"         = iterate(0, (_ + 1) % 4, times: 1_000_000_001) == 1
+# 10, 9, ..., 4 lead into the cycle 3, 0, 1, 2, which starts at step 7.
+# (1_000_000_000 - 7) % 4 == 1, so the answer is step 8's value: 0.
+test "iterate with a lead-in"       = iterate(10, x => if x > 3 then x - 1 else (x + 1) % 4, times: 1_000_000_000) == 0
+
+test "a cycle that starts at step 0" = iterate(0, (_ + 1) % 3, times: 7) == 1
+test "a fixed point is a cycle of period 1" = iterate(5, x => x, times: 1_000_000_000) == 5
+test "times can be larger than i64"   = iterate(0, (_ + 1) % 3, times: 10 ** 30) == 1
+test_error "times can't be negative"  = iterate(0, _ + 1, times: -1)
+test_error "times must be an int"     = iterate(0, _ + 1, times: "3")
+
+test "fixpoint"                     = fixpoint(100, x => max(x / 2, 7)) == 7
+test "fixpoint of a value that is already fixed" = fixpoint(3, x => x) == 3
+test "fixpoint on sets"             = fixpoint({1}, s => s | {x * 2 for x in s if x < 20}) == {1, 2, 4, 8, 16, 32}
+
+# --- find_cycle -----------------------------------------------------------------
+# 10, 9, ..., 4, 3, then 0, 1, 2, 3, 0, ... (enters a cycle of length 4 at 3)
+lead_in(x) = if x > 3 then x - 1 else (x + 1) % 4
+(cs, cp, prefix) = iterate(10, lead_in).find_cycle(key: x => x)
+test "find_cycle start and period" = (cs, cp) == (7, 4)
+test "find_cycle prefix includes the repeat" = prefix.len == cs + cp + 1 and prefix[cs] == prefix[cs + cp]
+test "find_cycle when the cycle starts at item 0" = [0, 1, 2, 0, 1].find_cycle(key: x => x) == (0, 3, [0, 1, 2, 0])
+test "find_cycle with an immediate repeat" = [7, 7].find_cycle(key: x => x) == (0, 1, [7, 7])
+test "find_cycle's key defaults to the item" = [1, 2, 1].find_cycle == (0, 2, [1, 2, 1])
+test_error "find_cycle with no repeat"   = [1, 2, 3].find_cycle(key: x => x)
+
+# The key can ignore part of the state: here, a counter that keeps growing.
+(ks, kp, _) = iterate((0, 0), (i, total) => ((i + 1) % 3, total + i)).find_cycle(key: .0)
+test "find_cycle with a key" = (ks, kp) == (0, 3)
+
+# --- fold / scan with tuple state -------------------------------------------------
+test "fold with tuple state" = [1, 2, 3, 4].fold((0, 1), ((s, p), x) => (s + x, p * x)) == (10, 24)
+test "scan with map state" = ["a", "b", "a"].scan({}, (m, k) => m.set(k, m.get(k, 0) + 1)).last == {"a": 2, "b": 1}
+
+# --- Frames that outlive their call ------------------------------------------------
+# A call's frame is freed when it finishes, even if lambdas or generators in
+# its own where constants refer back to it. These check that a frame which is
+# still in use (returned, captured, memoized or tail-called) is never freed.
+
+# Returned lambda that reads other where slots later.
+make_adder(k) = r
+  where
+    add = y => y + k
+    r = x => add(x) * 1
+test "returned lambda keeps its frame" = make_adder(5)(2) == 7
+
+# Returned generator from a where slot.
+evens(n) = g
+  where
+    g = (x for x in 0..n if x % 2 == 0)
+test "returned generator keeps its frame" = list(evens(6)) == [0, 2, 4, 6]
+
+# Returned inside a tuple.
+boxed(k) = (f, 1)
+  where
+    f = x => x + k
+test "returned inside a tuple" = boxed(3).0(1) == 4
+
+# Self-recursive where lambda, called by a tail call and returned.
+counter(n) = go
+  where
+    go = i => if i == 0 then n else go(i - 1)
+test "self-recursive where lambda" = counter(9)(3) == 9
+
+# A lambda passed along a chain of tail calls.
+chain(0, f) = f(0)
+chain(n, f) = chain(n - 1, x => f(x) + 1)
+test "lambda passed along tail calls" = chain(1000, x => x) == 1000
+
+# Memoized function storing a closure that captures the caller's frame.
+@memo
+keep(f) = f
+caller(k) = keep(g)
+  where
+    g = x => x + k
+test "memoized closures stay usable" = caller(10)(1) == 11
+
+# Local function value stored in a where constant and returned.
+outer(k) = h
+  where
+    inner(x) = x * k
+    h = inner
+test "where function value escapes" = outer(4)(5) == 20
+
+# Tail call to a where lambda that returns another lambda from the frame.
+twostep(k) = pick(0)
+  where
+    pick = i => step
+    step = x => x + k
+test "tail call returning a sibling lambda" = twostep(7)(1) == 8
+
+# The two above leave a `where` frame and a lambda referring to each other.
+# Called in a loop, each call's pair must be freed (the test harness counts
+# leaked values in debug builds).
+looped(0, acc) = acc
+looped(n, acc) = looped(n - 1, acc + counter(n)(2) + twostep(n)(0) - n)
+test "where cycles in a loop" = looped(100, 0) == 5050
+
+# Generator consumed in a tail position in the same frame.
+gsum(n) = g.sum
+  where
+    g = (x for x in 1..n)
+test "generator in tail position" = gsum(4) == 10

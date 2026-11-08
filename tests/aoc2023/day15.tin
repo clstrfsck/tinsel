@@ -1,0 +1,38 @@
+day 2023.15
+
+# An initialization sequence of comma-separated steps.
+# Part 1: add up the HASH of every step.
+# Part 2: run the steps on 256 boxes of lenses: "label=n" puts a lens in
+#         box HASH(label), replacing any lens with the same label in place;
+#         "label-" removes it. Add up each lens's focusing power.
+
+example """
+rn=1,cm-,qp=3,cm=2,qp-,pc=4,ot=9,ab=5,pc-,pc=6,ot=7
+"""
+  part1 = 1320
+  part2 = 145
+
+answers
+  part1 = 519041
+  part2 = 260530
+
+steps = input.trim.split(",")
+
+hash(s) = s.chars.fold(0, (h, c) => (h + ord(c)) * 17 % 256)
+
+# Boxes are a map from box number to a list of (label, focal length).
+step(boxes, "{label}-") = boxes.set(b, boxes.get(b, []).filter((l, _) => l != label))
+  where
+    b = hash(label)
+step(boxes, "{label}={f:int}") =
+  boxes.set(b, if lenses.any((l, _) => l == label)
+               then lenses.map((l, g) => (l, if l == label then f else g))
+               else lenses ++ [(label, f)])
+  where
+    b = hash(label)
+    lenses = boxes.get(b, [])
+
+boxes = steps.fold({}, step)
+
+part1 = steps.map(hash).sum
+part2 = sum((b + 1) * (i + 1) * f for (b, lenses) in boxes.items for (i, (_, f)) in lenses.enumerate)

@@ -1,0 +1,55 @@
+day 2019.12
+
+# Four moons, each with a 3D position and a velocity (initially 0). Each
+# step, gravity changes each velocity by +1 or -1 per axis towards each
+# other moon, and then each moon moves by its velocity.
+# Part 1: after 1000 steps, the total energy: for each moon, the sum of its
+#         absolute position coordinates times the sum of its absolute
+#         velocities.
+# Part 2: the number of steps until the moons first return to a previous
+#         state.
+
+example """
+<x=-1, y=0, z=2>
+<x=2, y=-10, z=-7>
+<x=4, y=-8, z=8>
+<x=3, y=5, z=-1>
+"""
+  with steps = 10
+  part1 = 179
+  part2 = 2772
+
+example """
+<x=-8, y=-10, z=0>
+<x=5, y=5, z=10>
+<x=2, y=-7, z=3>
+<x=9, y=-8, z=-3>
+"""
+  with steps = 100
+  part1 = 1940
+  part2 = 4686774924
+
+answers
+  part1 = 10944
+  part2 = 484244804958744
+
+steps = 1000
+
+moons = input.lines.map(.ints)
+
+# The axes are independent: each is (positions, velocities) of the moons.
+axes = (0..<3).map(i => (moons.map(_[i]).tuple, (0, 0, 0, 0)))
+
+step((ps, vs)) = (ps + new_vs, new_vs)
+  where
+    new_vs = vs + ps.map(p => ps.map(q => sign(q - p)).sum).tuple
+
+energy(after) = (0..<4).map(m => after.map(a => abs(a.0[m])).sum * after.map(a => abs(a.1[m])).sum).sum
+
+part1 = energy(axes.map(a => iterate(a, step, times: steps)))
+
+# Each step can be undone, so the first state to repeat is the first one.
+period(a) = back(step(a), a, 1)
+back(s, a, n) = if s == a then n else back(step(s), a, n + 1)
+
+part2 = axes.map(period).fold(1, lcm)

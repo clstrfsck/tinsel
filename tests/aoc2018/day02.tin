@@ -1,0 +1,44 @@
+day 2018.2
+
+# Box IDs.
+# Part 1: the number of IDs with some letter exactly twice, times the
+#         number with some letter exactly three times.
+# Part 2: the letters shared by the two IDs that differ in exactly one
+#         position.
+
+example """
+abcdef
+bababc
+abbcde
+abcccd
+aabcdd
+abcdee
+ababab
+"""
+  part1 = 12
+
+example """
+abcde
+fghij
+klmno
+pqrst
+fguij
+axcye
+wvxyz
+"""
+  part2 = "fgij"
+
+answers
+  part1 = 5681
+  part2 = "uqyoeizfvmbistpkgnocjtwld"
+
+ids = input.lines
+
+with_repeat(n) = ids.count(id => n in id.counts.values)
+
+part1 = with_repeat(2) * with_repeat(3)
+
+# The letters two IDs have in the same positions.
+common(a, b) = zip(a.chars, b.chars).filter(_1 == _2).map(.0).join
+
+part2 = ids.combos(2).map(common).first(_.len == ids[0].len - 1)

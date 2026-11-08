@@ -1,0 +1,40 @@
+day 2022.25
+
+# SNAFU numbers: base 5, with digits 2, 1, 0, - (minus one) and = (minus
+# two).
+# Part 1: the sum of the numbers, written in SNAFU.
+
+example """
+1=-0-2
+12111
+2=0=
+21
+2=01
+111
+20012
+112
+1=-1=
+1-12
+12
+1=
+122
+"""
+  part1 = "2=-1=0"
+
+answers
+  part1 = "2=001=-2=--0212-22-2"
+
+digit = {'=': -2, '-': -1, '0': 0, '1': 1, '2': 2}
+
+decimal(s) = s.chars.fold(0, (n, c) => n * 5 + digit[c])
+
+# Take off the lowest digit, chosen from -2..2 to match n mod 5.
+snafu(0) = ""
+snafu(n) = snafu((n - d) / 5) ++ str("=-012"[d + 2])
+  where
+    d = (n + 2) % 5 - 2
+
+test "snafu 2022" = snafu(2022) == "1=11-2"
+test "snafu round trip" = (1..200).all(n => decimal(snafu(n)) == n)
+
+part1 = snafu(input.lines.map(decimal).sum)

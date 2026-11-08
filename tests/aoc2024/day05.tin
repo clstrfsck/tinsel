@@ -1,0 +1,55 @@
+day 2024.5
+
+# Page ordering rules (X|Y: X must come before Y), then updates.
+# Part 1: add up the middle pages of the updates that are already in order.
+# Part 2: put the other updates in order and add up their middle pages.
+
+example """
+47|53
+97|13
+97|61
+97|47
+75|29
+61|13
+75|53
+29|13
+97|29
+53|29
+61|53
+97|53
+61|29
+47|13
+75|47
+97|75
+47|61
+75|61
+47|29
+75|13
+53|13
+
+75,47,61,53,29
+97,61,53,29,13
+75,29,13
+75,97,47,61,53
+61,13,29
+97,13,75,29,47
+"""
+  part1 = 143
+  part2 = 123
+
+answers
+  part1 = 4790
+  part2 = 6319
+
+[rule_text, update_text] = input.blocks
+rules = set(rule_text.lines.map(.ints.tuple))
+updates = update_text.lines.map(.ints)
+
+# The rules give a total order on each update's pages, so a page's place is
+# the number of other pages in the update that must come before it.
+ordered(u) = u.sort_by(p => u.count(q => (q, p) in rules))
+
+middle(u) = u[u.len / 2]
+
+part1 = updates.filter(ordered(_) == _).map(middle).sum
+part2 = updates.filter(ordered(_) != _).map(u => middle(ordered(u))).sum

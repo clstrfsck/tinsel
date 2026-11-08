@@ -1,0 +1,158 @@
+day 2018.15
+
+# Elves (E) and goblins (G) fight in a cave. Each round, units take turns
+# in reading order. A unit not next to an enemy moves one step towards
+# the nearest square next to one, then attacks the adjacent enemy with the
+# fewest hit points. Ties go to reading order. Units start with 200 hit
+# points and 3 attack power.
+# Part 1: the number of full rounds times the hit points left when combat
+#         ends.
+# Part 2: the outcome with the lowest elf attack power (at least 4) that
+#         lets the elves win without losing any elf.
+
+example """
+#######
+#.G...#
+#...EG#
+#.#.#G#
+#..G#E#
+#.....#
+#######
+"""
+  part1 = 27730
+  part2 = 4988
+
+example """
+#######
+#G..#E#
+#E#E.E#
+#G.##.#
+#...#E#
+#...E.#
+#######
+"""
+  part1 = 36334
+
+example """
+#######
+#E..EG#
+#.#G.E#
+#E.##E#
+#G..#.#
+#..E#.#
+#######
+"""
+  part1 = 39514
+  part2 = 31284
+
+example """
+#######
+#E.G#.#
+#.#G..#
+#G.#.G#
+#G..#.#
+#...E.#
+#######
+"""
+  part1 = 27755
+  part2 = 3478
+
+example """
+#######
+#.E...#
+#.#..G#
+#.###.#
+#E#G#G#
+#...#G#
+#######
+"""
+  part1 = 28944
+  part2 = 6474
+
+example """
+#########
+#G......#
+#.E.#...#
+#..##..G#
+#...##..#
+#...#...#
+#.G...G.#
+#.....G.#
+#########
+"""
+  part1 = 18740
+  part2 = 1140
+
+answers
+  part1 = 228730
+  part2 = 33621
+
+cave = input.grid
+
+floor = cave.where(_ != '#')
+
+# Units are numbered, so that one moving into a square where another died
+# this round isn't mistaken for it. units maps a number to (position,
+# kind, hit points), and at maps a position to the unit there.
+start = {i: (p, cave[p], 200) for (i, p) in cave.positions.filter(cave[_] in "EG").enumerate}
+
+reading(p) = (p.1, p.0)
+
+# The outcome of a battle with this elf attack power. When `strict`, the
+# battle stops with none as soon as an elf dies.
+battle(power, strict) = rounds(0, start, {p: i for (i, (p, _, _)) in start.items}, power, strict)
+
+rounds(n, units, at, power, strict) = match turns(order(units), units, at, power)
+  (_, left, _) when strict and elves(left) < elves(start) => none
+  (true, left, _) => n * left.values.map(.2).sum
+  (false, left, now) => rounds(n + 1, left, now, power, strict)
+
+elves(units) = units.values.count(_.1 == 'E')
+
+order(units) = units.keys.sort_by(i => reading(units[i].0))
+
+# (whether combat ended, units, positions) after the units in ids move.
+turns([], units, at, _) = (false, units, at)
+turns([i, ..rest], units, at, power) =
+  if i not in units then turns(rest, units, at, power)
+  else match turn(i, units, at, power)
+    none => (true, units, at)
+    (units2, at2) => turns(rest, units2, at2, power)
+
+# One unit's turn, or none if it has no enemies left.
+turn(i, units, at, power) =
+  if units.values.all(_.1 == kind) then none
+  else attack(i, q, units.set(i, (q, kind, hp)), at.remove(p).set(q, i), power)
+  where
+    (p, kind, hp) = units[i]
+    q = step(p, kind, units, at)
+
+enemy_next_to(p, kind, units, at) = nbrs4(p).filter(q => q in at and units[at[q]].1 != kind)
+
+# Where a unit at p moves to.
+step(p, kind, units, at) =
+  if enemy_next_to(p, kind, units, at).len > 0 or reachable.len == 0 then p
+  else nbrs4(p).filter(_ in back).min_by(q => (back[q], reading(q)))
+  where
+    free(q) = q in floor and q not in at
+    goals = {q for (e, k, _) in units.values if k != kind for q in nbrs4(e) if free(q)}
+    dist = bfs(p, x => nbrs4(x).filter(free))
+    reachable = goals.filter(_ in dist)
+    target = reachable.min_by(q => (dist[q], reading(q)))
+    back = bfs(target, x => nbrs4(x).filter(free))
+
+attack(i, p, units, at, power) =
+  if targets.len == 0 then (units, at)
+  else if hp <= damage then (units.remove(j), at.remove(q))
+  else (units.set(j, (q, kind, hp - damage)), at)
+  where
+    (_, me, _) = units[i]
+    targets = enemy_next_to(p, me, units, at)
+    q = targets.min_by(t => (units[at[t]].2, reading(t)))
+    j = at[q]
+    (_, kind, hp) = units[j]
+    damage = if me == 'E' then power else 3
+
+part1 = battle(3, false)
+
+part2 = (4..).map(battle(_, true)).first(_ != none)

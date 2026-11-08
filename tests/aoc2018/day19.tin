@@ -1,0 +1,42 @@
+day 2018.19
+include "device.tin"
+
+# A program for the device, with its instruction pointer bound to a
+# register (#ip n). The program halts when the instruction pointer leaves
+# it.
+# Part 1: register 0 when the program halts.
+# Part 2: the same, starting with register 0 set to 1.
+
+example """
+#ip 0
+seti 5 0 1
+seti 6 0 2
+addi 0 1 0
+addr 1 2 3
+setr 1 0 0
+seti 8 0 4
+seti 9 0 5
+"""
+  halted = 6
+
+answers
+  part1 = 920
+  part2 = 11151360
+
+prog = program(input)
+
+# Register 0 when the program halts, found by running it.
+halted = run(prog, (0, 0, 0, 0, 0, 0), _ => false).1[0]
+
+# Running it is far too slow with register 0 set to 1. Reading the
+# program: it first builds a number in a register (larger when register 0
+# starts at 1), then jumps to instruction 1 and adds up the divisors of
+# that number, by trying every pair of factors, into register 0.
+divisor_sum(r0) = [d + (if d * d == n then 0 else n / d) for d in 1..isqrt(n) if n % d == 0].sum
+  where
+    n = run(prog, (r0, 0, 0, 0, 0, 0), _ == 1).1.max
+
+part1 = divisor_sum(0)
+part2 = divisor_sum(1)
+
+test "the shortcut agrees with running the program" = divisor_sum(0) == halted

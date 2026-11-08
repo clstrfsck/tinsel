@@ -1,0 +1,28 @@
+day 2020.1
+
+# A list of numbers.
+# Part 1: the product of the two entries that sum to 2020.
+# Part 2: the product of the three entries that sum to 2020.
+
+example """
+1721
+979
+366
+299
+675
+1456
+"""
+  part1 = 514579
+  part2 = 241861950
+
+answers
+  part1 = 121396
+  part2 = 73616634
+
+entries = input.ints.sort
+
+part1 = entries.combos(2).first(c => c.sum == 2020).product
+# For each pair a < b, look up a third entry c > b, rather than trying
+# every triple.
+present = set(entries)
+part2 = [a * b * (2020 - a - b) for (a, b) in entries.combos(2) if 2020 - a - b in present and 2020 - a - b > b].first

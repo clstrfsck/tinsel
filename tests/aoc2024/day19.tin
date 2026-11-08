@@ -1,0 +1,35 @@
+day 2024.19
+
+# Towel patterns, then designs to make by putting towels end to end.
+# Part 1: how many designs can be made.
+# Part 2: the total number of ways to make the designs.
+
+example """
+r, wr, b, g, bwu, rb, gb, br
+
+brwrr
+bggr
+gbbr
+rrbgbr
+ubwu
+bwurrg
+brgr
+bbrgwb
+"""
+  part1 = 6
+  part2 = 16
+
+answers
+  part1 = 290
+  part2 = 712058625427487
+
+[towel_text, design_text] = input.blocks
+towels = towel_text.split(", ")
+designs = design_text.lines
+
+# Memoized automatically.
+ways("") = 1
+ways(d) = sum(ways(d[t.len..]) for t in towels if d.starts_with(t))
+
+part1 = designs.count(ways(_) > 0)
+part2 = designs.map(ways).sum

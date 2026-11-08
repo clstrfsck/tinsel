@@ -1,0 +1,52 @@
+day 2021.4
+
+# Bingo: numbers drawn in order, and 5x5 boards. A board wins when a whole
+# row or column is marked. Its score is the sum of its unmarked numbers
+# times the number just drawn.
+# Part 1: the score of the first board to win.
+# Part 2: the score of the last board to win.
+
+example """
+7,4,9,5,11,17,23,2,0,14,21,24,10,16,13,6,15,25,12,22,18,20,8,19,3,26,1
+
+22 13 17 11  0
+ 8  2 23  4 24
+21  9 14 16  7
+ 6 10  3 18  5
+ 1 12 20 15 19
+
+ 3 15  0  2 22
+ 9 18 13 17  5
+19  8  7 25 23
+20 11 10 24  4
+14 21 16 12  6
+
+14 21 17 24  4
+10 16 15  9 19
+18  8 23 26 20
+22 11 13  6  5
+ 2  0 12  3  7
+"""
+  part1 = 4512
+  part2 = 1924
+
+answers
+  part1 = 63552
+  part2 = 9020
+
+[draw_text, ..board_texts] = input.blocks
+draws = draw_text.ints
+boards = board_texts.map(b => b.lines.map(.ints))
+
+# The turn on which each number is drawn.
+turn = {n: i for (i, n) in draws.enumerate}
+
+# A line is complete when its last number is drawn; a board wins with its
+# first complete line.
+complete(line) = line.map(n => turn.get(n, inf)).max
+wins(b) = (b ++ b.transpose).map(complete).min
+
+score(b) = [n for row in b for n in row if turn.get(n, inf) > wins(b)].sum * draws[wins(b)]
+
+part1 = score(boards.min_by(wins))
+part2 = score(boards.max_by(wins))

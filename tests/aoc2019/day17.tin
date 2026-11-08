@@ -1,0 +1,73 @@
+day 2019.17
+include "intcode.tin"
+
+# An Intcode program (ASCII) outputs a camera view as text: # is scaffold,
+# . open space, and ^ v < > the vacuum robot on the scaffold.
+# Part 1: the sum of x * y over the scaffold intersections.
+# Part 2: wake the robot (2 at address 0) and give it a main routine of
+#         calls to functions A, B and C, and the functions themselves, each
+#         at most 20 characters, so that it visits all the scaffold. It
+#         then outputs the dust it collected.
+
+example """
+..#..........
+..#..........
+#######...###
+#.#...#...#.#
+#############
+..#...#...#..
+..#####...^..
+"""
+  with view = input.grid
+  part1 = 76
+
+answers
+  part1 = 4688
+  part2 = 714866
+
+view = outputs(input, []).map(chr).join.trim.grid
+
+scaffold(p) = view.get(p) in ['#', '^', 'v', '<', '>']
+
+part1 = view.positions.filter(p => scaffold(p) and nbrs4(p).all(scaffold)).map((x, y) => x * y).sum
+
+# The robot's route, as moves like "R,8": turn, then go as far as possible.
+facing = {'^': N, '>': E, 'v': S, '<': W}
+robot = view.positions.first(p => view[p] in facing)
+
+route(p, d) =
+  if scaffold(p + cw(d)) then leg("R", p, cw(d))
+  else if scaffold(p + ccw(d)) then leg("L", p, ccw(d))
+  else []
+
+leg(turn, p, d) = ["{turn},{n}"] ++ route(p + d * n, d)
+  where
+    n = (1..).take_while(k => scaffold(p + d * k)).len
+
+moves = route(robot, facing[view[robot]])
+
+fits(ms) = ms.join(",").len <= 20
+
+# Split the moves into calls of at most three functions, each a run of
+# moves, trying each function in turn and then a new one of each length.
+# Gives (functions, main routine as function indices), or none.
+@nomemo
+cover([], fs, main) = (fs, main)
+cover(ms, fs, main) = if main.len >= 10 then none else reuse(ms, fs, main, 0) ?? fresh(ms, fs, main, 1)
+
+# Call function i next, or a later one.
+reuse(ms, fs, main, i) =
+  if i == fs.len then none
+  else (if ms[..<fs[i].len] == fs[i] then cover(ms[fs[i].len..], fs, main ++ [i]) else none)
+       ?? reuse(ms, fs, main, i + 1)
+
+# Make the next n moves a new function, or more than n.
+fresh(ms, fs, main, n) =
+  if fs.len == 3 or n > ms.len or not fits(ms[..<n]) then none
+  else cover(ms[n..], fs ++ [ms[..<n]], main ++ [fs.len]) ?? fresh(ms, fs, main, n + 1)
+
+(functions, main) = cover(moves, [], [])
+
+program = [main.map("ABC"[_]).join(",")] ++ functions.map(.join(",")) ++ ["n"]
+
+part2 = run(poke(intcode(input), 0, 2), (program.join("\n") ++ "\n").chars.map(ord)).2.last

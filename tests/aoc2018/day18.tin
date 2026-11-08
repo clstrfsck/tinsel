@@ -1,0 +1,43 @@
+day 2018.18
+
+# A 50x50 area of open ground (.), trees (|) and lumberyards (#). Each
+# minute, open ground next to three or more trees grows trees, trees next
+# to three or more lumberyards become a lumberyard, and a lumberyard stays
+# only if it is next to both a lumberyard and trees.
+# Part 1: trees times lumberyards after 10 minutes.
+# Part 2: the same after a billion minutes.
+
+example """
+.#.#...|#.
+.....#|##|
+.|..|...#.
+..|#.....#
+#.#|||#|#|
+...#.||...
+.|....|...
+||...#|.#|
+|.||||..|.
+...#.|..|.
+"""
+  part1 = 1147
+
+answers
+  part1 = 621205
+  part2 = 228490
+
+area = input.grid
+
+minute(g) = [g.positions_in_row(y).map(p => change(g[p], g.nbrs8(p).map(g[_]))).join for y in 0..<g.height].join("\n").grid
+
+positions_in_row(g, y) = (0..<g.width).map(x => (x, y))
+
+change('.', around) = if around.count('|') >= 3 then '|' else '.'
+change('|', around) = if around.count('#') >= 3 then '#' else '|'
+change('#', around) = if '#' in around and '|' in around then '#' else '.'
+
+value(g) = g.positions.count(g[_] == '|') * g.positions.count(g[_] == '#')
+
+part1 = value(iterate(area, minute, times: 10))
+
+# The area repeats after a while, and `iterate` skips the repeats.
+part2 = value(iterate(area, minute, times: 1_000_000_000))

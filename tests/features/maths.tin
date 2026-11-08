@@ -1,0 +1,41 @@
+# Number theory and geometry helpers. SPEC section 9.5.
+# Expected values were checked with Python: brute force for crt and modinv,
+# pow() for modpow, and exact fractions for solve.
+
+# --- modinv and modpow -----------------------------------------------------------
+test "modinv"                     = (modinv(3, 11), modinv(-3, 11)) == (4, 7)
+test "no inverse is none"         = (modinv(2, 4), modinv(7, 1)) == (none, none)
+test "modpow"                     = (modpow(4, 13, 497), modpow(-2, 3, 5), modpow(5, 0, 7)) == (445, 2, 1)
+test "modpow with a huge exponent" = modpow(2, 10 ** 20, 10 ** 9 + 7) == 855473248
+test_error "modpow needs e of 0 or more" = modpow(2, -1, 7)
+test_error "modpow needs a positive modulus" = modpow(2, 3, 0)
+
+# --- crt ----------------------------------------------------------------------------
+test "crt"                        = crt([(0, 3), (3, 4), (4, 5)]) == (39, 60)
+test "crt with moduli that share factors" = crt([(2, 4), (4, 6)]) == (10, 12)
+test "crt with no solution"       = crt([(1, 4), (2, 6)]) == none
+test "crt of nothing"             = crt([]) == (0, 1)
+# 2020 day 13's example: bus b leaves i minutes after the answer.
+buses = [(i, int(b)) for (i, b) in "7,13,x,x,59,x,31,19".split(",").enumerate if b != "x"]
+test "the bus schedule"           = crt([(-i % b, b) for (i, b) in buses]).0 == 1068781
+test_error "crt needs positive moduli" = crt([(1, 0)])
+
+# --- shoelace -------------------------------------------------------------------------
+test "shoelace"                   = shoelace([(0, 0), (4, 0), (4, 3), (0, 3)]) == 12
+test "either winding"             = shoelace([(0, 0), (0, 3), (4, 3), (4, 0)]) == 12
+test_error "half-unit areas are an error" = shoelace([(0, 0), (1, 0), (0, 1)])
+# Pick's theorem on an L-shaped loop along grid lines.
+loop = [(0, 0), (6, 0), (6, 5), (4, 5), (4, 2), (0, 2)]
+boundary = loop.pairs.map(manhattan).sum + manhattan(loop.last, loop.first)
+test "points inside, with Pick's theorem" = (shoelace(loop) - boundary / 2 + 1, boundary) == (8, 22)
+
+# --- solve ------------------------------------------------------------------------------
+test "solve"                      = solve([[94, 22], [34, 67]], [8400, 5400]) == [80, 40]
+test "no integer solution"        = solve([[26, 67], [66, 21]], [12748, 12176]) == none
+test "infinitely many solutions"  = solve([[1, 2], [2, 4]], [3, 6]) == none
+test "three unknowns"             = solve([[1, 1, 1], [0, 2, 5], [2, 5, -1]], [6, -4, 27]) == [5, 3, -2]
+test "more equations than unknowns" = solve([[1, 0], [0, 1], [1, 1]], [2, 3, 5]) == [2, 3]
+test "inconsistent equations"     = solve([[1, 0], [0, 1], [1, 1]], [2, 3, 6]) == none
+test "exact beyond i64"           = solve([[3, 0], [0, 4]], [3 * 10 ** 30, 8]) == [10 ** 30, 2]
+test_error "rows must have equal lengths" = solve([[1, 2], [3]], [1, 2])
+test_error "one right-hand side per row"  = solve([[1, 0], [0, 1]], [1])

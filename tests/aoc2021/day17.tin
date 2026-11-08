@@ -1,0 +1,37 @@
+day 2021.17
+
+# A probe is fired from (0, 0) with a whole-number velocity. Each step it
+# moves by its velocity; then drag brings x velocity 1 towards 0, and
+# gravity lowers y velocity by 1. The target area is below the start.
+# Part 1: the highest y the probe can reach and still be in the target
+#         after some step.
+# Part 2: how many starting velocities put it in the target after some
+#         step.
+
+example """
+target area: x=20..30, y=-10..-5
+"""
+  part1 = 45
+  part2 = 112
+
+answers
+  part1 = 2628
+  part2 = 1334
+
+[x1, x2, y1, y2] = input.ints
+
+# Going up at vy, the probe comes back through y = 0 at -vy - 1, so the
+# fastest that still hits the target has vy = -y1 - 1.
+part1 = y1 * (y1 + 1) / 2
+
+# The two axes are independent: find the steps at which each velocity puts
+# each coordinate in range, and count the pairs that share a step.
+limit = 2 * abs(y1) + 2
+
+y_at(vy, t) = vy * t - t * (t - 1) / 2
+x_at(vx, t) = if t >= vx then vx * (vx + 1) / 2 else vx * t - t * (t - 1) / 2
+
+y_steps = [s for vy in y1..-y1 - 1 let s = {t for t in 1..limit if y1 <= y_at(vy, t) <= y2} if s != set()]
+x_steps = [s for vx in 1..x2 let s = {t for t in 1..limit if x1 <= x_at(vx, t) <= x2} if s != set()]
+
+part2 = [1 for xs in x_steps for ys in y_steps if (xs & ys) != set()].len

@@ -1,0 +1,33 @@
+day 2025.1
+
+# A dial numbered 0..99 starts at 50. Each line turns it left (L) or right (R).
+# Part 1: how many moves end on 0. Part 2: how many times the dial passes 0.
+# Reference: reference/2025/d01.nim
+
+example """
+L50
+R200
+L1
+R2
+L301
+R99
+R0
+L250
+"""
+  part1 = 3
+  part2 = 10
+
+answers
+  part1 = 1177
+  part2 = 6768
+
+# Each move as a signed distance: L is negative, R is positive.
+moves = input.lines.map("{dir:char}{n:int}" => if dir == 'L' then -n else n)
+
+# Each move starts from a position normalised to 0..99. Its raw end position
+# is kept, so it shows how many times the move passed zero.
+ends  = moves.scan(50, (pos, m) => pos % 100 + m)
+steps = ends.pairs.map((a, b) => (a % 100, b))
+
+part1 = steps.count((_, end) => end % 100 == 0)
+part2 = steps.map((start, end) => abs(end) / 100 + int(start != 0 and end <= 0)).sum

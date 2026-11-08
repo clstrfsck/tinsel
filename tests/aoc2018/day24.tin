@@ -1,0 +1,87 @@
+day 2018.24
+
+# Two armies, the immune system and an infection, made of groups of
+# identical units. Each fight, groups choose targets in order of effective
+# power (units times attack damage), then attack in order of initiative.
+# Damage is doubled against a weakness and nothing against an immunity,
+# and only kills whole units.
+# Part 1: how many units the winning army has left.
+# Part 2: how many units the immune system has left with the smallest
+#         boost to its attack damage that lets it win.
+
+example """
+Immune System:
+17 units each with 5390 hit points (weak to radiation, bludgeoning) with an attack that does 4507 fire damage at initiative 2
+989 units each with 1274 hit points (immune to fire; weak to bludgeoning, slashing) with an attack that does 25 slashing damage at initiative 3
+
+Infection:
+801 units each with 4706 hit points (weak to radiation) with an attack that does 116 bludgeoning damage at initiative 1
+4485 units each with 2961 hit points (immune to radiation; weak to fire, cold) with an attack that does 12 slashing damage at initiative 4
+"""
+  part1 = 5216
+  part2 = 51
+
+answers
+  part1 = 33551
+  part2 = 760
+
+# Every group has a different initiative, so groups are kept in a map from
+# initiative to (army, units, hit points, weaknesses, immunities, damage,
+# attack type).
+armies = {g.0: g.1 for (army, block) in input.blocks.enumerate for line in block.lines[1..] let g = group(army, line)}
+
+group(army, "{n:int} units each with {hp:int} hit points ({mods}) with an attack that does {dmg:int} {kind} damage at initiative {init:int}") =
+  (init, (army, n, hp, traits(mods, "weak"), traits(mods, "immune"), dmg, kind))
+group(army, "{n:int} units each with {hp:int} hit points with an attack that does {dmg:int} {kind} damage at initiative {init:int}") =
+  (init, (army, n, hp, set(), set(), dmg, kind))
+
+traits(mods, which) = {t for part in mods.split("; ") for "{w} to {ts}" in [part] if w == which for t in ts.split(", ")}
+
+power((_, n, _, _, _, dmg, _)) = n * dmg
+
+# The damage group a would deal group d.
+damage(a, d) = match (a, d)
+  ((_, _, _, _, _, _, kind), (_, _, _, _, immune, _, _)) when kind in immune => 0
+  ((_, _, _, _, _, _, kind), (_, _, _, weak, _, _, _)) when kind in weak => 2 * power(a)
+  _ => power(a)
+
+# Target selection: (attacker, target) pairs, by initiative.
+targets(gs) = choose(gs, gs.keys.sort_by(i => (power(gs[i]), i), desc: true), set(), [])
+
+choose(_, [], _, pairs) = pairs
+choose(gs, [a, ..rest], taken, pairs) = match options.max_by(d => (damage(gs[a], gs[d]), power(gs[d]), d))
+  none => choose(gs, rest, taken, pairs)
+  t => choose(gs, rest, taken.add(t), pairs ++ [(a, t)])
+  where
+    options = [d for d in gs.keys if gs[d].0 != gs[a].0 and d not in taken and damage(gs[a], gs[d]) > 0]
+
+fight(gs) = targets(gs).sort(desc: true).fold(gs, strike)
+
+strike(gs, (a, t)) =
+  if a not in gs then gs
+  else if left <= 0 then gs.remove(t)
+  else gs.set(t, (army, left, hp, weak, immune, dmg, kind))
+  where
+    (army, n, hp, weak, immune, dmg, kind) = gs[t]
+    left = n - damage(gs[a], gs[t]) / hp
+
+# The groups left when only one army remains, or none if a fight kills
+# nothing, so the battle would never end.
+battle(gs) =
+  if gs.values.map(.0).uniq.len < 2 then gs
+  else if next == gs then none
+  else battle(next)
+  where
+    next = fight(gs)
+
+part1 = battle(armies).values.map(.1).sum
+
+boosted(b) = {i: (army, n, hp, weak, immune, if army == 0 then dmg + b else dmg, kind) for (i, (army, n, hp, weak, immune, dmg, kind)) in armies.items}
+
+# The immune system's units left, or none if it doesn't win.
+immune_left(b) = match battle(boosted(b))
+  none => none
+  gs when gs.values.all(_.0 == 0) => gs.values.map(.1).sum
+  _ => none
+
+part2 = (1..).map(immune_left).first(_ != none)

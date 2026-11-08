@@ -1,0 +1,109 @@
+day 2022.22
+
+# A map of open tiles (.) and walls (#), with blank space around it, and a
+# path: numbers of steps to walk, and L or R turns. Walking stops early at a
+# wall. You start on the leftmost open tile of the top row, facing right.
+# The answer is 1000 * row + 4 * column + facing, counting rows and columns
+# from 1, and facing right, down, left, up as 0 to 3.
+# Part 1: walking off an edge wraps round to the other side of that row or
+#         column.
+# Part 2: the map is the net of a cube, and walking off an edge carries on
+#         round the cube.
+
+example """
+        ...#
+        .#..
+        #...
+        ....
+...#.......#
+........#...
+..#....#....
+..........#.
+        ...#....
+        .....#..
+        .#......
+        ......#.
+
+10R5L5R10L4R5L5
+"""
+  part1 = 6032
+  part2 = 5031
+
+answers
+  part1 = 55244
+  part2 = 123149
+
+[board, path] = input.blocks
+
+tiles = {(x, y): c for (y, line) in board.lines.enumerate for (x, c) in line.chars.enumerate if c != ' '}
+start = tiles.keys.filter(p => p.1 == 0 and tiles[p] == '.').min
+
+moves = path.trim.replace("R", " R ").replace("L", " L ").words
+
+facings = [E, S, W, N]
+
+# Walk n steps, using step(p, d) to find the next position and direction.
+walk(step, p, d, 0) = (p, d)
+walk(step, p, d, n) = if tiles[q] == '#' then (p, d) else walk(step, q, d2, n - 1)
+  where
+    (q, d2) = step(p, d)
+
+follow(step) = 1000 * (y + 1) + 4 * (x + 1) + facings.index(d)
+  where
+    ((x, y), d) = moves.fold((start, E), (pd, m) => turn_or_walk(step, pd, m))
+
+turn_or_walk(_, (p, d), "R") = (p, cw(d))
+turn_or_walk(_, (p, d), "L") = (p, ccw(d))
+turn_or_walk(step, (p, d), n) = walk(step, p, d, int(n))
+
+# Part 1: off an edge, come back in from the far side.
+flat(p, d) = if p + d in tiles then (p + d, d) else (back(p, d), d)
+back(p, d) = if p - d in tiles then back(p - d, d) else p
+
+part1 = follow(flat)
+
+# Part 2: fold the net into a cube. The faces are side x side squares. Each
+# face gets a 3D frame (origin, x axis, y axis, outward normal), found by
+# folding outwards from the first face. Coordinates are doubled, so that the
+# centres of the cells are whole numbers too.
+side = isqrt(tiles.len / 6)
+faces = {(x / side, y / side) for (x, y) in tiles.keys}
+
+next_frames(f, (o, x, y, n)) = [
+  (f + E, (o + x * 2 * side, -n, y, x)),
+  (f + W, (o - n * 2 * side, n, y, -x)),
+  (f + S, (o + y * 2 * side, x, -n, y)),
+  (f + N, (o - n * 2 * side, x, n, -y)),
+]
+
+unfold([], frames) = frames
+unfold([(f, fr), ..rest], frames) =
+  if f in frames or f not in faces then unfold(rest, frames)
+  else unfold(rest ++ next_frames(f, fr), frames.set(f, fr))
+
+first_face = faces.filter(_.1 == 0).min
+frames = unfold([(first_face, ((0, 0, 0), (1, 0, 0), (0, 1, 0), (0, 0, -1)))], {})
+by_normal = {fr.3: (f, fr) for (f, fr) in frames.items}
+
+dot(a, b) = (a * b).sum
+
+# Off an edge: step half a cell to the edge in 3D, then half a cell down
+# the face over the edge, and read off where that is on the new face.
+cube(p, d) = if p + d in tiles then (p + d, d) else (g * side + (dot(q - o2, x2) / 2, dot(q - o2, y2) / 2), (dot(h, x2), dot(h, y2)))
+  where
+    f = (p.0 / side, p.1 / side)
+    (o, x, y, n) = frames[f]
+    (u, v) = p - f * side
+    centre = o + x * (2 * u + 1) + y * (2 * v + 1)
+    d3 = x * d.0 + y * d.1
+    (g, (o2, x2, y2, _)) = by_normal[d3]
+    h = -n
+    q = centre + d3 + h
+
+part2 = follow(cube)
+
+# Every crossing of a cube edge is undone by turning round and stepping back.
+test "cube edges pair up" =
+  [(p, d) for p in tiles.keys for d in DIRS4 if p + d not in tiles]
+    .all((p, d) => match cube(p, d)
+           (q, d2) => cube(q, -d2) == (p, -d))

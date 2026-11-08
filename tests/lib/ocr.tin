@@ -1,0 +1,59 @@
+# Reading the capital letters that some puzzles draw on a screen (SPEC 2.8).
+#
+#   ocr(rows)   the letters drawn in rows (a list of 6 or 10 strings),
+#               with '#' for lit cells and any other char for unlit ones
+#
+# Letters 6 rows high are 4 cells wide, with a blank column between them.
+# Letters 10 rows high (2018) are 6 cells wide, with two blank columns
+# between them. Blank columns before the first letter are skipped.
+
+# The letters, each followed by a blank column.
+font = """
+.##..###...##..####.####..##..#..#..###...##.#..#.#.....##..###..###...###.#..#.####.
+#..#.#..#.#..#.#....#....#..#.#..#...#.....#.#.#..#....#..#.#..#.#..#.#....#..#....#.
+#..#.###..#....###..###..#....####...#.....#.##...#....#..#.#..#.#..#.#....#..#...#..
+####.#..#.#....#....#....#.##.#..#...#.....#.#.#..#....#..#.###..###...##..#..#..#...
+#..#.#..#.#..#.#....#....#..#.#..#...#..#..#.#.#..#....#..#.#....#.#.....#.#..#.#....
+#..#.###...##..####.#.....###.#..#..###..##..#..#.####..##..#....#..#.###...##..####.
+"""
+font_letters = "ABCEFGHIJKLOPRSUZ"
+
+# The 10-row letters, each followed by two blank columns. This has only
+# the letters seen in puzzle inputs so far.
+large_font = """
+..##.....####...######...####......###..#....#..######..
+.#..#...#....#..#.......#....#......#...#...#........#..
+#....#..#.......#.......#...........#...#..#.........#..
+#....#..#.......#.......#...........#...#.#.........#...
+#....#..#.......#####...#...........#...##.........#....
+######..#.......#.......#..###......#...##........#.....
+#....#..#.......#.......#....#......#...#.#......#......
+#....#..#.......#.......#....#..#...#...#..#....#.......
+#....#..#....#..#.......#...##..#...#...#...#...#.......
+#....#...####...######...###.#...###....#....#..######..
+"""
+large_letters = "ACEGJKZ"
+
+# Letter k of rows, for letters `width` cells wide and `pitch` apart.
+glyph(rows, k, width, pitch) = rows.map(r => r[pitch * k..<pitch * k + width]).join
+
+glyph_table(text, letters, width, pitch) =
+  {glyph(text.lines, k, width, pitch): letters[k] for k in letters.indices}
+
+# (glyphs, width, pitch) for each height of letter.
+small_letters = (glyph_table(font, font_letters, 4, 5), 4, 5)
+tall_letters = (glyph_table(large_font, large_letters, 6, 8), 6, 8)
+
+ocr(rows) = (0..(right - left) / pitch).map(k => glyphs[glyph(cells, k, width, pitch)]).join
+  where
+    (glyphs, width, pitch) = if rows.len == 10 then tall_letters else small_letters
+    lit = rows.map(r => r.chars.map(_ == '#'))
+    columns = (0..<rows[0].len).filter(x => lit.any(_[x]))
+    left = columns.min
+    right = columns.max
+    cells = lit.map(r => r[left..].map(on => if on then '#' else '.').join)
+
+test "every letter" = ocr(font.lines) == font_letters
+test "skips blank columns on the left" = ocr(font.lines.map(" " ++ _)) == font_letters
+test "unlit cells can be any char" = ocr(font.lines.map(_.replace('.', ' '))) == font_letters
+test "every tall letter" = ocr(large_font.lines) == large_letters

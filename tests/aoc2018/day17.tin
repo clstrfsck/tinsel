@@ -1,0 +1,69 @@
+day 2018.17
+
+# Veins of clay in a vertical slice of ground. Water falls from a spring
+# at x=500, y=0, spreads sideways over clay or still water, and fills
+# basins with clay on both sides.
+# Part 1: how many tiles the water reaches, between the smallest and
+#         largest y of the clay.
+# Part 2: how many tiles of still water are left when the spring stops.
+
+example """
+x=495, y=2..7
+y=7, x=495..501
+x=501, y=3..7
+x=498, y=2..4
+x=506, y=1..2
+x=498, y=10..13
+x=504, y=10..13
+y=13, x=498..504
+"""
+  part1 = 57
+  part2 = 29
+
+answers
+  part1 = 39367
+  part2 = 33061
+
+clay = set(input.lines.flat_veins)
+
+flat_veins(lines) = [p for line in lines for p in vein(line)]
+
+vein("x={x:int}, y={y0:int}..{y1:int}") = [(x, y) for y in y0..y1]
+vein("y={y:int}, x={x0:int}..{x1:int}") = [(x, y) for x in x0..x1]
+
+((_, _), (min_y, max_y)) = clay.bounds
+
+# Water flowing into p, moving in direction d (0 when it fell into p).
+# Gives whether p ends up held up (by clay or still water), and the state
+# (wet tiles, still tiles) afterwards. These functions recurse outside
+# tail position, but their state is never repeated, so they aren't
+# memoized: hashing the state would cost more than the work.
+@nomemo
+flow(p, _, st) when p in clay = (true, st)
+flow((_, y), _, st) when y > max_y = (false, st)
+flow(p, _, (wet, still)) when p in still = (true, (wet, still))
+flow(p, _, (wet, still)) when p in wet = (false, (wet, still))
+flow(p, d, (wet, still)) = landed(p, d, flow(p + S, 0, (wet.add(p), still)))
+
+# After the water below p has been followed.
+@nomemo
+landed(_, _, (false, st)) = (false, st)
+landed(p, 0, (true, st)) = spread(p, flow(p + W, -1, st))
+landed(p, d, (true, st)) = flow(p + (d, 0), d, st)
+
+@nomemo
+spread(p, (left, st)) = settle(p, left, flow(p + E, 1, st))
+
+# Held on both sides: the row between the clay walls fills.
+settle(p, true, (true, (wet, still))) = (true, (wet, still | basin_row(p)))
+settle(_, _, (_, st)) = (false, st)
+
+basin_row(p) = set(side(p, W) ++ side(p + E, E))
+
+side(p, d) = if p in clay then [] else [p] ++ side(p + d, d)
+
+water = flow((500, 0), 0, (set(), set())).1
+
+part1 = water.0.count(p => p.1 >= min_y)
+
+part2 = water.1.count(p => p.1 >= min_y)

@@ -1,0 +1,31 @@
+day 2020.25
+
+# A card and a door each have a secret loop size, and publish 7 raised to
+# that power mod 20201227. The encryption key is either public key raised
+# to the other's loop size.
+# Part 1: the encryption key.
+
+example """
+5764801
+17807724
+"""
+  part1 = 14897079
+
+answers
+  part1 = 4968512
+
+modulus = 20201227
+
+[card, door] = input.ints
+
+# The loop size of a public key: a discrete logarithm, by baby-step
+# giant-step. With m about the square root of the modulus, the loop size
+# is i * m + j, where 7^j = key * 7^(-m i).
+loop_size(key) = (0..m).map(i => (i, key * modpow(giant, i, modulus) % modulus))
+  .filter(((_, g)) => g in babies).map((i, g) => i * m + babies[g]).first
+  where
+    m = isqrt(modulus) + 1
+    babies = {modpow(7, j, modulus): j for j in (0..<m).reverse}
+    giant = modpow(modinv(7, modulus), m, modulus)
+
+part1 = modpow(door, loop_size(card), modulus)

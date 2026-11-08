@@ -1,0 +1,40 @@
+day 2021.5
+
+# Lines of hydrothermal vents, as x1,y1 -> x2,y2: horizontal, vertical or
+# at 45 degrees.
+# Part 1: counting only horizontal and vertical lines, how many points do
+#         at least two lines cover?
+# Part 2: the same, counting diagonal lines too.
+
+example """
+0,9 -> 5,9
+8,0 -> 0,8
+9,4 -> 3,4
+2,2 -> 2,1
+7,0 -> 7,4
+6,4 -> 2,0
+0,9 -> 2,9
+3,4 -> 1,4
+0,0 -> 8,8
+5,5 -> 8,2
+"""
+  part1 = 5
+  part2 = 12
+
+answers
+  part1 = 7468
+  part2 = 22364
+
+vents = input.lines.map(l => l.ints.chunks(2).map(tuple))
+
+points([a, b]) = [a + step * k for k in 0..max(abs(dx), abs(dy))]
+  where
+    (dx, dy) = b - a
+    step = (sign(dx), sign(dy))
+
+straight([(x1, y1), (x2, y2)]) = x1 == x2 or y1 == y2
+
+overlaps(lines) = [p for l in lines for p in points(l)].counts.values.count(_ >= 2)
+
+part1 = overlaps(vents.filter(straight))
+part2 = overlaps(vents)

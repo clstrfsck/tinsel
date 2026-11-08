@@ -1,0 +1,112 @@
+day 2019.18
+
+# A vault of passages (.), walls (#), keys (a-z) and doors (A-Z). A door
+# opens once you have its key. You start at @.
+# Part 1: the fewest steps to collect every key.
+# Part 2: the four cells around @ become walls, and the four diagonal
+#         cells become entrances, each with its own robot. Only one robot
+#         moves at a time. The fewest steps for the robots to collect every
+#         key.
+
+example """
+#########
+#b.A.@.a#
+#########
+"""
+  part1 = 8
+
+example """
+########################
+#f.D.E.e.C.b.A.@.a.B.c.#
+######################.#
+#d.....................#
+########################
+"""
+  part1 = 86
+
+example """
+########################
+#...............b.C.D.f#
+#.######################
+#.....@.a.B.c.d.A.e.F.g#
+########################
+"""
+  part1 = 132
+
+example """
+#################
+#i.G..c...e..H.p#
+########.########
+#j.A..b...f..D.o#
+########@########
+#k.E..a...g..B.n#
+########.########
+#l.F..d...h..C.m#
+#################
+"""
+  part1 = 136
+
+example """
+########################
+#@..............ac.GI.b#
+###d#e#f################
+###A#B#C################
+###g#h#i################
+########################
+"""
+  part1 = 81
+
+answers
+  part1 = 4830
+  part2 = 1946
+
+vault = input.grid
+
+# Part 2's vault: the 3x3 square around the entrance becomes
+#   @#@
+#   ###
+#   @#@
+split(g) = [(-1, -1), (1, -1), (-1, 1), (1, 1)].fold(walled, (h, d) => h.set(centre + d, '@'))
+  where
+    centre = g.find('@')
+    walled = ([(0, 0)] ++ DIRS4).fold(g, (h, d) => h.set(centre + d, '#'))
+
+key_bit(c) = 1 << (ord(c) - ord('a'))
+door_bit(c) = 1 << (ord(c) - ord('A'))
+
+# From each entrance and key: the keys reachable, as (key, steps, doors
+# on the way as a bitmask). Breadth first, keeping the doors passed.
+reachable(g, start) = spread(g, [(start, 0)], {start: 0}, [])
+
+spread(_, [], _, found) = found
+spread(g, frontier, doors, found) = spread(g, next, new_doors, found ++ keys)
+  where
+    steps = [(q, d + 1, here | door_mask(g[q]))
+             for (p, d) in frontier
+             let here = doors[p]
+             for q in nbrs4(p)
+             if g[q] != '#' and q not in doors]
+    # The first way to reach a cell this step wins.
+    reached = {q: (k, m) for (q, k, m) in steps.reverse}
+    new_doors = doors | {q: m for (q, (_, m)) in reached.items}
+    next = [(q, k) for (q, (k, _)) in reached.items]
+    keys = [(g[q], k, m) for (q, (k, m)) in reached.items if 'a' <= g[q] <= 'z']
+
+door_mask(c) = if 'A' <= c <= 'Z' then door_bit(c) else 0
+
+# The fewest steps to collect every key in vault g. A state is (where each
+# robot is, as a tuple of chars, and the keys held as a bitmask).
+collect(g) = dijkstra((robots, 0), next, goal: (_, held) => held == all_keys).0
+  where
+    starts = g.where('@').sort
+    robots = tuple(starts.indices.map(i => "{i}"))
+    names = {"{i}": p for (i, p) in starts.enumerate} | {str(c): p for p in g.positions let c = g[p] if 'a' <= c <= 'z'}
+    edges = {name: reachable(g, p) for (name, p) in names.items}
+    all_keys = g.positions.map(g[_]).filter(c => 'a' <= c <= 'z').map(key_bit).fold(0, (a, b) => a | b)
+    next((at, held)) = [((at.set(i, str(k)), held | key_bit(k)), steps)
+                        for (i, r) in at.enumerate
+                        for (k, steps, doors) in edges[r]
+                        if held & key_bit(k) == 0 and doors & held == doors]
+
+part1 = collect(vault)
+part2 = collect(split(vault))

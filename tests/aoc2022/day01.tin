@@ -1,0 +1,33 @@
+day 2022.1
+
+# Each blank-line-separated block lists the Calories one Elf carries.
+# Part 1: the most Calories carried by one Elf.
+# Part 2: the total carried by the top three Elves.
+
+example """
+1000
+2000
+3000
+
+4000
+
+5000
+6000
+
+7000
+8000
+9000
+
+10000
+"""
+  part1 = 24000
+  part2 = 45000
+
+answers
+  part1 = 75501
+  part2 = 215594
+
+totals = input.blocks.map(.ints.sum).sort(desc: true)
+
+part1 = totals[0]
+part2 = totals.take(3).sum

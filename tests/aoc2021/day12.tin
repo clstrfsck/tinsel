@@ -1,0 +1,79 @@
+day 2021.12
+
+# A map of caves joined by passages. Big caves (upper case) can be visited
+# any number of times, small caves (lower case) at most once.
+# Part 1: how many paths from start to end.
+# Part 2: one small cave (not start or end) may be visited twice.
+
+example """
+start-A
+start-b
+A-c
+A-b
+b-d
+A-end
+b-end
+"""
+  part1 = 10
+  part2 = 36
+
+example """
+dc-end
+HN-start
+start-kj
+dc-start
+dc-HN
+LN-dc
+HN-end
+kj-sa
+kj-HN
+kj-dc
+"""
+  part1 = 19
+  part2 = 103
+
+example """
+fs-end
+he-DX
+fs-he
+start-DX
+pj-DX
+end-zg
+zg-sl
+zg-pj
+pj-he
+RW-he
+fs-DX
+pj-RW
+zg-RW
+start-pj
+he-WI
+zg-he
+pj-fs
+start-RW
+"""
+  part1 = 226
+  part2 = 3509
+
+answers
+  part1 = 4186
+  part2 = 92111
+
+links = [(a, b) for "{a}-{b}" in input.lines]
+caves = (links ++ links.map((a, b) => (b, a))).group_by(.0, .1)
+
+small(c) = c[0] >= 'a'
+
+# Paths from here to the end, having seen the small caves in `seen`, and
+# with or without a second visit to spare.
+paths("end", _, _) = 1
+paths(c, seen, spare) = caves[c].map(next => onward(next, seen | {c}, spare)).sum
+
+onward("start", _, _) = 0
+onward(c, seen, spare) =
+  if not small(c) or c not in seen then paths(c, if small(c) then seen else seen - {c}, spare)
+  else if spare then paths(c, seen, false)
+  else 0
+
+part1 = paths("start", set(), false)
+part2 = paths("start", set(), true)

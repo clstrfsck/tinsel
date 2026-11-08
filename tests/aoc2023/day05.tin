@@ -1,0 +1,66 @@
+day 2023.5
+
+# An almanac: seeds, then a chain of maps (seed to soil, soil to fertilizer,
+# and so on). Each map line "dst src len" sends src..<src+len to
+# dst..<dst+len; anything else maps to itself.
+# Part 1: the lowest location for any of the seeds.
+# Part 2: the seed line is really pairs (start, length) of seed ranges.
+
+example """
+seeds: 79 14 55 13
+
+seed-to-soil map:
+50 98 2
+52 50 48
+
+soil-to-fertilizer map:
+0 15 37
+37 52 2
+39 0 15
+
+fertilizer-to-water map:
+49 53 8
+0 11 42
+42 0 7
+57 7 4
+
+water-to-light map:
+88 18 7
+18 25 70
+
+light-to-temperature map:
+45 77 23
+81 45 19
+68 64 13
+
+temperature-to-humidity map:
+0 69 1
+1 0 69
+
+humidity-to-location map:
+60 56 37
+56 93 4
+"""
+  part1 = 35
+  part2 = 46
+
+answers
+  part1 = 309796150
+  part2 = 50716416
+
+[seed_text, ..map_texts] = input.blocks
+seeds = seed_text.ints
+maps = map_texts.map(m => m.lines[1..].map(.ints))
+
+# Send a whole rangeset through one map, a range at a time.
+through(rs, rules) = rangeset(moved ++ (rs - covered).ranges)
+  where
+    covered = rangeset([src..<src + len for [_, src, len] in rules])
+    moved = [r.min + dst - src..r.max + dst - src
+               for [dst, src, len] in rules
+               for r in (rs & rangeset([src..<src + len])).ranges]
+
+lowest(rs) = maps.fold(rs, through).min
+
+part1 = lowest(rangeset(seeds))
+part2 = lowest(rangeset([a..<a + n for [a, n] in seeds.chunks(2)]))

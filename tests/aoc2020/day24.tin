@@ -1,0 +1,57 @@
+day 2020.24
+
+# Paths across a floor of hexagonal tiles, as steps e, se, sw, w, nw and ne
+# from a reference tile. The tile at the end of each path is flipped.
+# Tiles start white.
+# Part 1: how many tiles end up black.
+# Part 2: each day, a black tile with no black neighbours or more than 2
+#         becomes white, and a white tile with exactly 2 black neighbours
+#         becomes black. How many are black after 100 days?
+
+example """
+sesenwnenenewseeswwswswwnenewsewsw
+neeenesenwnwwswnenewnwwsewnenwseswesw
+seswneswswsenwwnwse
+nwnwneseeswswnenewneswwnewseswneseene
+swweswneswnenwsewnwneneseenw
+eesenwseswswnenwswnwnwsewwnwsene
+sewnenenenesenwsewnenwwwse
+wenwwweseeeweswwwnwwe
+wsweesenenewnwwnwsenewsenwwsesesenwne
+neeswseenwwswnwswswnw
+nenwswwsewswnenenewsenwsenwnesesenew
+enewnwewneswsewnwswenweswnenwsenwsw
+sweneswneswneneenwnewenewwneswswnese
+swwesenesewenwneswnwwneseswwne
+enesenwswwswneneswsenwnewswseenwsese
+wnwnesenesenenwwnenwsewesewsesesew
+nenewswnwewswnenesenwnesewesw
+eneswnwswnwsenenwnwnwwseeswneewsenese
+neswnwewnwnwseenwseesewsenwsweewe
+wseweeenwnesenwwwswnew
+"""
+  part1 = 10
+  part2 = 2208
+
+answers
+  part1 = 450
+  part2 = 4059
+
+# Axial coordinates: e is (1, 0) and se is (0, 1).
+steps = {"e": (1, 0), "w": (-1, 0), "se": (0, 1), "nw": (0, -1), "ne": (1, -1), "sw": (-1, 1)}
+
+path("") = []
+path(s) = [steps[d]] ++ path(s[d.len..])
+  where
+    d = if s[0] in "ns" then s[..<2] else s[..<1]
+
+ends = input.lines.map(l => path(l).sum)
+
+black = {t for (t, n) in ends.counts.items if n % 2 == 1}
+
+part1 = black.len
+
+living(tiles) = {t for (t, k) in [t + d for t in tiles for d in steps.values].counts.items
+                if k == 2 or (k == 1 and t in tiles)}
+
+part2 = iterate(black, living, times: 100).len

@@ -1,0 +1,31 @@
+day 2019.1
+
+# Each line is a module's mass. Fuel for a mass is mass / 3 - 2.
+# Part 1: the total fuel for the modules.
+# Part 2: fuel has mass too, so add fuel for the fuel, and so on, until the
+#         extra fuel needed is zero or less.
+
+example """
+1969
+"""
+  part1 = 654
+  part2 = 966
+
+example """
+100756
+"""
+  part1 = 33583
+  part2 = 50346
+
+answers
+  part1 = 3497399
+  part2 = 5243207
+
+masses = input.ints
+
+fuel(m) = m / 3 - 2
+
+total_fuel(m) = if fuel(m) <= 0 then 0 else fuel(m) + total_fuel(fuel(m))
+
+part1 = masses.map(fuel).sum
+part2 = masses.map(total_fuel).sum

@@ -1,0 +1,26 @@
+day 2025.12
+
+# Present shapes (each fits in a 3x3 box), then regions under trees, each
+# with a size and how many of each shape must fit in it. Part 1: how many
+# regions can fit all their presents.
+#
+# Packing in general is a hard search, but this input never needs one:
+# every region either has room for each present in its own 3x3 slot, or has
+# less area than its presents' cells. The test below checks that, so this
+# shortcut fails loudly on an input where it wouldn't be valid. (The
+# puzzle's own example does need a real search, so it isn't included.)
+# Reference: reference/2025/d12.py
+
+answers
+  part1 = 505
+
+sections = input.blocks
+cells = sections[..<-1].map(.count('#'))
+regions = sections.last.lines.map("{w:int}x{h:int}: {counts}" => (w, h, counts.ints))
+
+fits_in_slots((w, h, counts)) = (w / 3) * (h / 3) >= counts.sum
+too_small((w, h, counts)) = zip(counts, cells).map((n, c) => n * c).sum > w * h
+
+part1 = regions.count(fits_in_slots)
+
+test "every region is either easy or impossible" = regions.all(r => fits_in_slots(r) or too_small(r))

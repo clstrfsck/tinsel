@@ -1,0 +1,51 @@
+day 2020.11
+
+# A seating layout of floor (.), empty seats (L) and occupied seats (#).
+# Each round, all at once, an empty seat with no occupied seat in view
+# becomes occupied, and an occupied seat with too many in view empties.
+# Part 1: seats in view are the eight neighbours, and "too many" is 4 or
+#         more. How many seats are occupied when nothing changes?
+# Part 2: a seat sees the first seat in each of the eight directions, and
+#         "too many" is 5 or more.
+
+example """
+L.LL.LL.LL
+LLLLLLL.LL
+L.L.L..L..
+LLLL.LL.LL
+L.LL.LL.LL
+L.LLLLL.LL
+..L.L.....
+LLLLLLLLLL
+L.LLLLLL.L
+L.LLLLL.LL
+"""
+  part1 = 37
+  part2 = 26
+
+answers
+  part1 = 2386
+  part2 = 2091
+
+layout = input.grid
+seats = layout.where('L')
+
+# The seats each seat can see, worked out once.
+adjacent = {s: nbrs8(s).filter(_ in seats) for s in seats}
+first_seen = {s: [q for d in DIRS8 let q = sight(s, d) if q != none] for s in seats}
+
+sight(p, d) = match p + d
+  q when q not in layout => none
+  q when q in seats => q
+  q => sight(q, d)
+
+# One round, with the occupied seats as a set.
+round(seen, crowd, occupied) =
+  {s for s in seats
+     let n = seen[s].count(_ in occupied)
+     if (s in occupied and n < crowd) or (s not in occupied and n == 0)}
+
+settle(seen, crowd) = fixpoint(set(), round(seen, crowd, _)).len
+
+part1 = settle(adjacent, 4)
+part2 = settle(first_seen, 5)

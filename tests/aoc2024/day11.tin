@@ -1,0 +1,32 @@
+day 2024.11
+
+# Stones change each time you blink: 0 becomes 1, a number with an even
+# number of digits splits into its two halves, and anything else is
+# multiplied by 2024.
+# Part 1: how many stones there are after 25 blinks.
+# Part 2: after 75 blinks.
+
+example """
+125 17
+"""
+  part1 = 55312
+
+answers
+  part1 = 199982
+  part2 = 237149922829154
+
+# How many stones one stone becomes after k blinks (memoized automatically).
+stones(_, 0) = 1
+stones(0, k) = stones(1, k - 1)
+stones(n, k) =
+  if digits.len % 2 == 0
+  then stones(int(digits[..<half]), k - 1) + stones(int(digits[half..]), k - 1)
+  else stones(n * 2024, k - 1)
+  where
+    digits = str(n)
+    half = digits.len / 2
+
+blink(k) = input.ints.map(stones(_, k)).sum
+
+part1 = blink(25)
+part2 = blink(75)

@@ -1,0 +1,36 @@
+day 2020.17
+
+# Conway cubes: a slice of active (#) and inactive cubes in an infinite
+# grid. Each cycle, an active cube stays active with 2 or 3 active
+# neighbours, and an inactive one becomes active with exactly 3.
+# Part 1: in 3 dimensions, the active cubes after six cycles.
+# Part 2: the same in 4 dimensions.
+
+example """
+.#.
+..#
+###
+"""
+  part1 = 112
+  part2 = 848
+
+answers
+  part1 = 293
+  part2 = 1816
+
+slice = input.grid.where('#')
+
+# Every step to a neighbour in n dimensions.
+offsets(0) = [[]]
+offsets(n) = [[d] ++ rest for d in -1..1 for rest in offsets(n - 1)]
+around(n) = offsets(n).filter(_.any(_ != 0)).map(tuple)
+
+cycle(around, active) =
+  {c for (c, k) in [p + d for p in active for d in around].counts.items
+     if k == 3 or (k == 2 and c in active)}
+
+boot(n) = iterate({tuple([x, y] ++ [0].repeat(n - 2)) for (x, y) in slice},
+                  cycle(around(n), _), times: 6).len
+
+part1 = boot(3)
+part2 = boot(4)

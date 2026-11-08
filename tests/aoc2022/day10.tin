@@ -1,0 +1,176 @@
+day 2022.10
+include "../lib/ocr.tin"
+
+# A CPU with one register X (starting at 1). noop takes one cycle; addx v
+# takes two, and adds v to X after them.
+# Part 1: the sum of cycle * X during cycles 20, 60, ..., 220.
+# Part 2: X is a sprite 3 pixels wide; a CRT draws pixel (cycle - 1) % 40 of
+#         a 40x6 screen each cycle, lit if the sprite covers it. Read the
+#         eight capital letters on the screen.
+
+example """
+addx 15
+addx -11
+addx 6
+addx -3
+addx 5
+addx -1
+addx -8
+addx 13
+addx 4
+noop
+addx -1
+addx 5
+addx -1
+addx 5
+addx -1
+addx 5
+addx -1
+addx 5
+addx -1
+addx -35
+addx 1
+addx 24
+addx -19
+addx 1
+addx 16
+addx -11
+noop
+noop
+addx 21
+addx -15
+noop
+noop
+addx -3
+addx 9
+addx 1
+addx -3
+addx 8
+addx 1
+addx 5
+noop
+noop
+noop
+noop
+noop
+addx -36
+noop
+addx 1
+addx 7
+noop
+noop
+noop
+addx 2
+addx 6
+noop
+noop
+noop
+noop
+noop
+addx 1
+noop
+noop
+addx 7
+addx 1
+noop
+addx -13
+addx 13
+addx 7
+noop
+addx 1
+addx -33
+noop
+noop
+noop
+addx 2
+noop
+noop
+noop
+addx 8
+noop
+addx -1
+addx 2
+addx 1
+noop
+addx 17
+addx -9
+addx 1
+addx 1
+addx -3
+addx 11
+noop
+noop
+addx 1
+noop
+addx 1
+noop
+noop
+addx -13
+addx -19
+addx 1
+addx 3
+addx 26
+addx -30
+addx 12
+addx -1
+addx 3
+addx 1
+noop
+noop
+noop
+addx -9
+addx 18
+addx 1
+addx 2
+noop
+noop
+addx 9
+noop
+noop
+noop
+addx -1
+addx 2
+addx -37
+addx 1
+addx 3
+noop
+addx 15
+addx -21
+addx 22
+addx -6
+addx 1
+noop
+addx 2
+addx 1
+noop
+addx -10
+noop
+noop
+addx 20
+addx 1
+addx 2
+addx 2
+addx -6
+addx -11
+noop
+noop
+noop
+"""
+  part1 = 13140
+
+answers
+  part1 = 12560
+  part2 = "PLPAFBCL"
+
+# Each instruction becomes one change to X per cycle it takes.
+deltas_of("noop") = [0]
+deltas_of("addx {v:int}") = [0, v]
+
+# x[i] is the value of X during cycle i + 1.
+x = input.lines.map(deltas_of).flatten.scan(1, (a, b) => a + b)
+
+part1 = [c * x[c - 1] for c in 20..220 if c % 40 == 20].sum
+
+screen = [[if abs(x[40 * r + c] - c) <= 1 then '#' else '.' for c in 0..<40].join for r in 0..<6]
+
+part2 = ocr(screen)

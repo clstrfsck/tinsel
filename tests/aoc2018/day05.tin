@@ -1,0 +1,36 @@
+day 2018.5
+
+# A polymer of units: a letter and its other case next to each other react
+# and both disappear.
+# Part 1: the number of units left after every reaction.
+# Part 2: the shortest result of removing every unit of one letter (in
+#         both cases) before reacting.
+
+example """
+dabAcCaCBAcCcaDA
+"""
+  part1 = 10
+  part2 = 4
+
+answers
+  part1 = 11946
+  part2 = 4240
+
+polymer = input.trim
+
+reacts(a, b) = abs(ord(a) - ord(b)) == 32
+
+# Units go onto a stack, and a unit that reacts with the top removes it.
+react(units) = units.fold([], add_unit)
+
+add_unit([], c) = [c]
+add_unit(stack, c) = if reacts(stack[-1], c) then stack[..<-1] else stack ++ [c]
+
+reacted = react(polymer.chars)
+
+part1 = reacted.len
+
+# Reacting first gives the same result, from a shorter polymer.
+without(units, c) = units.filter(u => u != c and u != chr(ord(c) - 32))
+
+part2 = (ord('a')..ord('z')).map(n => react(without(reacted, chr(n))).len).min

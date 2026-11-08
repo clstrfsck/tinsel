@@ -1,0 +1,79 @@
+day 2022.13
+
+# Pairs of packets: nested lists of ints. Two ints compare as numbers, two
+# lists element by element (a shorter list that runs out first is smaller),
+# and an int against a list compares as a one-element list.
+# Part 1: the sum of the (1-based) indices of the pairs already in order.
+# Part 2: sort every packet with the dividers [[2]] and [[6]], and multiply
+#         the dividers' (1-based) positions.
+
+example """
+[1,1,3,1,1]
+[1,1,5,1,1]
+
+[[1],[2,3,4]]
+[[1],4]
+
+[9]
+[[8,7,6]]
+
+[[4,4],4,4]
+[[4,4],4,4,4]
+
+[7,7,7,7]
+[7,7,7]
+
+[]
+[3]
+
+[[[]]]
+[[]]
+
+[1,[2,[3,[4,[5,6,7]]]],8,9]
+[1,[2,[3,[4,[5,6,0]]]],8,9]
+"""
+  part1 = 13
+  part2 = 140
+
+answers
+  part1 = 5808
+  part2 = 22713
+
+# Parsing: value(s, i) gives (the value starting at s[i], the index after it).
+@nomemo
+value(s, i) =
+  if s[i] == '[' then items(s, i + 1, [])
+  else (int(digits.join), i + digits.len)
+  where
+    digits = s[i..].take_while(c => '0' <= c <= '9')
+
+@nomemo
+items(s, i, acc) = match s[i]
+  ']' => (acc, i + 1)
+  ',' => items(s, i + 1, acc)
+  _ => next_item(s, value(s, i), acc)
+
+next_item(s, (v, j), acc) = items(s, j, acc ++ [v])
+
+packet(s) = value(s, 0).0
+
+packets = input.lines.filter(_ != "").map(packet)
+
+# -1, 0 or 1, as a is before, level with, or after b.
+@nomemo
+compare(a: int, b: int) = sign(a - b)
+compare(a: int, b) = compare([a], b)
+compare(a, b: int) = compare(a, [b])
+compare([], []) = 0
+compare([], _) = -1
+compare(_, []) = 1
+compare([a, ..as], [b, ..bs]) = if c != 0 then c else compare(as, bs)
+  where
+    c = compare(a, b)
+
+part1 = [i + 1 for (i, [a, b]) in packets.chunks(2).enumerate if compare(a, b) < 0].sum
+
+# A divider's position is one more than the number of packets before it.
+position(d) = 1 + (packets ++ [[[2]], [[6]]]).count(compare(_, d) < 0)
+
+part2 = position([[2]]) * position([[6]])

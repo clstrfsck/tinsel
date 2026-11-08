@@ -1,0 +1,48 @@
+day 2018.16
+include "device.tin"
+
+# Samples of the device's registers before and after an instruction whose
+# opcode number is unknown, then a program.
+# Part 1: how many samples behave like three or more opcodes.
+# Part 2: register 0 after running the program, once the opcode numbers
+#         are worked out.
+
+example """
+Before: [3, 2, 1, 1]
+9 2 1 2
+After:  [3, 2, 2, 1]
+
+
+
+1 2 3 4
+"""
+  part1 = 1
+
+answers
+  part1 = 592
+  part2 = 557
+
+# (registers before, instruction, registers after)
+samples = [(before.ints.tuple, op.ints, after.ints.tuple) for [before, op, after] in input.blocks.map(.lines) if before.starts_with("Before")]
+
+# The opcode names a sample could be.
+could_be((before, [_, a, b, c], after)) = {name for (name, f) in ops.items if exec(f, a, b, c, before) == after}
+
+part1 = samples.count(could_be(_).len >= 3)
+
+# The names each opcode number could have, from every sample using it.
+candidates = {n: names.intersection for (n, names) in samples.group_by(s => s.1[0], could_be).items}
+
+# Repeatedly fix an opcode that has only one name left.
+resolve(cands, fixed) =
+  if cands.len == 0 then fixed
+  else resolve({m: names.remove(name) for (m, names) in cands.items if m != n}, fixed.set(n, name))
+  where
+    (n, names) = cands.items.first((_, ns) => ns.len == 1)
+    name = names.first
+
+opcodes = resolve(candidates, {})
+
+code = input.blocks.last.lines.map(.ints)
+
+part2 = code.fold((0, 0, 0, 0), (regs, [n, a, b, c]) => exec(ops[opcodes[n]], a, b, c, regs))[0]

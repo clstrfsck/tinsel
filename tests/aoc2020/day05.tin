@@ -1,0 +1,26 @@
+day 2020.5
+
+# Boarding passes like FBFBBFFRLR: the letters are the bits of the seat ID,
+# with B and R as 1 and F and L as 0.
+# Part 1: the highest seat ID.
+# Part 2: your seat: the only missing ID whose neighbours are both present.
+
+example """
+BFFFBBFRRR
+FFFBBBFRRR
+BBFFBBFRLL
+"""
+  part1 = 820
+
+answers
+  part1 = 883
+  part2 = 532
+
+seat(pass) = pass.chars.fold(0, (n, c) => 2 * n + int(c in "BR"))
+
+ids = set(input.lines.map(seat))
+
+part1 = ids.max
+part2 = (ids.min..ids.max).first(i => i not in ids)
+
+test "seat IDs" = ["BFFFBBFRRR", "FFFBBBFRRR", "BBFFBBFRLL"].map(seat) == [567, 119, 820]

@@ -1,0 +1,49 @@
+day 2021.3
+
+# A diagnostic report of binary numbers, all the same width.
+# Part 1: gamma has each bit set to the most common bit in that position,
+#         and epsilon the least common. Their product.
+# Part 2: the oxygen rating keeps the numbers with the most common bit in
+#         each position in turn (1 on a tie) until one is left; the CO2
+#         rating keeps the least common (0 on a tie). Their product.
+
+example """
+00100
+11110
+10110
+10111
+10101
+01111
+00111
+11100
+10000
+11001
+00010
+01010
+"""
+  part1 = 198
+  part2 = 230
+
+answers
+  part1 = 852500
+  part2 = 1007985
+
+report = input.lines
+width = report[0].len
+
+binary(bits) = int(bits, 2)
+
+# The most common bit at position i, with 1 winning a tie.
+common(nums, i) = if 2 * nums.count(_[i] == '1') >= nums.len then '1' else '0'
+flip('1') = '0'
+flip('0') = '1'
+
+gamma = (0..<width).map(common(report, _)).join
+
+part1 = binary(gamma) * binary(gamma.chars.map(flip).join)
+
+# Keep the numbers whose bit i is wanted(nums, i), until one is left.
+rating(want, [n], _) = binary(n)
+rating(want, nums, i) = rating(want, nums.filter(_[i] == want(nums, i)), i + 1)
+
+part2 = rating(common, report, 0) * rating((nums, i) => flip(common(nums, i)), report, 0)

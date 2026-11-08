@@ -1,0 +1,56 @@
+day 2023.21
+
+# A garden map; an elf starts at S and steps up, down, left or right onto
+# garden plots (not rocks, #).
+# Part 1: how many plots the elf can be on after exactly `steps` steps.
+# Part 2: the map repeats forever in every direction. How many plots after
+#         exactly 26501365 steps?
+
+example """
+...........
+.....###.#.
+.###.##..#.
+..#.#...#..
+....#.#....
+.##..S####.
+.##..#...#.
+.......##..
+.##.#.####.
+.##..##.##.
+...........
+"""
+  with steps = 6
+  part1 = 16
+
+answers
+  part1 = 3762
+  part2 = 621944727930768
+
+steps = 64
+
+garden = input.grid
+start = garden.find('S')
+size = garden.width
+
+# Distances from S on the endlessly repeating map, out to `radius` steps.
+distances(radius) = bfs(start, p => nbrs4(p).filter(q =>
+  garden[q % (size, size)] != '#' and manhattan(q, start) <= radius))
+
+# Plots reachable in exactly n steps: those at most n away, with the same
+# parity as n (the elf can step back and forth to use up spare steps).
+reachable(dist, n) = dist.values.count(d => d <= n and d % 2 == n % 2)
+
+part1 = reachable(distances(steps), steps)
+
+# The real input has clear lines through S and around the edges, and
+# 26501365 = 65 + 202300 * 131. The count grows quadratically in the number
+# of whole maps crossed, so fit a quadratic through 65, 196 and 327 steps.
+part2 = a * k * k + b * k + c
+  where
+    half = size / 2
+    k = (26501365 - half) / size
+    dist = distances(half + 2 * size)
+    [y0, y1, y2] = [reachable(dist, half + i * size) for i in 0..2]
+    c = y0
+    a = (y2 - 2 * y1 + y0) / 2
+    b = y1 - y0 - a

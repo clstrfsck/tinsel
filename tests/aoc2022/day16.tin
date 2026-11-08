@@ -1,0 +1,57 @@
+day 2022.16
+
+# Valves joined by tunnels, each with a flow rate. Moving along a tunnel
+# takes a minute, and so does opening a valve, which then releases its rate
+# in pressure every minute that is left.
+# Part 1: the most pressure you can release in 30 minutes, from AA.
+# Part 2: you and an elephant each have 26 minutes, both starting at AA.
+
+example """
+Valve AA has flow rate=0; tunnels lead to valves DD, II, BB
+Valve BB has flow rate=13; tunnels lead to valves CC, AA
+Valve CC has flow rate=2; tunnels lead to valves DD, BB
+Valve DD has flow rate=20; tunnels lead to valves CC, AA, EE
+Valve EE has flow rate=3; tunnels lead to valves FF, DD
+Valve FF has flow rate=0; tunnels lead to valves EE, GG
+Valve GG has flow rate=0; tunnels lead to valves FF, HH
+Valve HH has flow rate=22; tunnel leads to valve GG
+Valve II has flow rate=0; tunnels lead to valves AA, JJ
+Valve JJ has flow rate=21; tunnel leads to valve II
+"""
+  part1 = 1651
+  part2 = 1707
+
+answers
+  part1 = 1775
+  part2 = 2351
+
+rate = {v: r for "Valve {v} has flow rate={r:int}; {_}" in input.lines}
+tunnels = {v: rest.replace(",", "").words[4..] for "Valve {v} has flow rate={_}; {rest}" in input.lines}
+
+# Only valves with a positive rate are worth visiting. Valve i of these is
+# bit i of a mask of open valves.
+useful = rate.keys.filter(rate[_] > 0)
+dist = {v: bfs(v, tunnels[_]) for v in useful ++ ["AA"]}
+
+# Every way to go on from here, as (open valves, total pressure released),
+# including stopping now.
+@nomemo
+explore(pos, time, mask, total) =
+  [(mask, total)] ++
+    [r for (i, v) in useful.enumerate
+       if mask & (1 << i) == 0
+       let t = time - dist[pos][v] - 1
+       if t > 0
+       for r in explore(v, t, mask | (1 << i), total + t * rate[v])]
+
+part1 = explore("AA", 30, 0, 0).map(.1).max
+
+# Part 2: you and the elephant open disjoint sets of valves. upto(mask) is
+# the most released by opening some subset of mask.
+best26 = {m: ts.max for (m, ts) in explore("AA", 26, 0, 0).group_by(.0, .1).items}
+full = (1 << useful.len) - 1
+
+upto(mask) = max(best26.get(mask, 0),
+                 [upto(mask - (1 << i)) for i in useful.indices if mask & (1 << i) != 0].max ?? 0)
+
+part2 = best26.items.map((m, t) => t + upto(full - m)).max

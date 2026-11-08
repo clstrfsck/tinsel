@@ -1,0 +1,48 @@
+day 2022.18
+
+# A lava droplet as a list of 1x1x1 cubes.
+# Part 1: the surface area: faces not touching another cube.
+# Part 2: the exterior surface area, leaving out air pockets trapped inside.
+
+example """
+1,1,1
+2,1,1
+"""
+  part1 = 10
+  part2 = 10
+
+example """
+2,2,2
+1,2,2
+3,2,2
+2,1,2
+2,3,2
+2,2,1
+2,2,3
+2,2,4
+2,2,6
+1,2,5
+3,2,5
+2,1,5
+2,3,5
+"""
+  part1 = 64
+  part2 = 58
+
+answers
+  part1 = 4242
+  part2 = 2428
+
+cubes = set(input.lines.map(.ints.tuple))
+
+sides = [(1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1)]
+faces(c) = sides.map(c + _)
+
+part1 = [f for c in cubes for f in faces(c) if f not in cubes].len
+
+# Flood the air around the droplet, inside a box one bigger on each side.
+lo = (0..<3).map(i => cubes.map(.[i]).min - 1).tuple
+hi = (0..<3).map(i => cubes.map(.[i]).max + 1).tuple
+outside = bfs(lo, c => faces(c).filter(f => f not in cubes and all(f .>= lo) and all(f .<= hi)))
+
+part2 = [f for c in cubes for f in faces(c) if f in outside].len

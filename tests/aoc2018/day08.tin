@@ -1,0 +1,54 @@
+day 2018.8
+
+# A tree written as numbers: each node is a count of children, a count of
+# metadata entries, the children, then the metadata entries.
+# Part 1: the sum of all the metadata entries.
+# Part 2: the value of the root: for a node without children, the sum of
+#         its metadata; otherwise the sum of the values of the children
+#         its metadata entries number from 1, skipping missing ones.
+
+example """
+2 3 0 3 10 11 12 1 1 0 1 99 2 1 1 2
+"""
+  part1 = 138
+  part2 = 66
+
+answers
+  part1 = 40977
+  part2 = 27490
+
+nums = input.ints
+
+# The node starting at index i: (its metadata, its children, the index
+# just after it).
+node(i) = (nums[j..<j + m], kids, j + m)
+  where
+    (n, m) = (nums[i], nums[i + 1])
+    (kids, j) = children(n, i + 2, [])
+
+# The children found so far are passed along, so calls never repeat.
+@nomemo
+children(0, i, kids) = (kids, i)
+children(n, i, kids) = children(n - 1, j, kids ++ [(meta, grandkids)])
+  where
+    (meta, grandkids, j) = node(i)
+
+# A tree is (metadata, children).
+root = match node(0)
+  (meta, kids, _) => (meta, kids)
+
+# These recurse outside tail position, but never meet the same subtree
+# twice, so memoizing them would only spend time hashing subtrees.
+@nomemo
+total((meta, kids)) = meta.sum + kids.map(total).sum
+
+part1 = total(root)
+
+@nomemo
+value(([], _)) = 0
+value((meta, [])) = meta.sum
+value((meta, kids)) = meta.map(i => if 1 <= i <= kids.len then values[i - 1] else 0).sum
+  where
+    values = kids.map(value)
+
+part2 = value(root)

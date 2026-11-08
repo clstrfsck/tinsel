@@ -1,0 +1,3 @@
+# `Value`'s Hash/Eq never depend on its interior mutability: generators are
+# hashed and compared by pointer.
+ignore-interior-mutability = ["tinsel::value::Value"]

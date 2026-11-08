@@ -1,0 +1,17 @@
+day 2019.2
+include "intcode.tin"
+
+# The first Intcode puzzle: add (1) and multiply (2) only.
+# Part 1: set address 1 to 12 and address 2 to 2, run, and read address 0.
+# Part 2: which noun (address 1) and verb (address 2), each 0 to 99, make
+#         the program leave 19690720 at address 0? Give 100 * noun + verb.
+# The examples are tests in intcode.tin.
+
+answers
+  part1 = 3850704
+  part2 = 6718
+
+result(noun, verb) = peek(run(poke(poke(intcode(input), 1, noun), 2, verb), []).1, 0)
+
+part1 = result(12, 2)
+part2 = [100 * n + v for n in 0..99 for v in 0..99].first(nv => result(nv / 100, nv % 100) == 19690720)

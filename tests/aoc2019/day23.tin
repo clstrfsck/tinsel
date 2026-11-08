@@ -1,0 +1,48 @@
+day 2019.23
+include "intcode.tin"
+
+# 50 Intcode computers on a network, addresses 0 to 49. Each is first given
+# its address. It sends a packet as three outputs (address, X, Y), and
+# receives packets as two inputs, X then Y; with no packet waiting, it
+# reads -1.
+# Part 1: the Y of the first packet sent to address 255.
+# Part 2: address 255 is a NAT, which keeps the last packet sent to it.
+#         When the network is idle (no packets waiting, and nobody sent
+#         anything), it sends that packet to address 0. The first Y the NAT
+#         sends to address 0 twice in a row.
+
+answers
+  part1 = 23266
+  part2 = 17493
+
+# The network: (machines by address, packets waiting by address as a flat
+# list of X, Y values, packets sent to 255, whether anything was sent).
+absorb((ms, waiting, nat, busy), a, (_, m, outs)) =
+  outs.chunks(3).fold((ms.set(a, m), waiting, nat, busy or outs != []), send)
+
+send((ms, waiting, nat, busy), [to, x, y]) =
+  if to == 255 then (ms, waiting, nat ++ [(x, y)], busy)
+  else (ms, waiting.set(to, waiting.get(to, []) ++ [x, y]), nat, busy)
+
+boot = (0..<50).fold(({}, {}, [], false), (net, a) => absorb(net, a, run(intcode(input), [a])))
+
+# Give each computer, in turn, its waiting packets (or -1).
+round((ms, waiting, nat, _)) = (0..<50).fold((ms, waiting, nat, false), deliver)
+
+deliver((ms, waiting, nat, busy), a) =
+  absorb((ms, waiting.remove(a), nat, busy), a, run(ms[a], waiting.get(a, [-1])))
+
+first_to_nat(net) = if net.2 != [] then net.2[0].1 else first_to_nat(round(net))
+
+part1 = first_to_nat(boot)
+
+# Run until the network is idle, then let the NAT wake address 0.
+nat_loop(net, last_y) =
+  if busy or nat == [] or waiting.values.any(_ != []) then nat_loop(round(net), last_y)
+  else if y == last_y then y
+  else nat_loop(round((ms, {0: [x, y]}, [(x, y)], true)), y)
+  where
+    (ms, waiting, nat, busy) = net
+    (x, y) = nat.last
+
+part2 = nat_loop(boot, none)

@@ -1,0 +1,49 @@
+day 2025.9
+
+# Red tiles at the corners of a closed loop; the loop's edges and inside are
+# green. Choose two red tiles as opposite corners of a rectangle.
+# Part 1: the largest rectangle.
+# Part 2: the largest rectangle made only of red and green tiles.
+# Reference: reference/2025/d09.py
+
+example """
+7,1
+11,1
+11,7
+9,7
+9,5
+2,5
+2,3
+7,3
+"""
+  part1 = 50
+  part2 = 24
+
+answers
+  part1 = 4749672288
+  part2 = 1479665889
+
+red = input.lines.map(.ints.tuple)
+
+area((x1, y1), (x2, y2)) = (abs(x1 - x2) + 1) * (abs(y1 - y2) + 1)
+
+part1 = red.combos(2).map(area).max
+
+# The loop's edges, as ((xmin, ymin), (xmax, ymax)) boxes.
+edges = [((min(x1, x2), min(y1, y2)), (max(x1, x2), max(y1, y2)))
+         for ((x1, y1), (x2, y2)) in zip(red, red[1..] ++ [red[0]])]
+
+# A rectangle lies inside the loop when no edge passes through its interior,
+# and its centre is inside. Coordinates are doubled so that the centre is a
+# whole number.
+inside(((ax, ay), (bx, by))) = not edges.any(crosses) and centre_inside
+  where
+    (lx, hx) = (min(ax, bx), max(ax, bx))
+    (ly, hy) = (min(ay, by), max(ay, by))
+    crosses(((ex1, ey1), (ex2, ey2))) = ex1 < hx and ex2 > lx and ey1 < hy and ey2 > ly
+    (cx, cy) = (lx + hx, ly + hy)
+    # Ray casting to the right, against the vertical edges.
+    centre_inside =
+      edges.count(((ex1, ey1), (ex2, ey2)) => ex1 == ex2 and 2 * ex1 > cx and 2 * ey1 <= cy < 2 * ey2) % 2 == 1
+
+part2 = area(red.combos(2).sort_by(p => -area(p)).first(inside))

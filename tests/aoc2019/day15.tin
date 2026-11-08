@@ -1,0 +1,33 @@
+day 2019.15
+include "intcode.tin"
+
+# A repair droid runs an Intcode program. Given a move (1 north, 2 south,
+# 3 west, 4 east), it replies 0 if it hit a wall, 1 if it moved, or 2 if it
+# moved and found the oxygen system.
+# Part 1: the fewest moves from the start to the oxygen system.
+# Part 2: oxygen spreads one step a minute from the oxygen system. How long
+#         until it fills every open cell?
+
+answers
+  part1 = 226
+  part2 = 342
+
+moves = [(N, 1), (S, 2), (W, 3), (E, 4)]
+
+# Explore breadth first. Machines are values, so each place reached keeps
+# its own copy of the droid, ready to try the next moves from there.
+# `cells` maps each position tried to the droid's reply.
+explore([], cells) = cells
+explore([(p, m), ..rest], cells) = explore(rest ++ found, new_cells)
+  where
+    tries = [(p + d, run(m, [cmd])) for (d, cmd) in moves if p + d not in cells]
+    new_cells = tries.fold(cells, (c, (q, (_, _, outs))) => c.set(q, outs[0]))
+    found = [(q, m2) for (q, (_, m2, outs)) in tries if outs[0] != 0]
+
+cells = explore([((0, 0), intcode(input))], {(0, 0): 1})
+oxygen = cells.keys.first(cells[_] == 2)
+
+open_nbrs(p) = nbrs4(p).filter(q => cells.get(q, 0) != 0)
+
+part1 = bfs((0, 0), open_nbrs, goal: oxygen).0
+part2 = bfs(oxygen, open_nbrs).values.max

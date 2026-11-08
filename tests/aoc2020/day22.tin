@@ -1,0 +1,62 @@
+day 2020.22
+
+# Two players each have a deck. Each round both play their top card, and
+# the higher card's player puts both at the bottom of their deck, their own
+# first. A score is the sum of each card times its place from the bottom.
+# Part 1: the winning player's score.
+# Part 2: Recursive Combat: a repeated position in a game makes player 1
+#         win it, and when both players have at least as many cards left as
+#         the cards they played, a sub-game with that many cards from each
+#         deck decides the round. The winning player's score.
+
+example """
+Player 1:
+9
+2
+6
+3
+1
+
+Player 2:
+5
+8
+4
+7
+10
+"""
+  part1 = 306
+  part2 = 291
+
+answers
+  part1 = 32033
+  part2 = 34901
+
+[deck1, deck2] = input.blocks.map(b => b.lines[1..].map(int))
+
+score(deck) = deck.reverse.enumerate.map((i, c) => (i + 1) * c).sum
+
+combat([], d2) = score(d2)
+combat(d1, []) = score(d1)
+combat([a, ..r1], [b, ..r2]) =
+  if a > b then combat(r1 ++ [a, b], r2) else combat(r1, r2 ++ [b, a])
+
+part1 = combat(deck1, deck2)
+
+# A game gives (winner, winner's deck).
+@memo
+game(d1, d2) = rounds(d1, d2, set())
+
+@nomemo
+rounds([], d2, _) = (2, d2)
+rounds(d1, [], _) = (1, d1)
+rounds(d1, d2, seen) =
+  if (d1, d2) in seen then (1, d1)
+  else if winner == 1 then rounds(r1 ++ [a, b], r2, seen.add((d1, d2)))
+  else rounds(r1, r2 ++ [b, a], seen.add((d1, d2)))
+  where
+    [a, ..r1] = d1
+    [b, ..r2] = d2
+    winner = if r1.len >= a and r2.len >= b then game(r1[..<a], r2[..<b]).0
+             else if a > b then 1 else 2
+
+part2 = score(game(deck1, deck2).1)

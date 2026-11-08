@@ -1,0 +1,47 @@
+day 2020.8
+
+# A program of acc, jmp and nop instructions, each with a signed argument.
+# Part 1: the accumulator just before any instruction runs a second time.
+# Part 2: exactly one jmp should be nop, or nop be jmp, so that the program
+#         ends by running past its last instruction. The accumulator then.
+
+example """
+nop +0
+acc +1
+jmp +4
+acc +3
+jmp -3
+acc -99
+acc +1
+jmp -4
+acc +6
+"""
+  part1 = 5
+  part2 = 8
+
+answers
+  part1 = 1521
+  part2 = 1016
+
+program = [(op, n) for "{op} {n:int}" in input.lines]
+
+# Run until an instruction repeats or the program ends: (ended, acc).
+execute(prog, ip, acc, seen) =
+  if ip == prog.len then (true, acc)
+  else if ip in seen then (false, acc)
+  else match prog[ip]
+    ("acc", n) => execute(prog, ip + 1, acc + n, seen.add(ip))
+    ("jmp", n) => execute(prog, ip + n, acc, seen.add(ip))
+    ("nop", _) => execute(prog, ip + 1, acc, seen.add(ip))
+
+part1 = execute(program, 0, 0, set()).1
+
+swap("jmp") = "nop"
+swap("nop") = "jmp"
+swap(op) = op
+
+fixed(i) = [if j == i then (swap(op), n) else (op, n) for (j, (op, n)) in program.enumerate]
+
+part2 = program.indices.filter(i => program[i].0 != "acc")
+  .map(i => execute(fixed(i), 0, 0, set()))
+  .first(.0).1

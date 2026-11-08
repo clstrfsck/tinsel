@@ -1,0 +1,40 @@
+day 2024.7
+
+# Each line is a test value and some numbers. Operators are evaluated left to
+# right, with no precedence.
+# Part 1: add up the test values that can be made with + and *.
+# Part 2: the same, also allowing || (concatenating digits).
+
+example """
+190: 10 19
+3267: 81 40 27
+83: 17 5
+156: 15 6
+7290: 6 8 6 15
+161011: 16 10 13
+192: 17 8 14
+21037: 9 7 18 13
+292: 11 6 16 20
+"""
+  part1 = 3749
+  part2 = 11387
+
+answers
+  part1 = 1545311493300
+  part2 = 169122112716571
+
+equations = input.lines.map(l => (l.ints[0], l.ints[1..]))
+
+# Work backwards from the target, undoing the last operator each time.
+possible(_, t, [x]) = t == x
+possible(cat, t, [..rest, x]) =
+  (t >= x and possible(cat, t - x, rest)) or
+  (t % x == 0 and possible(cat, t / x, rest)) or
+  (cat and t % p == x and possible(cat, t / p, rest))
+  where
+    p = 10 ** str(x).len
+
+calibration(cat) = equations.filter((t, ns) => possible(cat, t, ns)).map(.0).sum
+
+part1 = calibration(false)
+part2 = calibration(true)

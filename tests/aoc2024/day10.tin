@@ -1,0 +1,37 @@
+day 2024.10
+
+# A height map. A hiking trail goes from 0 to 9, climbing by exactly 1 at
+# each step (up, down, left or right).
+# Part 1: for each 0, count the 9s it can reach; add those up.
+# Part 2: for each 0, count the distinct trails from it; add those up.
+
+example """
+89010123
+78121874
+87430965
+96549874
+45678903
+32019012
+01329801
+10456732
+"""
+  part1 = 36
+  part2 = 81
+
+answers
+  part1 = 538
+  part2 = 1110
+
+topo = input.grid(int)
+
+up(p) = topo.nbrs4(p).filter(q => topo[q] == topo[p] + 1)
+
+# The 9s reachable from p, and the number of trails from p. Both are
+# memoized automatically.
+peaks(p) = if topo[p] == 9 then {p} else set(up(p).map(peaks).flatten)
+trails(p) = if topo[p] == 9 then 1 else up(p).map(trails).sum
+
+heads = topo.where(0)
+
+part1 = heads.map(p => peaks(p).len).sum
+part2 = heads.map(trails).sum

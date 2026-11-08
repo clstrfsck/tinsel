@@ -1,0 +1,52 @@
+day 2019.21
+include "intcode.tin"
+
+# A springdroid walks along a hull with holes, jumping four tiles at a
+# time. It runs a springscript program of up to 15 instructions (AND, OR,
+# NOT on registers), whose J register decides whether to jump. Sensors A to
+# D say whether there is ground 1 to 4 tiles ahead. If the droid gets
+# across, the Intcode program outputs the hull damage it saw.
+# Part 1: with the WALK command, the hull damage.
+# Part 2: with the RUN command, which adds sensors E to I (5 to 9 tiles
+#         ahead), the hull damage.
+
+answers
+  part1 = 19355436
+  part2 = 1142618405
+
+# Jump if there is a hole in the next three tiles and ground to land on.
+walk = """
+NOT A J
+NOT B T
+OR T J
+NOT C T
+OR T J
+AND D J
+WALK
+"""
+
+# The same, but only if after landing the droid can either step forward
+# (E) or jump again at once (H).
+run_script = """
+NOT A J
+NOT B T
+OR T J
+NOT C T
+OR T J
+AND D J
+NOT E T
+NOT T T
+OR H T
+AND T J
+RUN
+"""
+
+# The droid's last output is the damage if it got across; otherwise it is
+# a picture of its fall, ending in a newline.
+damage(script) = if out < 128 then outs.map(chr).join else out
+  where
+    outs = outputs(input, script.chars.map(ord))
+    out = outs.last
+
+part1 = damage(walk)
+part2 = damage(run_script)

@@ -1,0 +1,31 @@
+day 2021.9
+
+# A heightmap of digits.
+# Part 1: the sum of 1 + height over the low points (lower than every
+#         neighbour).
+# Part 2: basins are the areas bounded by height 9. The product of the
+#         sizes of the three largest.
+
+example """
+2199943210
+3987894921
+9856789892
+8767896789
+9899965678
+"""
+  part1 = 15
+  part2 = 1134
+
+answers
+  part1 = 417
+  part2 = 1148965
+
+heights = input.grid(int)
+
+low(p) = heights.nbrs4(p).all(q => heights[q] > heights[p])
+
+part1 = heights.positions.filter(low).map(heights[_] + 1).sum
+
+basins = components(heights.where(_ != 9), heights.nbrs4(_))
+
+part2 = basins.map(.len).sort(desc: true).take(3).product

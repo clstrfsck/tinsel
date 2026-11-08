@@ -1,0 +1,38 @@
+day 2025.11
+
+# Count paths through a directed acyclic graph to "out".
+# Part 2 counts only paths that visit both "dac" and "fft".
+# Reference: reference/2025/d11.hs (lazy self-referential memo table).
+#
+# Tinsel needs no explicit table: `ways` is recursive, so it is memoized
+# automatically (SPEC 8.1).
+
+example """
+you: a b
+a: out dac
+b: fft
+svr: fft x
+fft: dac y
+x: dac
+dac: out z
+y: out
+z: out
+"""
+  part1 = 6
+  part2 = 2
+
+answers
+  part1 = 539
+  part2 = 413167078187872
+
+graph = { name: outs.words for "{name}: {outs}" in input.lines }
+flag  = { "dac": 1, "fft": 2 }
+
+# Paths from n to "out". f is a 2-bit set of the required nodes seen so far,
+# and a path counts only when both have been seen. Part 1 starts with both
+# bits set, so every path counts.
+ways("out", f) = int(f == 3)
+ways(n, f)     = sum(ways(m, f | flag.get(n, 0)) for m in graph.get(n, []))
+
+part1 = ways("you", 3)
+part2 = ways("svr", 0)

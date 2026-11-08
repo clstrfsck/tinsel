@@ -1,0 +1,91 @@
+# Automatic memoization and deep recursion. SPEC section 8.
+
+# Takes far too long without memoization; instant with it.
+fib(0) = 0
+fib(1) = 1
+fib(n) = fib(n - 1) + fib(n - 2)
+test "recursive functions are memoized" =
+  fib(300) == 222232244629420445529739893461909967206666939096499764990979600
+
+# Mutual recursion: both functions are in one strongly connected component.
+is_even(0) = true
+is_even(n) = is_odd(n - 1)
+is_odd(0)  = false
+is_odd(n)  = is_even(n - 1)
+test "mutual recursion" = (is_even(1000), is_odd(1001)) == (true, true)
+
+# The interpreter must not overflow the native stack (SPEC 8.2).
+depth(0) = 0
+depth(n) = 1 + depth(n - 1)
+test "deep recursion" = depth(1_000_000) == 1_000_000
+
+# Functions in a where block get a separate cache for each call. If the cache
+# were shared, paths(x, y) from the 2x2 call would be reused by the 16x16
+# call and give a wrong answer.
+lattice_paths(w, h) = paths(0, 0)
+  where
+    paths(x, y) when x == w or y == h = 1
+    paths(x, y) = paths(x + 1, y) + paths(x, y + 1)
+test "where memo is scoped to the enclosing call" =
+  (lattice_paths(2, 2), lattice_paths(16, 16)) == (6, 601080390)
+
+# Arguments can be any hashable value: tuples, lists, strings, maps.
+count_splits([]) = 1
+count_splits(xs) = sum(count_splits(xs[k..]) for k in 1..xs.len)
+test "list arguments are memo keys" = count_splits(list(1..30)) == 2 ** 29
+
+# A memoized function can take a lambda: function arguments are compared by
+# identity (SPEC 8.1). The recursion passes the same lambda along, so the
+# cache works; without it, stairs(200, ...) would never finish. Different
+# lambdas never share cache entries, even if they behave alike.
+stairs(0, _) = 1
+stairs(n, _) when n < 0 = 0
+stairs(n, allowed) = sum(stairs(n - s, allowed) for s in 1..3 if allowed(s))
+test "lambda arguments are compared by identity" =
+  (stairs(10, _ == 1), stairs(10, _ <= 2), stairs(10, _ <= 3)) == (1, 89, 274)
+test "memoized with a lambda argument" =
+  stairs(200, _ <= 3) == 52622583840983769603765180599790256716084480555530641
+
+# A call with a generator argument isn't cached, so reading the generator a
+# second time is still an error.
+@memo
+consume(g) = list(g).len
+consume_twice(n) = (consume(g), consume(g))
+  where
+    g = (x for x in 1..n)
+test_error "a generator argument isn't cached" = consume_twice(3)
+
+# The same for a generator inside another argument.
+@memo
+consume_first(pair) = list(pair.0).len
+consume_first_twice(n) = (consume_first((g, 1)), consume_first((g, 1)))
+  where
+    g = (x for x in 1..n)
+test_error "nor is one inside a tuple" = consume_first_twice(3)
+
+# Or inside a grid's cells.
+@memo
+consume_cell(g) = list(g[(0, 0)]).len
+consume_cell_twice(n) = (consume_cell(g), consume_cell(g))
+  where
+    g = "a".grid(c => (x for x in 1..n))
+test_error "nor is one inside a grid" = consume_cell_twice(3)
+
+@nomemo
+countdown(0) = []
+countdown(n) = [n] ++ countdown(n - 1)
+test "@nomemo still computes the same result" = countdown(3) == [3, 2, 1]
+
+# A function memoized automatically warns (on stderr, once) when its
+# arguments hold more than 1000 values (SPEC 8.1). @memo keeps the memo
+# without the warning, and @nomemo drops it; neither changes the result.
+# tests/memo_warning.rs checks the warning itself.
+@memo
+grow_memo(xs, 0) = xs.len
+grow_memo(xs, n) = grow_memo(xs ++ [n], n - 1) + 0
+test "@memo with large arguments still memoizes" = grow_memo((1..1000).list, 50) == 1050
+
+@nomemo
+grow_plain(xs, 0) = xs.len
+grow_plain(xs, n) = grow_plain(xs ++ [n], n - 1) + 0
+test "@nomemo with large arguments gives the same result" = grow_plain((1..1000).list, 50) == 1050

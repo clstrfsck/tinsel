@@ -1,0 +1,47 @@
+day 2021.10
+
+# Lines of brackets ()[]{}<>. Some lines are corrupted (a closing bracket
+# doesn't match), and the rest are incomplete.
+# Part 1: the total syntax error score of the first wrong closing bracket
+#         on each corrupted line.
+# Part 2: the middle completion score of the incomplete lines.
+
+example """
+[({(<(())[]>[[{[]{<()<>>
+[(()[<>])]({[<{<<[]>>(
+{([(<{}[<>[]}>{[]{[(<()>
+(((({<>}<{<{<>}{[]{[]{}
+[[<[([]))<([[{}[[()]]]
+[{[{({}]{}}([{[{{{}}([]
+{<[[]]>}<{[{[{[]{()[[[]
+[<(<(<(<{}))><([]([]()
+<{([([[(<>()){}]>(<<{{
+<{([{{}}[<[[[<>{}]]]>[]]
+"""
+  part1 = 26397
+  part2 = 288957
+
+answers
+  part1 = 399153
+  part2 = 2995077699
+
+closer = {'(': ')', '[': ']', '{': '}', '<': '>'}
+
+# Gives ("corrupt", c) for the first bad closing bracket, or
+# ("incomplete", the closing brackets still owed, innermost first).
+check([], owed) = ("incomplete", owed)
+check([c, ..rest], owed) =
+  if c in closer then check(rest, [closer[c]] ++ owed)
+  else if owed != [] and owed[0] == c then check(rest, owed[1..])
+  else ("corrupt", c)
+
+results = input.lines.map(l => check(l.chars, []))
+
+error_score = {')': 3, ']': 57, '}': 1197, '>': 25137}
+complete_score = {')': 1, ']': 2, '}': 3, '>': 4}
+
+part1 = [error_score[c] for ("corrupt", c) in results].sum
+
+scores = [owed.fold(0, (s, c) => 5 * s + complete_score[c]) for ("incomplete", owed) in results].sort
+
+part2 = scores[scores.len / 2]

@@ -1,0 +1,61 @@
+day 2018.20
+
+# A regex of routes through a facility of rooms and doors, starting from
+# one room: N, E, S and W steps, with branches (a|b|c) that each start
+# from the same room. An empty option skips the branch.
+# Part 1: the largest number of doors on a shortest path to any room.
+# Part 2: how many rooms are at least 1000 doors away.
+
+example "^WNE$"
+  part1 = 3
+
+example "^ENWWW(NEEE|SSE(EE|N))$"
+  part1 = 10
+
+example "^ENNWSWW(NEWS|)SSSEEN(WNSE|)EE(SWEN|)NNN$"
+  part1 = 18
+
+example "^ESSWWN(E|NNENN(EESS(WNSE|)SSS|WWWSSSSE(SW|NNNE)))$"
+  part1 = 23
+
+example "^WSSEESWWWNW(S|NENNEEEENN(ESSSSW(NWSW|SSEN)|WSWWN(E|WWS(E|SS))))$"
+  part1 = 31
+
+answers
+  part1 = 3885
+  part2 = 8677
+
+# A list, so that indexing it is quick.
+regex = input.trim.chars
+
+steps = {'N': N, 'E': E, 'S': S, 'W': W}
+
+# Follows the regex from index i, starting in any of the rooms in `here`,
+# up to the end of the current option. Gives (the index reached, the
+# rooms the option can end in, the doors seen so far as (room, room)
+# pairs). This and `branch` call each other outside tail position, but
+# never with the same arguments twice, so memoizing them would only cost
+# time hashing the doors.
+@nomemo
+route(i, here, doors) = match regex[i]
+  c when c in steps => route(i + 1, {p + steps[c] for p in here}, doors | {e for p in here for e in door(p, p + steps[c])})
+  '(' => after_branch(branch(i + 1, here, set(), doors))
+  _ => (i, here, doors)
+
+door(p, q) = [(p, q), (q, p)]
+
+after_branch((i, ends, doors)) = route(i, ends, doors)
+
+# The options of a branch, each starting from the rooms in `start`.
+@nomemo
+branch(i, start, ends, doors) = match route(i, start, doors)
+  (j, out, ds) when regex[j] == '|' => branch(j + 1, start, ends | out, ds)
+  (j, out, ds) => (j + 1, ends | out, ds)
+
+doors = route(1, {(0, 0)}, set()).2
+
+rooms = bfs((0, 0), p => DIRS4.map(p + _).filter(q => (p, q) in doors))
+
+part1 = rooms.values.max
+
+part2 = rooms.values.count(_ >= 1000)

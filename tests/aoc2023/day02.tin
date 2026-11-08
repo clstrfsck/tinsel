@@ -1,0 +1,31 @@
+day 2023.2
+
+# Each game reveals handfuls of red, green and blue cubes from a bag.
+# Part 1: add up the IDs of games possible with 12 red, 13 green and 14 blue.
+# Part 2: add up, over all games, the product of the fewest cubes of each
+#         colour that make the game possible.
+
+example """
+Game 1: 3 blue, 4 red; 1 red, 2 green, 6 blue; 2 green
+Game 2: 1 blue, 2 green; 3 green, 4 blue, 1 red; 1 green, 1 blue
+Game 3: 8 green, 6 blue, 20 red; 5 blue, 4 red, 13 green; 5 green, 1 red
+Game 4: 1 green, 3 red, 6 blue; 3 green, 6 red; 3 green, 15 blue, 14 red
+Game 5: 6 red, 1 blue, 3 green; 2 blue, 1 red, 2 green
+"""
+  part1 = 8
+  part2 = 2286
+
+answers
+  part1 = 2727
+  part2 = 56580
+
+# Each game becomes (id, the most cubes seen of each colour).
+parse("Game {id:int}: {rest}") =
+  (id, {c: max(n for (k, n) in draws if k == c) ?? 0 for c in ["red", "green", "blue"]})
+  where
+    draws = [(c, n) for "{n:int} {c}" in rest.replace(";", ",").split(", ")]
+
+games = input.lines.map(parse)
+
+part1 = sum(id for (id, m) in games if m["red"] <= 12 and m["green"] <= 13 and m["blue"] <= 14)
+part2 = sum(m.values.product for (_, m) in games)

@@ -1,0 +1,62 @@
+day 2024.18
+
+# Bytes fall onto a grid from (0, 0) to (size, size), one at a time, in the
+# order listed.
+# Part 1: after the first `fallen` bytes, the fewest steps from the top left
+#         corner to the bottom right.
+# Part 2: the first byte that cuts off the bottom right corner, as "X,Y".
+
+example """
+5,4
+4,2
+4,5
+3,0
+2,1
+6,3
+2,4
+1,5
+0,6
+3,3
+2,6
+5,1
+1,2
+5,5
+2,5
+6,5
+1,4
+0,4
+6,4
+1,1
+6,1
+1,0
+0,5
+1,6
+2,0
+"""
+  with size = 6
+  with fallen = 12
+  part1 = 22
+  part2 = "6,1"
+
+answers
+  part1 = 268
+  part2 = "64,11"
+
+size = 70
+fallen = 1024
+
+bytes = input.lines.map(.ints.tuple)
+goal = (size, size)
+
+# Steps to the goal after the first n bytes, or none.
+steps(n) = match bfs((0, 0), next, goal: goal)
+    none => none
+    (d, _) => d
+  where
+    walls = set(bytes[..<n])
+    next(p) = nbrs4(p).filter(q => all(q .>= 0) and all(q .<= size) and q not in walls)
+
+part1 = steps(fallen)
+
+# The first n at which the goal can't be reached.
+part2 = bytes[(0..bytes.len).bisect(steps(_) == none) - 1].join(",")

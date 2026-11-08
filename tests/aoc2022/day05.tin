@@ -1,0 +1,40 @@
+day 2022.5
+
+# Stacks of crates, drawn in columns, then moves "move n from a to b".
+# Part 1: the crane moves crates one at a time, so a moved group reverses.
+# Part 2: the crane moves a group at once, keeping its order.
+# The answer is the top crate of each stack.
+
+example """
+    [D]    
+[N] [C]    
+[Z] [M] [P]
+ 1   2   3 
+
+move 1 from 2 to 1
+move 3 from 1 to 3
+move 2 from 2 to 1
+move 1 from 1 to 2
+"""
+  part1 = "CMZ"
+  part2 = "MCD"
+
+answers
+  part1 = "RTGWZTHLD"
+  part2 = "STHGRZZFR"
+
+[drawing, procedure] = input.blocks
+[..rows, labels] = drawing.lines
+
+# Stack i (from 1) as a list, top crate first.
+stacks = {i: [c for r in rows let c = r.get(4 * i - 3) ?? ' ' if c != ' ']
+          for i in labels.ints}
+
+moves = procedure.lines.map(.ints)
+
+move(order, s, [n, a, b]) = s.set(a, s[a][n..]).set(b, order(s[a][..<n]) ++ s[b])
+
+tops(order) = moves.fold(stacks, (s, m) => move(order, s, m)).values.map(.0).join
+
+part1 = tops(reverse)
+part2 = tops(xs => xs)

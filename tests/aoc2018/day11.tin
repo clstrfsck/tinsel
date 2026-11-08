@@ -1,0 +1,56 @@
+day 2018.11
+
+# A 300x300 grid of fuel cells, with power levels worked out from each
+# cell's coordinates and a serial number.
+# Part 1: the top-left corner of the 3x3 square with the most power.
+# Part 2: the corner and size of the square of any size with the most
+#         power.
+
+example """
+18
+"""
+  part1 = "33,45"
+  part2 = "90,269,16"
+
+example """
+42
+"""
+  part1 = "21,61"
+  part2 = "232,251,12"
+
+answers
+  part1 = "21,61"
+  part2 = "232,251,12"
+
+serial = input.ints[0]
+
+power(x, y) = ((x + 10) * y + serial) * (x + 10) / 100 % 10 - 5
+
+test "power levels" = (power_with(8, 3, 5), power_with(57, 122, 79), power_with(39, 217, 196), power_with(71, 101, 153)) == (4, -5, 0, 4)
+power_with(s, x, y) = ((x + 10) * y + s) * (x + 10) / 100 % 10 - 5
+
+# Summed-area table: sat[y][x] is the total power of the cells from (1, 1)
+# to (x, y). Row and column 0 are zero.
+sat = (1..300).scan([0].repeat(301), (above, y) => zip(above, row_sums(y)).map(_1 + _2))
+
+row_sums(y) = (1..300).scan(0, (acc, x) => acc + power(x, y))
+
+# The power of the s x s square with top-left corner (x, y).
+square(x, y, s) = sat[y + s - 1][x + s - 1] - sat[y - 1][x + s - 1] - sat[y + s - 1][x - 1] + sat[y - 1][x - 1]
+
+best(s) = [(x, y) for y in 1..301 - s for x in 1..301 - s].max_by(square(_1, _2, s))
+
+part1 = match best(3)
+  (x, y) => "{x},{y}"
+
+# (power, x, y, size) of the best square of each size. Only the winner
+# becomes a tuple: the rest are plain ints, found again by index.
+best_square(s) = (top, i % n + 1, i / n + 1, s)
+  where
+    n = 301 - s
+    powers = [square(x, y, s) for y in 1..n for x in 1..n]
+    top = powers.max
+    i = powers.index(top)
+
+part2 = match (1..300).map(best_square).max
+  (_, x, y, s) => "{x},{y},{s}"

@@ -1,0 +1,68 @@
+day 2018.10
+include "../lib/ocr.tin"
+
+# Points of light, each with a position and a velocity. At some moment
+# they line up to spell a message.
+# Part 1: the message.
+# Part 2: how many seconds until it appears.
+
+# The example's letters are smaller than the real ones, so only the time
+# is checked.
+example """
+position=< 9,  1> velocity=< 0,  2>
+position=< 7,  0> velocity=<-1,  0>
+position=< 3, -2> velocity=<-1,  1>
+position=< 6, 10> velocity=<-2, -1>
+position=< 2, -4> velocity=< 2,  2>
+position=<-6, 10> velocity=< 2, -2>
+position=< 1,  8> velocity=< 1, -1>
+position=< 1,  7> velocity=< 1,  0>
+position=<-3, 11> velocity=< 1, -2>
+position=< 7,  6> velocity=<-1, -1>
+position=<-2,  3> velocity=< 1,  0>
+position=<-4,  3> velocity=< 2,  0>
+position=<10, -3> velocity=<-1,  1>
+position=< 5, 11> velocity=< 1, -2>
+position=< 4,  7> velocity=< 0, -1>
+position=< 8, -2> velocity=< 0,  1>
+position=<15,  0> velocity=<-2,  0>
+position=< 1,  6> velocity=< 1,  0>
+position=< 8,  9> velocity=< 0, -1>
+position=< 3,  3> velocity=<-1,  1>
+position=< 0,  5> velocity=< 0, -1>
+position=<-2,  2> velocity=< 2,  0>
+position=< 5, -2> velocity=< 1,  2>
+position=< 1,  4> velocity=< 2,  1>
+position=<-2,  7> velocity=< 2, -2>
+position=< 3,  6> velocity=<-1, -1>
+position=< 5,  0> velocity=< 1,  0>
+position=<-6,  0> velocity=< 2,  0>
+position=< 5,  9> velocity=< 1, -2>
+position=<14,  7> velocity=<-2,  0>
+position=<-3,  6> velocity=< 2, -1>
+"""
+  part2 = 3
+
+answers
+  part1 = "ZAEKAJGC"
+  part2 = 10577
+
+stars = [((x, y), (dx, dy)) for [x, y, dx, dy] in input.lines.map(.ints)]
+
+at(t) = stars.map((p, v) => p + v * t)
+
+height(t) = match at(t).map(.1).bounds
+  (low, high) => high - low
+
+# The points are closest together when the message shows: the height
+# shrinks until then, and grows after.
+seconds = (0..).bisect(t => height(t + 1) > height(t))
+
+draw(points) = [(x0..x1).map(x => if (x, y) in lit then '#' else '.').join for y in y0..y1]
+  where
+    lit = set(points)
+    ((x0, x1), (y0, y1)) = points.bounds
+
+part1 = ocr(draw(at(seconds)))
+
+part2 = seconds

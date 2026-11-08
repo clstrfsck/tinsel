@@ -1,0 +1,47 @@
+day 2019.22
+
+# A deck of cards 0 to n - 1 in order is shuffled by three techniques:
+# deal into new stack (reverse), cut k, and deal with increment k.
+# Part 1: with 10007 cards, the position of card 2019 after the shuffle.
+# Part 2: with 119315717514047 cards and the shuffle done 101741582076661
+#         times, which card ends up in position 2020?
+#
+# Each technique moves the card at position x to (a * x + b) mod n, so the
+# whole shuffle does too.
+
+answers
+  part1 = 3589
+  part2 = 4893716342290
+
+technique("deal into new stack") = (-1, -1)
+technique("cut {k:int}") = (1, -k)
+technique("deal with increment {k:int}") = (k, 0)
+
+# (a, b) for doing these techniques in order, mod n.
+shuffle(lines, n) = lines.map(technique).fold((1, 0), ((a, b), (c, d)) => (a * c % n, (b * c + d) % n))
+
+where_card_goes(lines, n, card) = (a * card + b) % n
+  where
+    (a, b) = shuffle(lines, n)
+
+part1 = where_card_goes(input.lines, 10007, 2019)
+
+# Doing the shuffle k times: x -> a^k x + b (a^k - 1) / (a - 1). Then undo
+# that to find the card that ends at position 2020. n is prime, so every
+# non-zero number has an inverse.
+cards = 119315717514047
+times = 101741582076661
+
+part2 = (2020 - bk) * modinv(ak, cards) % cards
+  where
+    (a, b) = shuffle(input.lines, cards)
+    ak = modpow(a, times, cards)
+    bk = b * (ak - 1) % cards * modinv(a - 1, cards) % cards
+
+# The examples, each on a deck of 10 cards, listed top to bottom.
+deck(text) = (0..<10).sort_by(where_card_goes(text.lines, 10, _))
+
+test "example 1" = deck("deal with increment 7\ndeal into new stack\ndeal into new stack") == [0, 3, 6, 9, 2, 5, 8, 1, 4, 7]
+test "example 2" = deck("cut 6\ndeal with increment 7\ndeal into new stack") == [3, 0, 7, 4, 1, 8, 5, 2, 9, 6]
+test "example 3" = deck("deal with increment 7\ndeal with increment 9\ncut -2") == [6, 3, 0, 7, 4, 1, 8, 5, 2, 9]
+test "example 4" = deck("deal into new stack\ncut -2\ndeal with increment 7\ncut 8\ncut -4\ndeal with increment 7\ncut 3\ndeal with increment 9\ndeal with increment 3\ncut -1") == [9, 2, 5, 8, 1, 4, 7, 0, 3, 6]

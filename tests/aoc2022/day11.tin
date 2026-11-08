@@ -1,0 +1,73 @@
+day 2022.11
+
+# Monkeys pass items around. A monkey inspects each of its items in turn:
+# it changes the item's worry level by its operation, then throws it to one
+# of two monkeys depending on whether the level is divisible by its test.
+# Part 1: worry is divided by 3 after each inspection; after 20 rounds,
+#         multiply the two highest numbers of inspections.
+# Part 2: no division, and 10000 rounds.
+
+example """
+Monkey 0:
+  Starting items: 79, 98
+  Operation: new = old * 19
+  Test: divisible by 23
+    If true: throw to monkey 2
+    If false: throw to monkey 3
+
+Monkey 1:
+  Starting items: 54, 65, 75, 74
+  Operation: new = old + 6
+  Test: divisible by 19
+    If true: throw to monkey 2
+    If false: throw to monkey 0
+
+Monkey 2:
+  Starting items: 79, 60, 97
+  Operation: new = old * old
+  Test: divisible by 13
+    If true: throw to monkey 1
+    If false: throw to monkey 3
+
+Monkey 3:
+  Starting items: 74
+  Operation: new = old + 3
+  Test: divisible by 17
+    If true: throw to monkey 0
+    If false: throw to monkey 1
+"""
+  part1 = 10605
+  part2 = 2713310158
+
+answers
+  part1 = 98280
+  part2 = 17673687232
+
+parse([_, items, "  Operation: new = old {op:char} {arg}", check, yes, no]) =
+  (items.ints, op, arg, check.ints[0], yes.ints[0], no.ints[0])
+
+monkeys = input.blocks.map(.lines).map(parse)
+
+# Items never affect each other, so each one is followed on its own. A
+# monkey throwing to a later monkey passes the item on in the same round;
+# throwing to an earlier one, in the next round.
+
+# Follow one item until the rounds run out, counting inspections by monkey.
+walk(relief, rounds, r, m, w, counts) =
+  if r > rounds then counts
+  else walk(relief, rounds, if dest < m then r + 1 else r, dest, w2, counts.set(m, counts.get(m, 0) + 1))
+  where
+    (_, op, arg, div, yes, no) = monkeys[m]
+    v = if arg == "old" then w else int(arg)
+    w2 = relief(if op == '*' then w * v else w + v)
+    dest = if w2 % div == 0 then yes else no
+
+business(rounds, relief) = counts.values.sort(desc: true).take(2).product
+  where
+    starts = [(m, w) for (m, monkey) in monkeys.enumerate for w in monkey.0]
+    counts = [kv for (m, w) in starts for kv in walk(relief, rounds, 1, m, w, {}).items].tally
+
+modulus = monkeys.map(.3).product
+
+part1 = business(20, _ / 3)
+part2 = business(10000, _ % modulus)

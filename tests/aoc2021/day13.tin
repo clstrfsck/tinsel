@@ -1,0 +1,52 @@
+day 2021.13
+include "../lib/ocr.tin"
+
+# Dots on transparent paper, and folds along lines x = a or y = a. A fold
+# reflects the dots beyond the line onto the other side.
+# Part 1: how many dots are visible after the first fold.
+# Part 2: after every fold, the dots spell eight capital letters.
+
+example """
+6,10
+0,14
+9,10
+0,3
+10,4
+4,11
+6,0
+6,12
+4,1
+0,13
+10,12
+3,4
+3,0
+8,4
+1,10
+2,14
+8,10
+9,0
+
+fold along y=7
+fold along x=5
+"""
+  part1 = 17
+
+answers
+  part1 = 678
+  part2 = "ECFHLHZF"
+
+[dot_text, fold_text] = input.blocks
+dots = set(dot_text.lines.map(.ints.tuple))
+folds = [(axis, n) for "fold along {axis:char}={n:int}" in fold_text.lines]
+
+flip(v, n) = if v > n then 2 * n - v else v
+
+fold_paper(paper, ('x', n)) = {(flip(x, n), y) for (x, y) in paper}
+fold_paper(paper, ('y', n)) = {(x, flip(y, n)) for (x, y) in paper}
+
+part1 = fold_paper(dots, folds[0]).len
+
+code = folds.fold(dots, fold_paper)
+
+part2 = ocr([[if (x, y) in code then '#' else '.' for x in 0..code.map(.0).max].join
+             for y in 0..code.map(.1).max])

@@ -1,0 +1,43 @@
+day 2021.25
+
+# Two herds of sea cucumbers on a grid that wraps round: > move east and v
+# move south. Each step the east herd moves, all at once, into empty
+# cells, then the south herd does.
+# Part 1: the first step on which no sea cucumber moves.
+
+example """
+v...>>.vv>
+.vv>>.vv..
+>>.>v>...v
+>>v>>.>.v.
+v>v.vv.v..
+>.>>..v...
+.vv..>.>v.
+v.v..>>v.v
+....v..v.>
+"""
+  part1 = 58
+
+answers
+  part1 = 278
+
+floor = input.grid
+w = floor.width
+h = floor.height
+
+# Positions are coded as y * w + x, which makes sets faster to search.
+east = set(floor.where('>').map((x, y) => y * w + x))
+south = set(floor.where('v').map((x, y) => y * w + x))
+
+right(p) = p - p % w + (p + 1) % w
+down(p) = (p + w) % (w * h)
+
+# Move the herd one step, where the cells in `others` are also taken.
+move(herd, others, ahead) = {if q in herd or q in others then p else q for p in herd let q = ahead(p)}
+
+settle(east, south, n) = if e2 == east and s2 == south then n else settle(e2, s2, n + 1)
+  where
+    e2 = move(east, south, right)
+    s2 = move(south, e2, down)
+
+part1 = settle(east, south, 1)

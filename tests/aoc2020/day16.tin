@@ -1,0 +1,51 @@
+day 2020.16
+
+# Rules giving two valid ranges for each field, your ticket, and nearby
+# tickets, each a list of field values in an unknown order.
+# Part 1: the sum of the nearby values that fit no rule at all.
+# Part 2: discarding tickets with such values, work out which position
+#         holds which field. The product of the six fields on your ticket
+#         whose names start with "departure".
+
+example """
+class: 1-3 or 5-7
+row: 6-11 or 33-44
+seat: 13-40 or 45-50
+
+your ticket:
+7,1,14
+
+nearby tickets:
+7,3,47
+40,4,50
+55,2,20
+38,6,12
+"""
+  part1 = 71
+
+answers
+  part1 = 23122
+  part2 = 362974212989
+
+[rule_text, mine_text, nearby_text] = input.blocks
+
+rules = [(name, (a..b, c..d)) for "{name}: {a:int}-{b:int} or {c:int}-{d:int}" in rule_text.lines]
+mine = mine_text.lines[1].ints
+nearby = nearby_text.lines[1..].map(.ints)
+
+fits(v, (r1, r2)) = v in r1 or v in r2
+possible(v) = rules.any((_, r) => fits(v, r))
+
+part1 = [v for t in nearby for v in t if not possible(v)].sum
+
+valid = nearby.filter(_.all(possible))
+
+# The fields each position could be.
+candidates = [{name for (name, r) in rules if valid.all(t => fits(t[i], r))} for i in mine.indices]
+
+# Positions with fewer candidates are settled first: each takes the one
+# field the earlier positions haven't.
+fields = candidates.enumerate.sort_by(.1.len)
+  .fold({}, (found, (i, names)) => found.set((names - set(found.keys)).first, i))
+
+part2 = fields.keys.filter(_.starts_with("departure")).map(mine[fields[_]]).product

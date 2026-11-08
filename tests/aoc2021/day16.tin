@@ -1,0 +1,101 @@
+day 2021.16
+
+# A transmission in hex, holding one packet: a 3-bit version and a 3-bit
+# type ID. Type 4 is a literal number, in 5-bit groups (a continue bit and
+# 4 bits). Any other type is an operator holding sub-packets, given either
+# by their total length in bits (15 bits) or their number (11 bits).
+# Part 1: the sum of the versions of all the packets.
+# Part 2: the value of the outermost packet, where operator types are sum,
+#         product, minimum, maximum, (4 is literal), greater than, less
+#         than and equal to.
+
+example """
+8A004A801A8002F478
+"""
+  part1 = 16
+
+example """
+620080001611562C8802118E34
+"""
+  part1 = 12
+
+example """
+C0015000016115A2E0802F182340
+"""
+  part1 = 23
+
+example """
+A0016C880162017C3686B18A3D4780
+"""
+  part1 = 31
+
+example """
+9C0141080250320F1802104A08
+"""
+  part2 = 1
+
+answers
+  part1 = 960
+  part2 = 12301926782560
+
+bits(hex) = hex.chars.map(c => str(int(str(c), 16), 2, 4)).join
+
+number(b, i, n) = int(b[i..<i + n], 2)
+
+# Each parser gives (what it read, the index after it). A packet is
+# (version, type, literal value or none, sub-packets).
+@nomemo
+packet(b, i) =
+  if t == 4 then literal(b, i + 6, 0, v)
+  else if b[i + 6] == '0' then by_length(b, i + 22, i + 22 + number(b, i + 7, 15), v, t, [])
+  else by_count(b, i + 18, number(b, i + 7, 11), v, t, [])
+  where
+    v = number(b, i, 3)
+    t = number(b, i + 3, 3)
+
+literal(b, i, acc, v) =
+  if b[i] == '1' then literal(b, i + 5, 16 * acc + number(b, i + 1, 4), v)
+  else ((v, 4, 16 * acc + number(b, i + 1, 4), []), i + 5)
+
+@nomemo
+by_length(b, i, end, v, t, subs) =
+  if i >= end then ((v, t, none, subs), i)
+  else then_length(b, packet(b, i), end, v, t, subs)
+then_length(b, (p, j), end, v, t, subs) = by_length(b, j, end, v, t, subs ++ [p])
+
+@nomemo
+by_count(b, i, 0, v, t, subs) = ((v, t, none, subs), i)
+by_count(b, i, n, v, t, subs) = then_count(b, packet(b, i), n, v, t, subs)
+then_count(b, (p, j), n, v, t, subs) = by_count(b, j, n - 1, v, t, subs ++ [p])
+
+transmission = packet(bits(input.trim), 0).0
+
+# These recurse through subpackets, never the same one twice, so they
+# aren't memoized.
+@nomemo
+versions((v, _, _, subs)) = v + subs.map(versions).sum
+
+@nomemo
+evaluate((_, 4, n, _)) = n
+evaluate((_, t, _, subs)) = combine(t, subs.map(evaluate))
+
+combine(0, vs) = vs.sum
+combine(1, vs) = vs.product
+combine(2, vs) = vs.min
+combine(3, vs) = vs.max
+combine(5, [a, b]) = int(a > b)
+combine(6, [a, b]) = int(a < b)
+combine(7, [a, b]) = int(a == b)
+
+part1 = versions(transmission)
+part2 = evaluate(transmission)
+
+value_of(hex) = evaluate(packet(bits(hex), 0).0)
+
+test "sum" = value_of("C200B40A82") == 3
+test "product" = value_of("04005AC33890") == 54
+test "minimum" = value_of("880086C3E88112") == 7
+test "maximum" = value_of("CE00C43D881120") == 9
+test "less than" = value_of("D8005AC2A8F0") == 1
+test "greater than" = value_of("F600BC2D8F") == 0
+test "equal to" = value_of("9C005AC2F8F0") == 0

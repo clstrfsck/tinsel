@@ -1,0 +1,63 @@
+day 2024.6
+
+# A guard walks forward, turning right at each obstruction (#).
+# Part 1: how many positions the guard visits before leaving the map.
+# Part 2: how many single new obstructions would trap the guard in a loop.
+
+example """
+....#.....
+.........#
+..........
+..#.......
+.......#..
+..........
+.#..^.....
+........#.
+#.........
+......#...
+"""
+  part1 = 41
+  part2 = 6
+
+answers
+  part1 = 4663
+  part2 = 1530
+
+lab = input.grid
+start = lab.find('^')
+
+# Every position visited on the way out.
+visited = walk(start, N, {start})
+  where
+    walk(p, d, seen) =
+      if p + d not in lab then seen
+      else if lab[p + d] == '#' then walk(p, cw(d), seen)
+      else walk(p + d, d, seen.add(p + d))
+
+# The guard is in a loop if it turns at the same place, facing the same way,
+# twice. Rather than walking one step at a time, jump straight to the next
+# obstruction in the guard's row or column.
+rocks = lab.where('#')
+by_row = rocks.group_by(.1)
+by_col = rocks.group_by(.0)
+
+dot((a, b), (c, d)) = a * c + b * d
+
+# The nearest obstruction ahead of p in direction d, or none.
+ahead(p, d, extra) =
+  [q for q in line ++ [extra] if dot(q - p, d) > 0 and dot(q - p, cw(d)) == 0]
+    .min_by(q => dot(q - p, d))
+  where
+    line = if d.0 == 0 then by_col.get(p.0, []) else by_row.get(p.1, [])
+
+loops(extra) = go(start, N, set())
+  where
+    go(p, d, turns) = match ahead(p, d, extra)
+      none => false
+      q when (q - d, d) in turns => true
+      q => go(q - d, cw(d), turns.add((q - d, d)))
+
+part1 = visited.len
+
+# Only an obstruction on the original path can change it.
+part2 = (visited - {start}).count(loops)

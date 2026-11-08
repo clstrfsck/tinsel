@@ -1,0 +1,53 @@
+day 2020.14
+
+# A program of masks and memory writes, on 36-bit values.
+# Part 1: the mask overwrites a value's bits where it has 0 or 1, and
+#         leaves the X bits. The sum of memory at the end.
+# Part 2: the mask applies to addresses instead: 0 leaves a bit, 1 sets it,
+#         and X is floating, taking both values, so a write goes to every
+#         address that makes. The sum of memory at the end.
+
+example """
+mask = XXXXXXXXXXXXXXXXXXXXXXXXXXXXX1XXXX0X
+mem[8] = 11
+mem[7] = 101
+mem[8] = 0
+"""
+  part1 = 165
+
+example """
+mask = 000000000000000000000000000000X1001X
+mem[42] = 100
+mask = 00000000000000000000000000000000X0XX
+mem[26] = 1
+"""
+  part2 = 208
+
+answers
+  part1 = 7611244640053
+  part2 = 3705162613854
+
+# The positions (counting from the right) of the mask's bits that are c.
+bits(mask, c) = [35 - i for (i, b) in mask.chars.enumerate if b == c]
+mask_of(mask, c) = bits(mask, c).map(1 << _).sum
+
+# State: (mask, memory).
+step(write, (mask, mem), line) = match line
+  "mask = {m}" => (m, mem)
+  "mem[{a:int}] = {v:int}" => (mask, write(mem, mask, a, v))
+
+# Keep the value's bits under X, and set those under 1.
+value_write(mem, mask, a, v) = mem.set(a, v & mask_of(mask, 'X') | mask_of(mask, '1'))
+
+# Set the address's bits under 1, clear those under X, and then set every
+# combination of the X bits.
+address_write(mem, mask, a, v) = addresses.fold(mem, (m, addr) => m.set(addr, v))
+  where
+    floating = bits(mask, 'X')
+    base = (a | mask_of(mask, '1')) & ~mask_of(mask, 'X')
+    addresses = floating.subsets.map(fs => base | fs.map(1 << _).sum)
+
+total(write) = input.lines.fold(("", {}), (state, line) => step(write, state, line)).1.values.sum
+
+part1 = total(value_write)
+part2 = total(address_write)

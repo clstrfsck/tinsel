@@ -1,0 +1,54 @@
+day 2021.20
+
+# An image enhancement algorithm (a string of 512 # and .) and an image.
+# Each step, every pixel of the infinite image becomes the algorithm's
+# character at the index given by the 3x3 square around it, read as 9
+# binary digits (# is 1). Everything outside the image starts dark.
+# Part 1: how many pixels are lit after 2 steps.
+# Part 2: how many pixels are lit after 50 steps.
+
+example """
+..#.#..#####.#.#.#.###.##.....###.##.#..###.####..#####..#....#..#..##..##
+#..######.###...####..#..#####..##..#.#####...##.#.#..#.##..#.#......#.###
+.######.###.####...#.##.##..#..#..#####.....#.#....###..#.##......#.....#.
+.#..#..##..#...##.######.####.####.#.#...#.......#..#.#.#...####.##.#.....
+.#..#...##.#.##..#...##.#.##..###.#......#.#.......#.#.#.####.###.##...#..
+...####.#..#..#.##.#....##..#.####....##...##..#...#......#.#.......#.....
+..##..####..#...#.#.#...##..#.#..###..#####........#..####......#..#
+
+#..#.
+#....
+##..#
+..#..
+..###
+"""
+  part1 = 35
+  part2 = 3351
+
+answers
+  part1 = 5229
+  part2 = 17009
+
+# In the puzzle's example, the algorithm is split over several lines.
+[algorithm_text, image_text] = input.blocks
+algorithm = algorithm_text.replace("\n", "").chars.map(c => int(c == '#'))
+
+# An image is its rows of 0s and 1s, and the value of every pixel outside
+# them. That can change: if the algorithm's first character is #, the dark
+# infinite background lights up every other step.
+start = (image_text.lines.map(row => row.chars.map(c => int(c == '#'))), 0)
+
+# Grow the image by one pixel each side, padding with the background.
+enhance((rows, outside)) = (new_rows, algorithm[outside * 511])
+  where
+    w = rows[0].len
+    pad = [outside].repeat(w + 4)
+    padded = [pad, pad] ++ rows.map(r => [outside, outside] ++ r ++ [outside, outside]) ++ [pad, pad]
+    triple(r, x) = 4 * r[x - 1] + 2 * r[x] + r[x + 1]
+    new_rows = [[algorithm[64 * triple(above, x) + 8 * triple(row, x) + triple(below, x)] for x in 1..w + 2]
+                for (above, row, below) in padded.windows(3).map(tuple)]
+
+lit(steps) = iterate(start, enhance, times: steps).0.map(.sum).sum
+
+part1 = lit(2)
+part2 = lit(50)

@@ -1,0 +1,25 @@
+day 2023.9
+
+# Each line is a sequence of readings.
+# Part 1: extrapolate each sequence one step forwards (by repeatedly taking
+#         differences until they are all zero) and add up the new values.
+# Part 2: the same, extrapolating backwards.
+
+example """
+0 3 6 9 12 15
+1 3 6 10 15 21
+10 13 16 21 30 45
+"""
+  part1 = 114
+  part2 = 2
+
+answers
+  part1 = 1992273652
+  part2 = 1012
+
+histories = input.lines.map(.ints)
+
+next(xs) = if xs.all(_ == 0) then 0 else xs.last + next(xs.pairs.map((a, b) => b - a))
+
+part1 = histories.map(next).sum
+part2 = histories.map(h => next(h.reverse)).sum

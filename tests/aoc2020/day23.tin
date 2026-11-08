@@ -1,0 +1,60 @@
+day 2020.23
+
+# Cups labelled with digits sit in a circle. Each move, the crab picks up
+# the three cups after the current cup, and puts them after the
+# destination: the cup labelled one less than the current cup (wrapping
+# round from the lowest to the highest label), skipping labels it picked
+# up. The next cup round becomes the current cup.
+# Part 1: after 100 moves, the labels after cup 1, going round.
+# Part 2: with the labels running on up to 1000000 after the input's, and
+#         10000000 moves, the product of the two labels after cup 1.
+
+example """
+389125467
+"""
+  part1 = "67384529"
+  part2 = 149245887792
+
+answers
+  part1 = "43769582"
+  part2 = 264692662390
+
+labels = input.trim.chars.map(int)
+
+# The circle is a list giving the cup after each cup (index 0 is unused).
+# Labels run from 1 to the number of cups, so a list indexed by label is
+# faster than a map.
+circle(cups) = (cups ++ [cups[0]]).pairs.fold([0].repeat(cups.len + 1), (next, (a, b)) => next.set(a, b))
+
+moves(next, cur, n, top) = if n == 0 then next else step(next, cur, look(next, cur, top), n, top)
+
+# The three cups after cur, the cup after those, the destination, and the
+# cup after the destination.
+look(next, cur, top) = (a, c, next[c], dest, next[dest])
+  where
+    a = next[cur]
+    b = next[a]
+    c = next[b]
+    dest = destination(cur - 1, a, b, c, top)
+
+# The label below d, wrapping round to the top, that wasn't picked up.
+destination(d, a, b, c, top) =
+  if d < 1 then destination(top, a, b, c, top)
+  else if d == a or d == b or d == c then destination(d - 1, a, b, c, top)
+  else d
+
+# Move the three cups to after the destination. This is the only use of
+# `next` left, so the map is updated in place rather than copied.
+step(next, cur, (a, c, after_c, dest, after_dest), n, top) =
+  moves(next.set(cur, after_c).set(c, after_dest).set(dest, a), after_c, n - 1, top)
+
+play(cups, n) = moves(circle(cups), cups[0], n, cups.len)
+
+# The cups after cup 1, going round.
+after_one(next) = iterate(next[1], next[_]).take_while(_ != 1)
+
+part1 = after_one(play(labels, 100)).join
+
+part2 = next[1] * next[next[1]]
+  where
+    next = play(labels ++ list(10..1_000_000), 10_000_000)

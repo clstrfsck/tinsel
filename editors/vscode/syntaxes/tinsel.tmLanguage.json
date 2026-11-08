@@ -1,0 +1,228 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Tinsel",
+  "scopeName": "source.tinsel",
+  "fileTypes": [
+    "tin"
+  ],
+  "patterns": [
+    {
+      "include": "#expression"
+    }
+  ],
+  "repository": {
+    "expression": {
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "include": "#triple-string"
+        },
+        {
+          "include": "#string"
+        },
+        {
+          "include": "#char"
+        },
+        {
+          "include": "#item"
+        },
+        {
+          "include": "#annotation"
+        },
+        {
+          "include": "#definition"
+        },
+        {
+          "include": "#typed-pattern"
+        },
+        {
+          "include": "#keyword"
+        },
+        {
+          "include": "#constant"
+        },
+        {
+          "include": "#number"
+        },
+        {
+          "include": "#call"
+        },
+        {
+          "include": "#placeholder"
+        },
+        {
+          "include": "#operator"
+        }
+      ]
+    },
+    "comment": {
+      "name": "comment.line.number-sign.tinsel",
+      "match": "#.*$"
+    },
+    "triple-string": {
+      "name": "string.quoted.triple.tinsel",
+      "begin": "\"\"\"",
+      "end": "\"\"\""
+    },
+    "string": {
+      "name": "string.quoted.double.tinsel",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        {
+          "name": "constant.character.escape.tinsel",
+          "match": "\\\\[ntr0\\\\\"']"
+        },
+        {
+          "name": "constant.character.escape.tinsel",
+          "match": "\\{\\{|\\}\\}"
+        },
+        {
+          "include": "#interpolation"
+        }
+      ]
+    },
+    "interpolation": {
+      "name": "meta.interpolation.tinsel",
+      "begin": "\\{",
+      "end": "\\}",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.section.interpolation.begin.tinsel"
+        }
+      },
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.section.interpolation.end.tinsel"
+        }
+      },
+      "contentName": "source.tinsel.embedded",
+      "patterns": [
+        {
+          "match": "\\G\\s*([A-Za-z_][A-Za-z0-9_]*)\\s*(:)\\s*(int|str|char|word)\\s*(?=\\})",
+          "captures": {
+            "1": {
+              "name": "variable.parameter.tinsel"
+            },
+            "2": {
+              "name": "punctuation.separator.tinsel"
+            },
+            "3": {
+              "name": "storage.type.tinsel"
+            }
+          }
+        },
+        {
+          "include": "#expression"
+        }
+      ]
+    },
+    "char": {
+      "name": "string.quoted.single.tinsel",
+      "match": "'(?:[^'\\\\]|\\\\.)'"
+    },
+    "item": {
+      "patterns": [
+        {
+          "match": "^(test|test_error|example|include)\\s+(\"(?!\"\")(?:[^\"\\\\]|\\\\.)*\")",
+          "captures": {
+            "1": {
+              "name": "keyword.other.item.tinsel"
+            },
+            "2": {
+              "name": "string.quoted.double.tinsel"
+            }
+          }
+        },
+        {
+          "name": "keyword.other.item.tinsel",
+          "match": "^(day(?=\\s+\\d)|answers(?=\\s*$))"
+        },
+        {
+          "match": "^\\s+(with)\\b(?=\\s+[A-Za-z_])",
+          "captures": {
+            "1": {
+              "name": "keyword.other.item.tinsel"
+            }
+          }
+        }
+      ]
+    },
+    "annotation": {
+      "name": "storage.modifier.annotation.tinsel",
+      "match": "@(memo|nomemo)\\b"
+    },
+    "definition": {
+      "match": "^\\s*([A-Za-z_][A-Za-z0-9_]*)(?=\\(.*\\)\\s*(?:when\\b.*)?=(?![=>]))",
+      "captures": {
+        "1": {
+          "name": "entity.name.function.definition.tinsel"
+        }
+      }
+    },
+    "typed-pattern": {
+      "match": "\\b([A-Za-z_][A-Za-z0-9_]*)\\s*(:)\\s*(int|bool|char|str|none|tuple|list|set|map|range|rangeset|grid|function)\\b",
+      "captures": {
+        "1": {
+          "name": "variable.parameter.tinsel"
+        },
+        "2": {
+          "name": "punctuation.separator.tinsel"
+        },
+        "3": {
+          "name": "storage.type.tinsel"
+        }
+      }
+    },
+    "keyword": {
+      "patterns": [
+        {
+          "name": "keyword.control.tinsel",
+          "match": "\\b(if|then|else|match|when|where|for|let|in)\\b"
+        },
+        {
+          "name": "keyword.operator.word.tinsel",
+          "match": "\\b(and|or|not|xor)\\b"
+        }
+      ]
+    },
+    "constant": {
+      "patterns": [
+        {
+          "name": "constant.language.tinsel",
+          "match": "\\b(true|false|none|inf)\\b"
+        },
+        {
+          "name": "variable.language.input.tinsel",
+          "match": "\\binput\\b"
+        },
+        {
+          "name": "support.constant.direction.tinsel",
+          "match": "\\b(N|E|S|W|DIRS4|DIRS8)\\b"
+        }
+      ]
+    },
+    "number": {
+      "name": "constant.numeric.integer.tinsel",
+      "match": "\\b\\d[\\d_]*\\b"
+    },
+    "call": {
+      "match": "\\b([A-Za-z_][A-Za-z0-9_]*)(?=\\()",
+      "captures": {
+        "1": {
+          "name": "entity.name.function.call.tinsel"
+        }
+      }
+    },
+    "placeholder": {
+      "name": "variable.language.placeholder.tinsel",
+      "match": "(?<![A-Za-z0-9_])_([1-9][0-9]*)?(?![A-Za-z0-9_])"
+    },
+    "operator": {
+      "name": "keyword.operator.tinsel",
+      "match": "=>|\\.\\.<|\\.\\.|\\?\\?|\\*\\*|\\+\\+|<<|>>|\\.==|\\.!=|\\.<=|\\.>=|\\.<|\\.>|==|!=|<=|>=|[-+*/%<>=&|]"
+    }
+  }
+}

@@ -1,0 +1,30 @@
+day 2022.3
+
+# Each line is a rucksack of items (letters). a-z have priority 1-26 and
+# A-Z have priority 27-52.
+# Part 1: the item in both halves of each rucksack, summing priorities.
+# Part 2: the item common to each group of three rucksacks.
+
+example """
+vJrwpWtwJgWrhcsFMMfFFhFp
+jqHRNqRjqzjGDLGLrsFMfFZSrLrFZsSL
+PmmdzqPrVvPwwTWBwg
+wMqvLMZHhHMvwLHjbvcjnnSBnvTQFn
+ttgJtRGJQctTZtZT
+CrZsJsPPZsGzwwsLwLmpwMDw
+"""
+  part1 = 157
+  part2 = 70
+
+answers
+  part1 = 8072
+  part2 = 2567
+
+priority(c) = if c >= 'a' then ord(c) - ord('a') + 1 else ord(c) - ord('A') + 27
+
+common(groups) = groups.map(set).intersection.first
+
+halves(s) = [s[..<s.len / 2], s[s.len / 2..]]
+
+part1 = input.lines.map(s => priority(common(halves(s)))).sum
+part2 = input.lines.chunks(3).map(g => priority(common(g))).sum

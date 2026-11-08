@@ -1,0 +1,52 @@
+day 2022.7
+
+# A terminal session of cd and ls commands exploring a filesystem.
+# Part 1: the sum of the sizes of the directories of at most 100000.
+# Part 2: the smallest directory to delete to bring free space (of 70000000
+#         in all) up to 30000000.
+
+example """
+$ cd /
+$ ls
+dir a
+14848514 b.txt
+8504156 c.dat
+dir d
+$ cd a
+$ ls
+dir e
+29116 f
+2557 g
+62596 h.lst
+$ cd e
+$ ls
+584 i
+$ cd ..
+$ cd ..
+$ cd d
+$ ls
+4060174 j
+8033020 d.log
+5626152 d.ext
+7214296 k
+"""
+  part1 = 95437
+  part2 = 24933642
+
+answers
+  part1 = 1086293
+  part2 = 366028
+
+# State: (current path as a list of names, map from directory path to size).
+# A file's size counts towards every directory on the current path.
+step((cwd, sizes), line) = match line
+  "$ cd /" => ([], sizes)
+  "$ cd .." => (cwd[..<-1], sizes)
+  "$ cd {d}" => (cwd ++ [d], sizes)
+  "{n:int} {_}" => (cwd, (0..cwd.len).fold(sizes, (m, k) => m.set(cwd[..<k], m.get(cwd[..<k], 0) + n)))
+  _ => (cwd, sizes)
+
+sizes = input.lines.fold(([], {}), step).1
+
+part1 = sizes.values.filter(_ <= 100000).sum
+part2 = sizes.values.filter(_ >= sizes[[]] - 40000000).min

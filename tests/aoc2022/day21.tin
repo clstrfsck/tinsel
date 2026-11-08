@@ -1,0 +1,72 @@
+day 2022.21
+
+# Monkeys each yell a number, or the result of an operation on the numbers
+# two other monkeys yell.
+# Part 1: what root yells.
+# Part 2: root checks that its two numbers are equal, and you are humn.
+#         What number must you yell?
+
+example """
+root: pppw + sjmn
+dbpl: 5
+cczh: sllz + lgvd
+zczc: 2
+ptdq: humn - dvpt
+dvpt: 3
+lfqf: 4
+humn: 5
+ljgn: 2
+sjmn: drzm * dbpl
+sllz: 4
+pppw: cczh / lfqf
+lgvd: ljgn * ptdq
+drzm: hmdt - zczc
+hmdt: 32
+"""
+  part1 = 152
+  part2 = 301
+
+answers
+  part1 = 49288254556480
+  part2 = 3558714869436
+
+jobs = {name: job for "{name}: {job}" in input.lines}
+
+apply('+', a, b) = a + b
+apply('-', a, b) = a - b
+apply('*', a, b) = a * b
+apply('/', a, b) = a / b
+
+value(name) = match jobs[name]
+  "{a} {op:char} {b}" => apply(op, value(a), value(b))
+  n => int(n)
+
+uses_humn("humn") = true
+uses_humn(name) = match jobs[name]
+  "{a} {_:char} {b}" => uses_humn(a) or uses_humn(b)
+  _ => false
+
+# The number humn must yell for monkey `name` to yell `target`. Only one
+# side of each operation depends on humn, so each step can be undone.
+solve("humn", target) = target
+solve(name, target) = match jobs[name]
+  "{a} {op:char} {b}" when uses_humn(a) => solve(a, undo_left(op, target, value(b)))
+  "{a} {op:char} {b}" => solve(b, undo_right(op, target, value(a)))
+
+# target = x op v
+undo_left('+', t, v) = t - v
+undo_left('-', t, v) = t + v
+undo_left('*', t, v) = t / v
+undo_left('/', t, v) = t * v
+
+# target = v op x
+undo_right('+', t, v) = t - v
+undo_right('-', t, v) = v - t
+undo_right('*', t, v) = t / v
+undo_right('/', t, v) = v / t
+
+part1 = value("root")
+
+part2 = match jobs["root"]
+  "{a} {_:char} {b}" when uses_humn(a) => solve(a, value(b))
+  "{a} {_:char} {b}" => solve(b, value(a))

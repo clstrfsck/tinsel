@@ -1,0 +1,48 @@
+day 2024.14
+
+# Robots move in straight lines at fixed velocities, wrapping around the
+# edges of a width x height space.
+# Part 1: after 100 seconds, multiply the robot counts in the four
+#         quadrants (robots on the middle lines don't count).
+# Part 2: the first second at which the robots draw a Christmas tree.
+
+example """
+p=0,4 v=3,-3
+p=6,3 v=-1,-3
+p=10,3 v=-1,2
+p=2,0 v=2,-1
+p=0,0 v=1,3
+p=3,0 v=-2,-2
+p=7,6 v=-1,-3
+p=3,0 v=-1,-2
+p=9,3 v=2,3
+p=7,3 v=-1,2
+p=2,4 v=2,-3
+p=9,5 v=-3,-3
+"""
+  with size = (11, 7)
+  part1 = 12
+
+answers
+  part1 = 215476074
+  part2 = 6285
+
+size = (101, 103)
+
+robots = input.lines.map(.ints).map(([px, py, vx, vy]) => ((px, py), (vx, vy)))
+
+after(t) = robots.map((p, v) => (p + v * t) % size)
+
+quadrant(p) = (p - size / 2).map(sign)
+
+part1 = after(100).map(quadrant).filter(q => 0 not in q).counts.values.product
+
+# The tree is the moment the robots are most tightly bunched. X and Y move
+# independently, repeating every width and height seconds, so find the
+# tightest time for each axis separately (least variance) and combine them
+# with the Chinese remainder theorem.
+spread(xs) = xs.len * sum(x * x for x in xs) - xs.sum ** 2
+
+tightest(axis) = (0..<size[axis]).min_by(t => spread(after(t).map(p => p[axis])))
+
+part2 = crt([(tightest(0), size.0), (tightest(1), size.1)]).0

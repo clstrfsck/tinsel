@@ -1,0 +1,43 @@
+day 2025.7
+
+# A beam enters at S and travels down. When it hits a splitter (^), it
+# continues as two beams, one on each side.
+# Part 1: how many times a beam is split.
+# Part 2: how many timelines there are, where each split doubles the count.
+# Reference: reference/2025/d07.lsp
+
+example """
+....S....
+.........
+....^....
+.........
+...^.^...
+.........
+..^.^..^.
+.........
+.^.....^.
+.........
+"""
+  part1 = 6
+  part2 = 8
+
+answers
+  part1 = 1550
+  part2 = 9897897326778
+
+[top, ..rows] = input.lines
+
+# Beams, as a map from column to the number of timelines with a beam there.
+start = {top.index('S'): 1}
+
+split(c, row) = if row[c] == '^' then [c - 1, c + 1] else [c]
+
+step(beams, row) =
+  tally((c2, n) for (c, n) in beams.items
+                for c2 in split(c, row) if 0 <= c2 < row.len)
+
+# The beams arriving at each row, followed by the beams leaving the bottom.
+history = rows.scan(start, step)
+
+part1 = zip(history, rows).map((beams, row) => beams.keys.count(row[_] == '^')).sum
+part2 = history.last.values.sum

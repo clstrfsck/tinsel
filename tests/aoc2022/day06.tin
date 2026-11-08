@@ -1,0 +1,48 @@
+day 2022.6
+
+# A stream of characters. A marker is a run of n characters that are all
+# different.
+# Part 1: how many characters are read up to the end of the first marker of
+#         length 4.
+# Part 2: the same, for a marker of length 14.
+
+example """
+mjqjpqmgbljsphdztnvjfqwrcgsmlb
+"""
+  part1 = 7
+  part2 = 19
+
+example """
+bvwbjplbgvbhsrlpgdmjqwftvncz
+"""
+  part1 = 5
+  part2 = 23
+
+example """
+nppdvjthqldpwncqszvftbrmjlhg
+"""
+  part1 = 6
+  part2 = 23
+
+example """
+nznrnfrfntjfmvfwmzdfjlvtqnbhcprsg
+"""
+  part1 = 10
+  part2 = 29
+
+example """
+zcfzfwzzqfrljwzlrfnpqdbhtmscgvjw
+"""
+  part1 = 11
+  part2 = 26
+
+answers
+  part1 = 1598
+  part2 = 2414
+
+signal = input.trim
+
+marker(n) = (n..signal.len).first(i => set(signal[i - n..<i]).len == n)
+
+part1 = marker(4)
+part2 = marker(14)

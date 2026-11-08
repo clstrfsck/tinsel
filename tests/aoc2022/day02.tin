@@ -1,0 +1,27 @@
+day 2022.2
+
+# Rock Paper Scissors. Each line is the opponent's shape (A, B, C) and a
+# second column (X, Y, Z). A shape scores 1, 2 or 3, plus 0, 3 or 6 for a
+# loss, draw or win.
+# Part 1: the second column is the shape to play.
+# Part 2: the second column is the outcome: lose, draw or win.
+
+example """
+A Y
+B X
+C Z
+"""
+  part1 = 15
+  part2 = 12
+
+answers
+  part1 = 13809
+  part2 = 12316
+
+# Shapes are 0, 1, 2 for rock, paper, scissors; each beats the one before it.
+rounds = [(ord(a) - ord('A'), ord(b) - ord('X')) for "{a:char} {b:char}" in input.lines]
+
+score(them, me) = me + 1 + 3 * ((me - them + 1) % 3)
+
+part1 = rounds.map(score).sum
+part2 = rounds.map((them, outcome) => score(them, (them + outcome - 1) % 3)).sum

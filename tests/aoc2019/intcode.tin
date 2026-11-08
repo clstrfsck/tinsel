@@ -1,0 +1,82 @@
+# The Intcode computer, shared by the 2019 puzzles that use it (SPEC 2.8).
+#
+#   intcode(text)        a machine, ready to run the program in text
+#   run(m, inputs)       run until the machine halts, or needs input when
+#                        `inputs` (a list) has run out. Gives (status, m,
+#                        outputs), where status is "halt" or "input" and m
+#                        is the machine, ready to carry on.
+#   outputs(text, ins)   everything a fresh machine outputs, given inputs ins
+#   peek(m, a), poke(m, a, v)   read or write memory address a
+#
+# A machine is (memory, instruction pointer, relative base). Memory is a map
+# from address to value; addresses not in it hold 0.
+
+intcode(text) = ({a: v for (a, v) in text.ints.enumerate}, 0, 0)
+
+peek((mem, _, _), a) = mem.get(a, 0)
+poke((mem, ip, rb), a, v) = (mem.set(a, v), ip, rb)
+
+outputs(text, ins) = run(intcode(text), ins).2
+
+# The address that parameter k (from 1) of the current instruction refers
+# to, by its mode: 0 position, 1 immediate, 2 relative.
+addr((mem, ip, rb), k) = match mem[ip] / [100, 1000, 10000][k - 1] % 10
+  0 => mem.get(ip + k, 0)
+  1 => ip + k
+  2 => rb + mem.get(ip + k, 0)
+
+val(m, k) = peek(m, addr(m, k))
+
+# Write v to parameter k's address, and move on n places.
+store(m, k, v, n) = (mem.set(addr(m, k), v), ip + n, rb)
+  where
+    (mem, ip, rb) = m
+
+skip((mem, ip, rb), n) = (mem, ip + n, rb)
+jump(m, yes) = if yes then (m.0, val(m, 2), m.2) else skip(m, 3)
+
+run(m, inputs) = exec(m, inputs, [])
+
+exec(m, ins, outs) = match m.0[m.1] % 100
+  1 => exec(store(m, 3, val(m, 1) + val(m, 2), 4), ins, outs)
+  2 => exec(store(m, 3, val(m, 1) * val(m, 2), 4), ins, outs)
+  3 when ins == [] => ("input", m, outs)
+  3 => exec(store(m, 1, ins[0], 2), ins[1..], outs)
+  4 => exec(skip(m, 2), ins, outs ++ [val(m, 1)])
+  5 => exec(jump(m, val(m, 1) != 0), ins, outs)
+  6 => exec(jump(m, val(m, 1) == 0), ins, outs)
+  7 => exec(store(m, 3, int(val(m, 1) < val(m, 2)), 4), ins, outs)
+  8 => exec(store(m, 3, int(val(m, 1) == val(m, 2)), 4), ins, outs)
+  9 => exec((m.0, m.1 + 2, m.2 + val(m, 1)), ins, outs)
+  99 => ("halt", m, outs)
+
+# Examples from the puzzles of days 2, 5 and 9.
+memory_after(text) = (0..<text.ints.len).map(peek(run(intcode(text), []).1, _))
+
+test "day 2: add" = memory_after("1,0,0,0,99") == [2, 0, 0, 0, 99]
+test "day 2: multiply" = memory_after("2,4,4,5,99,0") == [2, 4, 4, 5, 99, 9801]
+test "day 2: overwrite" = memory_after("1,1,1,4,99,5,6,0,99") == [30, 1, 1, 4, 2, 5, 6, 0, 99]
+test "day 2: example" = memory_after("1,9,10,3,2,3,11,0,99,30,40,50")[0] == 3500
+test "day 5: echo" = outputs("3,0,4,0,99", [42]) == [42]
+test "day 5: immediate mode" = memory_after("1002,4,3,4,33")[4] == 99
+test "day 5: negative" = memory_after("1101,100,-1,4,0")[4] == 99
+test "day 5: equal to 8" =
+  [8, 7].map(x => outputs("3,9,8,9,10,9,4,9,99,-1,8", [x])) == [[1], [0]] and
+  [8, 7].map(x => outputs("3,3,1108,-1,8,3,4,3,99", [x])) == [[1], [0]]
+test "day 5: less than 8" =
+  [7, 8].map(x => outputs("3,9,7,9,10,9,4,9,99,-1,8", [x])) == [[1], [0]] and
+  [7, 8].map(x => outputs("3,3,1107,-1,8,3,4,3,99", [x])) == [[1], [0]]
+test "day 5: jumps" =
+  [0, 5].map(x => outputs("3,12,6,12,15,1,13,14,13,4,13,99,-1,0,1,9", [x])) == [[0], [1]] and
+  [0, 5].map(x => outputs("3,3,1105,-1,9,1101,0,0,12,4,12,99,1", [x])) == [[0], [1]]
+test "day 5: compare with 8" =
+  [7, 8, 9].map(x => outputs(compare8, [x])) == [[999], [1000], [1001]]
+test "day 9: quine" = outputs(quine, []) == quine.ints
+test "day 9: big multiply" = str(outputs("1102,34915192,34915192,7,4,7,99,0", [])[0]).len == 16
+test "day 9: big number" = outputs("104,1125899906842624,99", []) == [1125899906842624]
+test "waits for input" = run(intcode("3,0,4,0,99"), []).0 == "input"
+test "resumes after input" = match run(intcode("3,0,4,0,99"), [])
+  (_, m, _) => run(m, [7]) == ("halt", run(m, [7]).1, [7])
+
+compare8 = "3,21,1008,21,8,20,1005,20,22,107,8,21,20,1006,20,31,1106,0,36,98,0,0,1002,21,125,20,4,20,1105,1,46,104,999,1105,1,46,1101,1000,1,20,4,20,1105,1,46,98,99"
+quine = "109,1,204,-1,1001,100,1,100,1008,100,16,101,1006,101,0,99"

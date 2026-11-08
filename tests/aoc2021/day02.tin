@@ -1,0 +1,36 @@
+day 2021.2
+
+# Submarine commands: forward n, down n, up n.
+# Part 1: forward moves along, and down and up change depth. Horizontal
+#         position times depth at the end.
+# Part 2: down and up change the aim instead, and forward n also changes
+#         depth by aim * n.
+
+example """
+forward 5
+down 5
+forward 8
+up 3
+down 8
+forward 2
+"""
+  part1 = 150
+  part2 = 900
+
+answers
+  part1 = 1690020
+  part2 = 1408487760
+
+commands = [(dir, n) for "{dir} {n:int}" in input.lines]
+
+move((x, depth), ("forward", n)) = (x + n, depth)
+move((x, depth), ("down", n)) = (x, depth + n)
+move((x, depth), ("up", n)) = (x, depth - n)
+
+aim((x, depth, a), ("forward", n)) = (x + n, depth + a * n, a)
+aim((x, depth, a), ("down", n)) = (x, depth, a + n)
+aim((x, depth, a), ("up", n)) = (x, depth, a - n)
+
+part1 = commands.fold((0, 0), move).product
+part2 = match commands.fold((0, 0, 0), aim)
+  (x, depth, _) => x * depth

@@ -1,0 +1,78 @@
+day 2020.10
+
+# Joltage adapters: each takes an input 1 to 3 jolts lower than its rating.
+# The outlet is 0 jolts and the device is 3 above the highest adapter.
+# Part 1: using every adapter in order, the number of 1-jolt differences
+#         times the number of 3-jolt differences.
+# Part 2: the number of ways to arrange adapters from the outlet to the
+#         device.
+
+example """
+16
+10
+15
+5
+1
+11
+7
+19
+6
+12
+4
+"""
+  part1 = 35
+  part2 = 8
+
+example """
+28
+33
+18
+42
+31
+14
+46
+20
+48
+47
+24
+23
+49
+45
+19
+38
+39
+11
+1
+32
+25
+35
+8
+17
+7
+9
+4
+2
+34
+10
+3
+"""
+  part1 = 220
+  part2 = 19208
+
+answers
+  part1 = 2232
+  part2 = 173625106649344
+
+adapters = input.ints.sort
+chain = [0] ++ adapters ++ [adapters.max + 3]
+
+gaps = chain.pairs.map((a, b) => b - a).counts
+
+part1 = gaps.get(1, 0) * gaps.get(3, 0)
+
+present = set(chain)
+
+# Ways to get from rating j to the device.
+ways(j) = if j == chain.last then 1 else [j + 1, j + 2, j + 3].filter(_ in present).map(ways).sum
+
+part2 = ways(0)

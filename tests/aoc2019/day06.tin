@@ -1,0 +1,57 @@
+day 2019.6
+
+# A map of orbits: "A)B" means B orbits A. Everything orbits COM in the end.
+# Part 1: the total number of direct and indirect orbits.
+# Part 2: the fewest orbital transfers to move from what YOU orbit to what
+#         SAN orbits.
+
+example """
+COM)B
+B)C
+C)D
+D)E
+E)F
+B)G
+G)H
+D)I
+E)J
+J)K
+K)L
+"""
+  part1 = 42
+
+example """
+COM)B
+B)C
+C)D
+D)E
+E)F
+B)G
+G)H
+D)I
+E)J
+J)K
+K)L
+K)YOU
+I)SAN
+"""
+  part2 = 4
+
+answers
+  part1 = 249308
+  part2 = 349
+
+parent = {b: a for "{a}){b}" in input.lines}
+
+depth("COM") = 0
+depth(x) = 1 + depth(parent[x])
+
+# Everything x orbits, nearest first.
+ancestors("COM") = []
+ancestors(x) = [parent[x]] ++ ancestors(parent[x])
+
+part1 = parent.keys.map(depth).sum
+
+common = ancestors("YOU").first(_ in set(ancestors("SAN")))
+
+part2 = (depth("YOU") - 1 - depth(common)) + (depth("SAN") - 1 - depth(common))

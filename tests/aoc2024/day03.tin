@@ -1,0 +1,28 @@
+day 2024.3
+
+# Corrupted memory containing instructions like mul(2,4).
+# Part 1: add up the products of every well-formed mul(X,Y).
+# Part 2: do() and don't() turn the mul instructions on and off.
+
+example """
+xmul(2,4)%&mul[3,7]!@^do_not_mul(5,5)+mul(32,64]then(mul(11,8)mul(8,5))
+"""
+  part1 = 161
+
+example """
+xmul(2,4)&mul[3,7]!^don't()_mul(5,5)+mul(32,64](mul(11,8)undo()?mul(8,5))
+"""
+  part2 = 48
+
+answers
+  part1 = 161085926
+  part2 = 82045421
+
+# Everything after a "mul(" that starts with "X,Y)" is a valid instruction.
+muls(s) = sum(a * b for "{a:int},{b:int}){_}" in s.split("mul(")[1..])
+
+# Keep the text from each do() up to the next don't(). Memory starts enabled.
+enabled = input.split("do()").map(.split("don't()").0).join
+
+part1 = muls(input)
+part2 = muls(enabled)

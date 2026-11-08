@@ -1,0 +1,104 @@
+# Patterns: destructuring and string patterns. SPEC section 6.
+
+# --- Structural patterns ----------------------------------------------------
+swap((a, b)) = (b, a)
+test "tuple pattern parameter" = swap((1, 2)) == (2, 1)
+
+head_tail([x, ..xs]) = (x, xs)
+test "list with rest" = head_tail([1, 2, 3]) == (1, [2, 3])
+
+last_two([.., a, b]) = (a, b)
+test "rest at the start" = last_two([1, 2, 3, 4]) == (3, 4)
+
+ends([a, .., z]) = (a, z)
+test "rest in the middle" = ends([1, 2, 3, 4]) == (1, 4)
+
+exact([a, b]) = a + b
+test_error "list length must match" = exact([1, 2, 3])
+
+lit(-1) = "minus one"
+lit('x') = "x"
+lit(none) = "none"
+lit(true) = "true"
+lit((a,)) = "one {a}"
+lit(()) = "empty"
+lit(_) = "other"
+test "literal and small tuple patterns" =
+  [-1, 'x', none, true, (7,), (), 3].map(lit) == ["minus one", "x", "none", "true", "one 7", "empty", "other"]
+
+literal_str("out") = 1
+literal_str(_) = 0
+test "string literal pattern" = (literal_str("out"), literal_str("in")) == (1, 0)
+
+# --- String patterns ------------------------------------------------------------
+move("{dir:char}{n:int}") = (dir, n)
+test "char capture then int" = move("L68") == ('L', 68)
+
+xy("x={a} y={b}") = (a, b)
+test "untyped captures are always strings" = xy("x=-12 y=ab") == ("-12", "ab")
+
+xy_int("x={a:int} y={b:int}") = (a, b)
+test "int captures" = xy_int("x=-12 y=7") == (-12, 7)
+test_error "int capture must match digits" = xy_int("x=ab y=7")
+test "int captures accept a + sign" = xy_int("x=+12 y=-7") == (12, -7)
+test_error "a sign alone is not an int" = xy_int("x=+ y=7")
+
+ident("id {n}") = n
+test "untyped captures keep leading zeros" = ident("id 007") == "007"
+
+explicit("id {n:str}") = n
+test ":str is the same as untyped" = explicit("id 42") == "42"
+
+braced("{{{inner}}}") = inner
+test "escaped braces in patterns" = braced("{{5}}") == "5"
+
+key_val("{k}: {v}") = (k, v)
+test "captures are shortest-first" = key_val("a: b: c") == ("a", "b: c")
+
+typed("{a:int}{b:word}") = (a, b)
+test "int capture is greedy" = typed("123abc") == (123, "abc")
+
+test "word and wildcard captures" = [w for "{_} {w:word}!" in ["x hi!", "y a_b1!"]] == ["hi", "a_b1"]
+
+greedy_int("{a:int}5") = a
+test_error "int captures are greedy and don't backtrack" = greedy_int("125")
+
+first_of(xs) = y
+  where
+    [y] = xs
+test_error "a where pattern that doesn't match is an error" = first_of([1, 2])
+
+whole("ab{x}") = x
+test_error "string pattern must match the whole string" = whole("zab1")
+
+test "string pattern in a lambda" = ["L3", "R4"].map("{d:char}{n:int}" => n) == [3, 4]
+
+# --- Comprehensions skip items that don't match the loop pattern -------------
+test "comprehension pattern filters" = [n for "a{n:int}" in ["a1", "b2", "a3"]] == [1, 3]
+test "typed capture mismatch also skips" = [n for "a{n:int}" in ["a1", "ax", "a3"]] == [1, 3]
+test "tuple patterns in comprehensions" = [a * b for (a, b) in [(1, 2), (3, 4)]] == [2, 12]
+
+# --- Matching on a tuple written in place -------------------------------------
+fizz(n) = match (n % 3, n % 5)
+  (0, 0) => "FizzBuzz"
+  (0, _) => "Fizz"
+  (_, 0) => "Buzz"
+  _ => str(n)
+test "match on a tuple of values" = [fizz(n) for n in [3, 5, 15, 7]] == ["Fizz", "Buzz", "FizzBuzz", "7"]
+sizes(a, b) = match (a, b)
+  (x, y, z) => "three"
+  (x, (y, z)) => "pair inside"
+  (x, y) => "two"
+test "tuple patterns of other sizes don't match" = (sizes(1, 2), sizes(1, (2, 3))) == ("two", "pair inside")
+kept_whole(a, b) = match (a, b)
+  (0, _) => (a, b)
+  t => t
+test "the tuple itself can still be used" = (kept_whole(0, 1), kept_whole(2, 3)) == ((0, 1), (2, 3))
+longer_arm(a, b) = match (a, b)
+  (x, y, z) => x + z
+  (x, y) => x + y
+  _ => 0
+test "an arm for a longer tuple is skipped" = (longer_arm(1, 2), longer_arm(3, 4)) == (3, 7)
+only_zero(a, b) = match (a, b)
+  (0, 0) => true
+test_error "no arm matches a tuple written in place" = only_zero(1, 2)

@@ -1,0 +1,15 @@
+day 2019.9
+include "intcode.tin"
+
+# Intcode gains relative mode, a relative base, and memory beyond the
+# program. Run the BOOST program.
+# Part 1: its output in test mode (input 1).
+# Part 2: its output in sensor boost mode (input 2).
+# The examples are tests in intcode.tin.
+
+answers
+  part1 = 2775723069
+  part2 = 49115
+
+part1 = outputs(input, [1])[0]
+part2 = outputs(input, [2])[0]

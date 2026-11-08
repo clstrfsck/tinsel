@@ -1,0 +1,55 @@
+day 2022.15
+
+# Sensors, each with the closest beacon (by Manhattan distance). No other
+# beacon is closer to a sensor than its closest one.
+# Part 1: in row y = 2000000, how many positions cannot hold a beacon.
+# Part 2: the only position with 0 <= x, y <= 4000000 that could hold the
+#         distress beacon; give x * 4000000 + y.
+
+example """
+Sensor at x=2, y=18: closest beacon is at x=-2, y=15
+Sensor at x=9, y=16: closest beacon is at x=10, y=16
+Sensor at x=13, y=2: closest beacon is at x=15, y=3
+Sensor at x=12, y=14: closest beacon is at x=10, y=16
+Sensor at x=10, y=20: closest beacon is at x=10, y=16
+Sensor at x=14, y=17: closest beacon is at x=10, y=16
+Sensor at x=8, y=7: closest beacon is at x=2, y=10
+Sensor at x=2, y=0: closest beacon is at x=2, y=10
+Sensor at x=0, y=11: closest beacon is at x=2, y=10
+Sensor at x=20, y=14: closest beacon is at x=25, y=17
+Sensor at x=17, y=20: closest beacon is at x=21, y=22
+Sensor at x=16, y=7: closest beacon is at x=15, y=3
+Sensor at x=14, y=3: closest beacon is at x=15, y=3
+Sensor at x=20, y=1: closest beacon is at x=15, y=3
+"""
+  with row = 10
+  with limit = 20
+  part1 = 26
+  part2 = 56000011
+
+answers
+  part1 = 4985193
+  part2 = 11583882601918
+
+row = 2000000
+limit = 4000000
+
+# (sensor, beacon, radius)
+sensors = [((sx, sy), (bx, by), abs(sx - bx) + abs(sy - by))
+           for [sx, sy, bx, by] in input.lines.map(.ints)]
+
+covered(y) = rangeset([sx - w..sx + w for ((sx, sy), _, r) in sensors let w = r - abs(sy - y) if w >= 0])
+
+part1 = (covered(row) - rangeset([bx for (_, (bx, by), _) in sensors if by == row])).len
+
+# The beacon is just outside the range of several sensors, so it lies where
+# two of their boundary diagonals cross. Those are the lines x + y = a and
+# x - y = b, one step outside each sensor's diamond.
+sums = {sx + sy + d for ((sx, sy), _, r) in sensors for d in [-r - 1, r + 1]}
+diffs = {sx - sy + d for ((sx, sy), _, r) in sensors for d in [-r - 1, r + 1]}
+
+hidden(p) = 0 <= p.0 <= limit and 0 <= p.1 <= limit and sensors.all((s, _, r) => manhattan(s, p) > r)
+
+beacon = [((a + b) / 2, (a - b) / 2) for a in sums for b in diffs if (a + b) % 2 == 0].first(hidden)
+
+part2 = beacon.0 * 4000000 + beacon.1

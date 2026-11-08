@@ -1,0 +1,30 @@
+day 2019.4
+
+# Count six-digit passwords in the input's range whose digits never
+# decrease from left to right.
+# Part 1: and two adjacent digits are the same.
+# Part 2: and some digit appears in a run of exactly two.
+
+answers
+  part1 = 544
+  part2 = 334
+
+[low, high] = input.ints
+
+# Every six-digit number whose digits never decrease, as its digits.
+rising = [(a, b, c, d, e, f) for a in 1..9 for b in a..9 for c in b..9
+                             for d in c..9 for e in d..9 for f in e..9]
+
+number(ds) = ds.fold(0, (n, d) => 10 * n + d)
+
+# Equal digits are next to each other, so a digit's count is its run length.
+runs(ds) = ds.counts.values
+
+candidates = rising.filter(ds => low <= number(ds) <= high)
+
+part1 = candidates.count(ds => runs(ds).any(_ >= 2))
+part2 = candidates.count(ds => 2 in runs(ds))
+
+test "112233 meets both rules" = 2 in runs((1, 1, 2, 2, 3, 3))
+test "123444 has no run of exactly two" = runs((1, 2, 3, 4, 4, 4)).any(_ >= 2) and 2 not in runs((1, 2, 3, 4, 4, 4))
+test "111122 has a run of exactly two" = 2 in runs((1, 1, 1, 1, 2, 2))

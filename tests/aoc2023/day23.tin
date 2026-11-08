@@ -1,0 +1,93 @@
+day 2023.23
+
+# A map of paths (.), forest (#) and steep slopes (^ > v <). Walk from the
+# gap in the top row to the gap in the bottom row, never stepping on the
+# same tile twice.
+# Part 1: the longest hike, where slopes can only be walked downhill.
+# Part 2: the longest hike, treating slopes as ordinary paths.
+
+example """
+#.#####################
+#.......#########...###
+#######.#########.#.###
+###.....#.>.>.###.#.###
+###v#####.#v#.###.#.###
+###.>...#.#.#.....#...#
+###v###.#.#.#########.#
+###...#.#.#.......#...#
+#####.#.#.#######.#.###
+#.....#.#.#.......#...#
+#.#####.#.#.#########v#
+#.#...#...#...###...>.#
+#.#.#v#######v###.###v#
+#...#.>.#...>.>.#.###.#
+#####v#.#.###v#.#.###.#
+#.....#...#...#.#.#...#
+#.#########.###.#.#.###
+#...###...#...#...#.###
+###.###.#.###v#####v###
+#...#...#.#.>.>.#.>.###
+#.###.###.#.###.#.#v###
+#.....###...###...#...#
+#####################.#
+"""
+  part1 = 94
+  part2 = 154
+
+answers
+  part1 = 2178
+  part2 = 6486
+
+trails = input.grid
+start = (1, 0)
+end = (trails.width - 2, trails.height - 1)
+
+SLOPES = {'^': N, '>': E, 'v': S, '<': W}
+
+# Where you can step from p. With slopes, a slope tile only leads downhill.
+steps(p, slippery) =
+  if slippery and trails[p] in SLOPES then [p + SLOPES[trails[p]]]
+  else trails.nbrs4(p).filter(trails[_] != '#')
+
+# Squash the corridors: the graph's nodes are the start, the end and every
+# fork. Each edge is a corridor's length.
+forks = {p for p in trails.where(_ != '#') if steps(p, false).len > 2} | {start, end}
+
+edges(slippery) = {f: corridors(f) for f in forks}
+  where
+    corridors(f) = [follow(q, f, 1) for q in steps(f, slippery)].filter(_ != none)
+    follow(p, prev, n) =
+      if p in forks then (p, n)
+      else match steps(p, slippery).filter(_ != prev)
+        [] => none
+        [q, ..] => follow(q, p, n + 1)
+
+# Depth-first search for the longest path. Forks are numbered, and the set
+# of visited forks is a bitmask. The search never repeats a state, so
+# memoizing would only waste memory.
+hike(slippery) = longest(ids[start], 1 << ids[start])
+  where
+    g = edges(slippery)
+    graph = order.map(f => g[f].filter((q, _) => not backwards(f, q)).map((q, n) => (ids[q], n)))
+
+    # The forks form a grid-like maze. On its outer ring (forks with at most
+    # three corridors), a path that turns back towards the start has walled
+    # itself off from the end, so only allow moving further from the start.
+    hops = bfs(start, f => g[f].map(.0))
+    ring(f) = g[f].len <= 3
+    backwards(f, q) = not slippery and ring(f) and ring(q) and hops[q] < hops[f]
+
+    # The fork next to the end must go straight there: going anywhere else
+    # would cut the end off.
+    last = order.first(f => g[f].any((q, _) => q == end))
+    last_n = g[last].first((q, _) => q == end).1
+    @nomemo
+    longest(p, seen) =
+      if p == ids[last] then last_n
+      else max([n + longest(q, seen | 1 << q) for (q, n) in graph[p] if seen & 1 << q == 0] ++ [-inf])
+
+order = forks.sort
+ids = {f: i for (i, f) in order.enumerate}
+
+part1 = hike(true)
+part2 = hike(false)

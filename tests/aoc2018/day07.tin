@@ -1,0 +1,59 @@
+day 2018.7
+
+# Steps, each a letter, and which steps must finish before others begin.
+# Part 1: the order of the steps, taking the first ready step in
+#         alphabetical order each time.
+# Part 2: the time to finish with 5 workers, where a step takes 60 seconds
+#         plus its letter's position in the alphabet.
+
+example """
+Step C must be finished before step A can begin.
+Step C must be finished before step F can begin.
+Step A must be finished before step B can begin.
+Step A must be finished before step D can begin.
+Step B must be finished before step E can begin.
+Step D must be finished before step E can begin.
+Step F must be finished before step E can begin.
+"""
+  with workers = 2
+  with base = 0
+  part1 = "CABDFE"
+  part2 = 15
+
+answers
+  part1 = "ABGKCMVWYDEHFOPQUILSTNZRJX"
+  part2 = 898
+
+edges = [(a, b) for "Step {a:char} must be finished before step {b:char} can begin." in input.lines]
+
+steps = {s for (a, b) in edges for s in [a, b]}
+
+needs = edges.group_by(.1, .0)
+
+ready(left, s) = needs.get(s, []).all(_ not in left)
+
+order(done, left) =
+  if left.len == 0 then done
+  else order(done ++ str(next), left.remove(next))
+  where
+    next = left.filter(ready(left, _)).min
+
+part1 = order("", steps)
+
+workers = 5
+base = 60
+
+duration(s) = base + ord(s) - ord('A') + 1
+
+# At time t, with steps done, steps left to start, and busy workers as
+# (finish time, step) pairs: start what can be started, then jump to the
+# next time a step finishes.
+build(t, done, left, busy) =
+  if left.len == 0 and busy.len == 0 then t
+  else build(next, done | {s for (f, s) in working if f == next}, left - set(starting), [(f, s) for (f, s) in working if f != next])
+  where
+    starting = left.filter(s => needs.get(s, []).all(_ in done)).sort.take(workers - busy.len)
+    working = busy ++ starting.map(s => (t + duration(s), s))
+    next = working.map(.0).min
+
+part2 = build(0, set(), steps, [])
