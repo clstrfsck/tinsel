@@ -144,8 +144,10 @@ with strings quoted. The expression can use everything the program defines,
 and `input` is the real input, the file given by `--input`, or with
 `--example N` the input of the program's `N`th `example` block (counting
 from 1), with that block's `with` constants. Only what the expression
-needs is computed, and no checks are run. An error in the expression is
-reported in a file named `<expression>`:
+needs is computed, and no checks are run. The expression may span several
+lines, laid out as it would be in a program (3.1), as for a `match` with
+its arms on the lines after it. An error in the expression is reported in a
+file named `<expression>`:
 
 ```
 tinsel eval day11.tin 'graph["you"]'
