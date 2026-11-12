@@ -7,22 +7,22 @@ tree-walking interpreter (`--tree`). The examples are left out because
 they vary so much: some are a few lines, while others (such as 2020 day
 23's part 2 example, a full 10-million-move game) cost as much as the real
 input. Each time is the faster of two runs of the release build, on an
-Apple M3 Max, measured on 2026-11-11, and includes compiling the program
+Apple M3 Max, measured on 2026-11-12, and includes compiling the program
 (10–20 ms).
 
 | Year | Solutions | Native | Tree-walker | Slowest (native) |
 |---|---|---|---|---|
-| 2025 | 12 | 1.21 s | 2.35 s | day 9, 0.35 s |
-| 2024 | 25 | 3.60 s | 5.97 s | day 22, 1.35 s |
-| 2023 | 25 | 4.26 s | 6.97 s | day 23, 1.17 s |
-| 2022 | 25 | 6.10 s | 9.04 s | day 23, 2.43 s |
-| 2021 | 25 | 3.88 s | 8.15 s | day 23, 1.06 s |
-| 2020 | 25 | 6.37 s | 17.42 s | day 23, 2.30 s |
-| 2019 | 25 | 5.48 s | 12.21 s | day 18, 1.44 s |
-| 2018 | 25 | 13.62 s | 30.39 s | day 15, 5.56 s |
-| **All** | **187** | **44.52 s** | **92.50 s** | |
+| 2025 | 12 | 1.04 s | 2.16 s | day 10, 0.36 s |
+| 2024 | 25 | 2.72 s | 5.08 s | day 22, 0.94 s |
+| 2023 | 25 | 3.84 s | 6.65 s | day 23, 1.08 s |
+| 2022 | 25 | 5.63 s | 8.38 s | day 23, 2.12 s |
+| 2021 | 25 | 3.58 s | 7.87 s | day 23, 1.05 s |
+| 2020 | 25 | 5.71 s | 16.62 s | day 23, 2.30 s |
+| 2019 | 25 | 4.69 s | 10.74 s | day 18, 1.43 s |
+| 2018 | 25 | 11.82 s | 28.13 s | day 15, 3.99 s |
+| **All** | **187** | **39.03 s** | **85.63 s** | |
 
-174 of the 187 solutions finish in under a second natively, and 161 on the tree-walker.
+175 of the 187 solutions finish in under a second natively, and 164 on the tree-walker.
 
 The interpreter speedups of 2026-11-08 (reused call frames and argument
 vectors, parameters bound without copying, and fast paths for small-int
@@ -79,7 +79,10 @@ Natively, the slowest solutions gain most: 2018 day 9 and 2020 day 15
 run about 6× faster than on the tree-walker, 2018 day 11 about 5.5×.
 The quickest ones run slightly slower, since compiling takes 10–20 ms.
 Apart from that, every solution runs at least as fast natively as on the
-tree-walker. The first timing of the whole corpus found four that
+tree-walker, except 2022 day 20, which is level: its time is list slicing
+in the runtime both share. Natively it takes 1.91 s every run; on the
+tree-walker it usually takes 1.96 s but now and then about 1.6 s, as in
+the table. The first timing of the whole corpus found four that
 didn't, and the fixes (`native-plan.md`, section 12) helped others too:
 
 - A generator comprehension passed to a library function, as in
@@ -98,20 +101,38 @@ didn't, and the fixes (`native-plan.md`, section 12) helped others too:
 - A tuple written only to be matched, as in `match (a, d)`, isn't
   built: 2018 day 24 went from 1.89 s to 1.53 s.
 
+On 2026-11-12, three changes to the shared runtime took the native total
+from 44.52 s to 39.03 s (12% less) and the tree-walker's from 92.50 s to
+85.63 s (7% less); no solution got slower:
+
+- Two `(x, y)` positions are compared with a single integer comparison
+  rather than a call that unpacks both: 2018 day 15, which looks up
+  positions in sets throughout its searches, became 13% faster.
+- `counts` and `tally` add up their totals in a hash table and build the
+  sorted map once at the end, instead of updating the map for every item:
+  2024 day 22 went from 1.35 s to 0.94 s.
+- A set or map whose keys are all small ints, or all positions, is kept
+  in a 16-way radix tree rather than a B-tree, so a lookup indexes a few
+  arrays instead of comparing values (`reference/next-steps.md`). 2020
+  day 11 went from 0.83 s to 0.37 s, 2024 day 20 from 0.89 s to 0.56 s,
+  2021 day 25 from 0.44 s to 0.29 s, 2023 day 16 from 0.72 s to 0.49 s,
+  2019 day 25 from 0.54 s to 0.40 s, 2018 day 15 to 3.99 s, and 2022
+  day 23 from 2.43 s to 2.12 s.
+
 ## 2025
 
 | Day | Puzzle | Native | Tree-walker |
 |---:|---|---:|---:|
 | 1 | [Secret Entrance](tests/aoc2025/day01.tin) | 0.01 s | 0.01 s |
-| 2 | [Gift Shop](tests/aoc2025/day02.tin) | 0.02 s | 0.01 s |
+| 2 | [Gift Shop](tests/aoc2025/day02.tin) | 0.01 s | 0.01 s |
 | 3 | [Lobby](tests/aoc2025/day03.tin) | 0.01 s | 0.01 s |
-| 4 | [Printing Department](tests/aoc2025/day04.tin) | 0.16 s | 0.24 s |
+| 4 | [Printing Department](tests/aoc2025/day04.tin) | 0.07 s | 0.16 s |
 | 5 | [Cafeteria](tests/aoc2025/day05.tin) | 0.01 s | 0.01 s |
 | 6 | [Trash Compactor](tests/aoc2025/day06.tin) | 0.01 s | 0.01 s |
-| 7 | [Laboratories](tests/aoc2025/day07.tin) | 0.02 s | 0.01 s |
-| 8 | [Playground](tests/aoc2025/day08.tin) | 0.25 s | 0.38 s |
-| 9 | [Movie Theater](tests/aoc2025/day09.tin) | 0.35 s | 0.99 s |
-| 10 | [Factory](tests/aoc2025/day10.tin) | 0.35 s | 0.66 s |
+| 7 | [Laboratories](tests/aoc2025/day07.tin) | 0.01 s | 0.01 s |
+| 8 | [Playground](tests/aoc2025/day08.tin) | 0.20 s | 0.34 s |
+| 9 | [Movie Theater](tests/aoc2025/day09.tin) | 0.34 s | 0.97 s |
+| 10 | [Factory](tests/aoc2025/day10.tin) | 0.36 s | 0.66 s |
 | 11 | [Reactor](tests/aoc2025/day11.tin) | 0.01 s | 0.01 s |
 | 12 | [Christmas Tree Farm](tests/aoc2025/day12.tin) | 0.01 s | 0.01 s |
 
@@ -120,60 +141,60 @@ didn't, and the fixes (`native-plan.md`, section 12) helped others too:
 | Day | Puzzle | Native | Tree-walker |
 |---:|---|---:|---:|
 | 1 | [Historian Hysteria](tests/aoc2024/day01.tin) | 0.01 s | 0.01 s |
-| 2 | [Red-Nosed Reports](tests/aoc2024/day02.tin) | 0.02 s | 0.01 s |
+| 2 | [Red-Nosed Reports](tests/aoc2024/day02.tin) | 0.01 s | 0.01 s |
 | 3 | [Mull It Over](tests/aoc2024/day03.tin) | 0.01 s | 0.01 s |
 | 4 | [Ceres Search](tests/aoc2024/day04.tin) | 0.02 s | 0.03 s |
-| 5 | [Print Queue](tests/aoc2024/day05.tin) | 0.02 s | 0.02 s |
-| 6 | [Guard Gallivant](tests/aoc2024/day06.tin) | 0.39 s | 1.17 s |
+| 5 | [Print Queue](tests/aoc2024/day05.tin) | 0.01 s | 0.01 s |
+| 6 | [Guard Gallivant](tests/aoc2024/day06.tin) | 0.38 s | 1.13 s |
 | 7 | [Bridge Repair](tests/aoc2024/day07.tin) | 0.03 s | 0.03 s |
-| 8 | [Resonant Collinearity](tests/aoc2024/day08.tin) | 0.02 s | 0.01 s |
-| 9 | [Disk Fragmenter](tests/aoc2024/day09.tin) | 0.05 s | 0.06 s |
-| 10 | [Hoof It](tests/aoc2024/day10.tin) | 0.02 s | 0.01 s |
-| 11 | [Plutonian Pebbles](tests/aoc2024/day11.tin) | 0.06 s | 0.07 s |
-| 12 | [Garden Groups](tests/aoc2024/day12.tin) | 0.06 s | 0.08 s |
+| 8 | [Resonant Collinearity](tests/aoc2024/day08.tin) | 0.01 s | 0.01 s |
+| 9 | [Disk Fragmenter](tests/aoc2024/day09.tin) | 0.06 s | 0.07 s |
+| 10 | [Hoof It](tests/aoc2024/day10.tin) | 0.01 s | 0.01 s |
+| 11 | [Plutonian Pebbles](tests/aoc2024/day11.tin) | 0.05 s | 0.07 s |
+| 12 | [Garden Groups](tests/aoc2024/day12.tin) | 0.04 s | 0.06 s |
 | 13 | [Claw Contraption](tests/aoc2024/day13.tin) | 0.01 s | 0.01 s |
 | 14 | [Restroom Redoubt](tests/aoc2024/day14.tin) | 0.03 s | 0.03 s |
-| 15 | [Warehouse Woes](tests/aoc2024/day15.tin) | 0.05 s | 0.06 s |
-| 16 | [Reindeer Maze](tests/aoc2024/day16.tin) | 0.04 s | 0.04 s |
+| 15 | [Warehouse Woes](tests/aoc2024/day15.tin) | 0.04 s | 0.06 s |
+| 16 | [Reindeer Maze](tests/aoc2024/day16.tin) | 0.03 s | 0.04 s |
 | 17 | [Chronospatial Computer](tests/aoc2024/day17.tin) | 0.02 s | 0.01 s |
-| 18 | [RAM Run](tests/aoc2024/day18.tin) | 0.04 s | 0.03 s |
-| 19 | [Linen Layout](tests/aoc2024/day19.tin) | 0.33 s | 0.53 s |
-| 20 | [Race Condition](tests/aoc2024/day20.tin) | 0.89 s | 1.49 s |
+| 18 | [RAM Run](tests/aoc2024/day18.tin) | 0.03 s | 0.03 s |
+| 19 | [Linen Layout](tests/aoc2024/day19.tin) | 0.32 s | 0.53 s |
+| 20 | [Race Condition](tests/aoc2024/day20.tin) | 0.56 s | 1.16 s |
 | 21 | [Keypad Conundrum](tests/aoc2024/day21.tin) | 0.02 s | 0.01 s |
-| 22 | [Monkey Market](tests/aoc2024/day22.tin) | 1.35 s | 2.14 s |
-| 23 | [LAN Party](tests/aoc2024/day23.tin) | 0.05 s | 0.06 s |
+| 22 | [Monkey Market](tests/aoc2024/day22.tin) | 0.94 s | 1.73 s |
+| 23 | [LAN Party](tests/aoc2024/day23.tin) | 0.05 s | 0.05 s |
 | 24 | [Crossed Wires](tests/aoc2024/day24.tin) | 0.02 s | 0.01 s |
-| 25 | [Code Chronicle](tests/aoc2024/day25.tin) | 0.04 s | 0.04 s |
+| 25 | [Code Chronicle](tests/aoc2024/day25.tin) | 0.03 s | 0.03 s |
 
 ## 2023
 
 | Day | Puzzle | Native | Tree-walker |
 |---:|---|---:|---:|
-| 1 | [Trebuchet?!](tests/aoc2023/day01.tin) | 0.03 s | 0.04 s |
+| 1 | [Trebuchet?!](tests/aoc2023/day01.tin) | 0.03 s | 0.03 s |
 | 2 | [Cube Conundrum](tests/aoc2023/day02.tin) | 0.01 s | 0.01 s |
-| 3 | [Gear Ratios](tests/aoc2023/day03.tin) | 0.03 s | 0.04 s |
+| 3 | [Gear Ratios](tests/aoc2023/day03.tin) | 0.02 s | 0.03 s |
 | 4 | [Scratchcards](tests/aoc2023/day04.tin) | 0.01 s | 0.01 s |
-| 5 | [If You Give A Seed A Fertilizer](tests/aoc2023/day05.tin) | 0.02 s | 0.01 s |
+| 5 | [If You Give A Seed A Fertilizer](tests/aoc2023/day05.tin) | 0.01 s | 0.01 s |
 | 6 | [Wait For It](tests/aoc2023/day06.tin) | 0.01 s | 0.01 s |
-| 7 | [Camel Cards](tests/aoc2023/day07.tin) | 0.02 s | 0.01 s |
-| 8 | [Haunted Wasteland](tests/aoc2023/day08.tin) | 0.04 s | 0.05 s |
-| 9 | [Mirage Maintenance](tests/aoc2023/day09.tin) | 0.02 s | 0.02 s |
-| 10 | [Pipe Maze](tests/aoc2023/day10.tin) | 0.02 s | 0.02 s |
+| 7 | [Camel Cards](tests/aoc2023/day07.tin) | 0.01 s | 0.01 s |
+| 8 | [Haunted Wasteland](tests/aoc2023/day08.tin) | 0.03 s | 0.05 s |
+| 9 | [Mirage Maintenance](tests/aoc2023/day09.tin) | 0.01 s | 0.01 s |
+| 10 | [Pipe Maze](tests/aoc2023/day10.tin) | 0.01 s | 0.01 s |
 | 11 | [Cosmic Expansion](tests/aoc2023/day11.tin) | 0.01 s | 0.01 s |
 | 12 | [Hot Springs](tests/aoc2023/day12.tin) | 0.08 s | 0.19 s |
 | 13 | [Point of Incidence](tests/aoc2023/day13.tin) | 0.02 s | 0.02 s |
-| 14 | [Parabolic Reflector Dish](tests/aoc2023/day14.tin) | 0.66 s | 0.80 s |
+| 14 | [Parabolic Reflector Dish](tests/aoc2023/day14.tin) | 0.70 s | 0.84 s |
 | 15 | [Lens Library](tests/aoc2023/day15.tin) | 0.02 s | 0.01 s |
-| 16 | [The Floor Will Be Lava](tests/aoc2023/day16.tin) | 0.72 s | 0.86 s |
-| 17 | [Clumsy Crucible](tests/aoc2023/day17.tin) | 0.46 s | 0.85 s |
-| 18 | [Lavaduct Lagoon](tests/aoc2023/day18.tin) | 0.02 s | 0.01 s |
-| 19 | [Aplenty](tests/aoc2023/day19.tin) | 0.03 s | 0.02 s |
-| 20 | [Pulse Propagation](tests/aoc2023/day20.tin) | 0.52 s | 0.87 s |
-| 21 | [Step Counter](tests/aoc2023/day21.tin) | 0.20 s | 0.29 s |
+| 16 | [The Floor Will Be Lava](tests/aoc2023/day16.tin) | 0.49 s | 0.64 s |
+| 17 | [Clumsy Crucible](tests/aoc2023/day17.tin) | 0.45 s | 0.86 s |
+| 18 | [Lavaduct Lagoon](tests/aoc2023/day18.tin) | 0.01 s | 0.01 s |
+| 19 | [Aplenty](tests/aoc2023/day19.tin) | 0.02 s | 0.01 s |
+| 20 | [Pulse Propagation](tests/aoc2023/day20.tin) | 0.53 s | 0.86 s |
+| 21 | [Step Counter](tests/aoc2023/day21.tin) | 0.17 s | 0.26 s |
 | 22 | [Sand Slabs](tests/aoc2023/day22.tin) | 0.06 s | 0.07 s |
-| 23 | [A Long Walk](tests/aoc2023/day23.tin) | 1.17 s | 2.69 s |
-| 24 | [Never Tell Me The Odds](tests/aoc2023/day24.tin) | 0.05 s | 0.04 s |
-| 25 | [Snowverload](tests/aoc2023/day25.tin) | 0.03 s | 0.02 s |
+| 23 | [A Long Walk](tests/aoc2023/day23.tin) | 1.08 s | 2.68 s |
+| 24 | [Never Tell Me The Odds](tests/aoc2023/day24.tin) | 0.04 s | 0.03 s |
+| 25 | [Snowverload](tests/aoc2023/day25.tin) | 0.02 s | 0.01 s |
 
 ## 2022
 
@@ -183,26 +204,26 @@ didn't, and the fixes (`native-plan.md`, section 12) helped others too:
 | 2 | [Rock Paper Scissors](tests/aoc2022/day02.tin) | 0.01 s | 0.01 s |
 | 3 | [Rucksack Reorganization](tests/aoc2022/day03.tin) | 0.01 s | 0.01 s |
 | 4 | [Camp Cleanup](tests/aoc2022/day04.tin) | 0.01 s | 0.01 s |
-| 5 | [Supply Stacks](tests/aoc2022/day05.tin) | 0.02 s | 0.01 s |
+| 5 | [Supply Stacks](tests/aoc2022/day05.tin) | 0.01 s | 0.01 s |
 | 6 | [Tuning Trouble](tests/aoc2022/day06.tin) | 0.01 s | 0.01 s |
 | 7 | [No Space Left On Device](tests/aoc2022/day07.tin) | 0.01 s | 0.01 s |
-| 8 | [Treetop Tree House](tests/aoc2022/day08.tin) | 0.04 s | 0.05 s |
-| 9 | [Rope Bridge](tests/aoc2022/day09.tin) | 0.04 s | 0.05 s |
+| 8 | [Treetop Tree House](tests/aoc2022/day08.tin) | 0.03 s | 0.05 s |
+| 9 | [Rope Bridge](tests/aoc2022/day09.tin) | 0.03 s | 0.05 s |
 | 10 | [Cathode-Ray Tube](tests/aoc2022/day10.tin) | 0.02 s | 0.01 s |
-| 11 | [Monkey in the Middle](tests/aoc2022/day11.tin) | 0.19 s | 0.37 s |
+| 11 | [Monkey in the Middle](tests/aoc2022/day11.tin) | 0.18 s | 0.36 s |
 | 12 | [Hill Climbing Algorithm](tests/aoc2022/day12.tin) | 0.01 s | 0.01 s |
-| 13 | [Distress Signal](tests/aoc2022/day13.tin) | 0.02 s | 0.02 s |
-| 14 | [Regolith Reservoir](tests/aoc2022/day14.tin) | 0.04 s | 0.06 s |
+| 13 | [Distress Signal](tests/aoc2022/day13.tin) | 0.02 s | 0.01 s |
+| 14 | [Regolith Reservoir](tests/aoc2022/day14.tin) | 0.03 s | 0.05 s |
 | 15 | [Beacon Exclusion Zone](tests/aoc2022/day15.tin) | 0.02 s | 0.01 s |
-| 16 | [Proboscidea Volcanium](tests/aoc2022/day16.tin) | 0.54 s | 1.01 s |
-| 17 | [Pyroclastic Flow](tests/aoc2022/day17.tin) | 0.05 s | 0.06 s |
+| 16 | [Proboscidea Volcanium](tests/aoc2022/day16.tin) | 0.54 s | 1.02 s |
+| 17 | [Pyroclastic Flow](tests/aoc2022/day17.tin) | 0.04 s | 0.05 s |
 | 18 | [Boiling Boulders](tests/aoc2022/day18.tin) | 0.05 s | 0.05 s |
 | 19 | [Not Enough Minerals](tests/aoc2022/day19.tin) | 0.11 s | 0.26 s |
-| 20 | [Grove Positioning System](tests/aoc2022/day20.tin) | 1.96 s | 2.00 s |
-| 21 | [Monkey Math](tests/aoc2022/day21.tin) | 0.02 s | 0.01 s |
-| 22 | [Monkey Map](tests/aoc2022/day22.tin) | 0.05 s | 0.03 s |
-| 23 | [Unstable Diffusion](tests/aoc2022/day23.tin) | 2.43 s | 4.11 s |
-| 24 | [Blizzard Basin](tests/aoc2022/day24.tin) | 0.42 s | 0.85 s |
+| 20 | [Grove Positioning System](tests/aoc2022/day20.tin) | 1.91 s | 1.67 s |
+| 21 | [Monkey Math](tests/aoc2022/day21.tin) | 0.01 s | 0.01 s |
+| 22 | [Monkey Map](tests/aoc2022/day22.tin) | 0.04 s | 0.02 s |
+| 23 | [Unstable Diffusion](tests/aoc2022/day23.tin) | 2.12 s | 3.91 s |
+| 24 | [Blizzard Basin](tests/aoc2022/day24.tin) | 0.41 s | 0.84 s |
 | 25 | [Full of Hot Air](tests/aoc2022/day25.tin) | 0.01 s | 0.01 s |
 
 ## 2021
@@ -210,30 +231,30 @@ didn't, and the fixes (`native-plan.md`, section 12) helped others too:
 | Day | Puzzle | Native | Tree-walker |
 |---:|---|---:|---:|
 | 1 | [Sonar Sweep](tests/aoc2021/day01.tin) | 0.01 s | 0.01 s |
-| 2 | [Dive!](tests/aoc2021/day02.tin) | 0.02 s | 0.01 s |
-| 3 | [Binary Diagnostic](tests/aoc2021/day03.tin) | 0.07 s | 0.19 s |
-| 4 | [Giant Squid](tests/aoc2021/day04.tin) | 0.02 s | 0.01 s |
-| 5 | [Hydrothermal Venture](tests/aoc2021/day05.tin) | 0.10 s | 0.12 s |
+| 2 | [Dive!](tests/aoc2021/day02.tin) | 0.01 s | 0.01 s |
+| 3 | [Binary Diagnostic](tests/aoc2021/day03.tin) | 0.07 s | 0.18 s |
+| 4 | [Giant Squid](tests/aoc2021/day04.tin) | 0.01 s | 0.01 s |
+| 5 | [Hydrothermal Venture](tests/aoc2021/day05.tin) | 0.06 s | 0.08 s |
 | 6 | [Lanternfish](tests/aoc2021/day06.tin) | 0.01 s | 0.01 s |
 | 7 | [The Treachery of Whales](tests/aoc2021/day07.tin) | 0.01 s | 0.01 s |
-| 8 | [Seven Segment Search](tests/aoc2021/day08.tin) | 0.02 s | 0.01 s |
-| 9 | [Smoke Basin](tests/aoc2021/day09.tin) | 0.02 s | 0.02 s |
+| 8 | [Seven Segment Search](tests/aoc2021/day08.tin) | 0.01 s | 0.01 s |
+| 9 | [Smoke Basin](tests/aoc2021/day09.tin) | 0.01 s | 0.01 s |
 | 10 | [Syntax Scoring](tests/aoc2021/day10.tin) | 0.01 s | 0.01 s |
-| 11 | [Dumbo Octopus](tests/aoc2021/day11.tin) | 0.04 s | 0.04 s |
+| 11 | [Dumbo Octopus](tests/aoc2021/day11.tin) | 0.03 s | 0.04 s |
 | 12 | [Passage Pathing](tests/aoc2021/day12.tin) | 0.02 s | 0.02 s |
-| 13 | [Transparent Origami](tests/aoc2021/day13.tin) | 0.03 s | 0.01 s |
-| 14 | [Extended Polymerization](tests/aoc2021/day14.tin) | 0.02 s | 0.01 s |
-| 15 | [Chiton](tests/aoc2021/day15.tin) | 0.22 s | 0.40 s |
+| 13 | [Transparent Origami](tests/aoc2021/day13.tin) | 0.02 s | 0.01 s |
+| 14 | [Extended Polymerization](tests/aoc2021/day14.tin) | 0.01 s | 0.01 s |
+| 15 | [Chiton](tests/aoc2021/day15.tin) | 0.21 s | 0.40 s |
 | 16 | [Packet Decoder](tests/aoc2021/day16.tin) | 0.02 s | 0.01 s |
-| 17 | [Trick Shot](tests/aoc2021/day17.tin) | 0.02 s | 0.02 s |
+| 17 | [Trick Shot](tests/aoc2021/day17.tin) | 0.01 s | 0.01 s |
 | 18 | [Snailfish](tests/aoc2021/day18.tin) | 0.55 s | 0.92 s |
 | 19 | [Beacon Scanner](tests/aoc2021/day19.tin) | 0.17 s | 0.17 s |
-| 20 | [Trench Map](tests/aoc2021/day20.tin) | 0.17 s | 0.67 s |
+| 20 | [Trench Map](tests/aoc2021/day20.tin) | 0.17 s | 0.66 s |
 | 21 | [Dirac Dice](tests/aoc2021/day21.tin) | 0.04 s | 0.05 s |
-| 22 | [Reactor Reboot](tests/aoc2021/day22.tin) | 0.77 s | 1.66 s |
-| 23 | [Amphipod](tests/aoc2021/day23.tin) | 1.06 s | 2.97 s |
+| 22 | [Reactor Reboot](tests/aoc2021/day22.tin) | 0.77 s | 1.68 s |
+| 23 | [Amphipod](tests/aoc2021/day23.tin) | 1.05 s | 2.99 s |
 | 24 | [Arithmetic Logic Unit](tests/aoc2021/day24.tin) | 0.02 s | 0.01 s |
-| 25 | [Sea Cucumber](tests/aoc2021/day25.tin) | 0.44 s | 0.79 s |
+| 25 | [Sea Cucumber](tests/aoc2021/day25.tin) | 0.29 s | 0.62 s |
 
 ## 2020
 
@@ -242,28 +263,28 @@ didn't, and the fixes (`native-plan.md`, section 12) helped others too:
 | 1 | [Report Repair](tests/aoc2020/day01.tin) | 0.01 s | 0.01 s |
 | 2 | [Password Philosophy](tests/aoc2020/day02.tin) | 0.01 s | 0.01 s |
 | 3 | [Toboggan Trajectory](tests/aoc2020/day03.tin) | 0.01 s | 0.01 s |
-| 4 | [Passport Processing](tests/aoc2020/day04.tin) | 0.02 s | 0.01 s |
+| 4 | [Passport Processing](tests/aoc2020/day04.tin) | 0.01 s | 0.01 s |
 | 5 | [Binary Boarding](tests/aoc2020/day05.tin) | 0.01 s | 0.01 s |
 | 6 | [Custom Customs](tests/aoc2020/day06.tin) | 0.01 s | 0.01 s |
 | 7 | [Handy Haversacks](tests/aoc2020/day07.tin) | 0.01 s | 0.01 s |
-| 8 | [Handheld Halting](tests/aoc2020/day08.tin) | 0.03 s | 0.04 s |
-| 9 | [Encoding Error](tests/aoc2020/day09.tin) | 0.02 s | 0.01 s |
+| 8 | [Handheld Halting](tests/aoc2020/day08.tin) | 0.03 s | 0.03 s |
+| 9 | [Encoding Error](tests/aoc2020/day09.tin) | 0.01 s | 0.01 s |
 | 10 | [Adapter Array](tests/aoc2020/day10.tin) | 0.01 s | 0.01 s |
-| 11 | [Seating System](tests/aoc2020/day11.tin) | 0.83 s | 1.34 s |
-| 12 | [Rain Risk](tests/aoc2020/day12.tin) | 0.02 s | 0.01 s |
+| 11 | [Seating System](tests/aoc2020/day11.tin) | 0.37 s | 0.90 s |
+| 12 | [Rain Risk](tests/aoc2020/day12.tin) | 0.01 s | 0.01 s |
 | 13 | [Shuttle Search](tests/aoc2020/day13.tin) | 0.01 s | 0.01 s |
-| 14 | [Docking Data](tests/aoc2020/day14.tin) | 0.05 s | 0.06 s |
-| 15 | [Rambunctious Recitation](tests/aoc2020/day15.tin) | 1.02 s | 6.28 s |
-| 16 | [Ticket Translation](tests/aoc2020/day16.tin) | 0.02 s | 0.02 s |
-| 17 | [Conway Cubes](tests/aoc2020/day17.tin) | 0.18 s | 0.18 s |
-| 18 | [Operation Order](tests/aoc2020/day18.tin) | 0.02 s | 0.02 s |
-| 19 | [Monster Messages](tests/aoc2020/day19.tin) | 0.19 s | 0.49 s |
-| 20 | [Jurassic Jigsaw](tests/aoc2020/day20.tin) | 0.04 s | 0.03 s |
-| 21 | [Allergen Assessment](tests/aoc2020/day21.tin) | 0.02 s | 0.01 s |
-| 22 | [Crab Combat](tests/aoc2020/day22.tin) | 1.28 s | 1.59 s |
-| 23 | [Crab Cups](tests/aoc2020/day23.tin) | 2.30 s | 6.97 s |
-| 24 | [Lobby Layout](tests/aoc2020/day24.tin) | 0.23 s | 0.26 s |
-| 25 | [Combo Breaker](tests/aoc2020/day25.tin) | 0.02 s | 0.02 s |
+| 14 | [Docking Data](tests/aoc2020/day14.tin) | 0.04 s | 0.06 s |
+| 15 | [Rambunctious Recitation](tests/aoc2020/day15.tin) | 1.06 s | 6.14 s |
+| 16 | [Ticket Translation](tests/aoc2020/day16.tin) | 0.02 s | 0.01 s |
+| 17 | [Conway Cubes](tests/aoc2020/day17.tin) | 0.09 s | 0.09 s |
+| 18 | [Operation Order](tests/aoc2020/day18.tin) | 0.01 s | 0.01 s |
+| 19 | [Monster Messages](tests/aoc2020/day19.tin) | 0.17 s | 0.48 s |
+| 20 | [Jurassic Jigsaw](tests/aoc2020/day20.tin) | 0.04 s | 0.02 s |
+| 21 | [Allergen Assessment](tests/aoc2020/day21.tin) | 0.01 s | 0.01 s |
+| 22 | [Crab Combat](tests/aoc2020/day22.tin) | 1.31 s | 1.59 s |
+| 23 | [Crab Cups](tests/aoc2020/day23.tin) | 2.30 s | 7.05 s |
+| 24 | [Lobby Layout](tests/aoc2020/day24.tin) | 0.15 s | 0.18 s |
+| 25 | [Combo Breaker](tests/aoc2020/day25.tin) | 0.02 s | 0.01 s |
 
 Days 15 and 23 each run a loop of tens of millions of updates (30 million
 turns of a memory game, and 10 million moves round a circle of a million
@@ -280,60 +301,60 @@ again. Day 15's list of 30 million entries takes about 1.6 GB, against
 | Day | Puzzle | Native | Tree-walker |
 |---:|---|---:|---:|
 | 1 | [The Tyranny of the Rocket Equation](tests/aoc2019/day01.tin) | 0.01 s | 0.01 s |
-| 2 | [1202 Program Alarm](tests/aoc2019/day02.tin) | 0.15 s | 0.41 s |
-| 3 | [Crossed Wires](tests/aoc2019/day03.tin) | 0.11 s | 0.12 s |
-| 4 | [Secure Container](tests/aoc2019/day04.tin) | 0.02 s | 0.01 s |
+| 2 | [1202 Program Alarm](tests/aoc2019/day02.tin) | 0.12 s | 0.33 s |
+| 3 | [Crossed Wires](tests/aoc2019/day03.tin) | 0.09 s | 0.10 s |
+| 4 | [Secure Container](tests/aoc2019/day04.tin) | 0.01 s | 0.01 s |
 | 5 | [Sunny with a Chance of Asteroids](tests/aoc2019/day05.tin) | 0.02 s | 0.01 s |
-| 6 | [Universal Orbit Map](tests/aoc2019/day06.tin) | 0.02 s | 0.01 s |
-| 7 | [Amplification Circuit](tests/aoc2019/day07.tin) | 0.08 s | 0.09 s |
-| 8 | [Space Image Format](tests/aoc2019/day08.tin) | 0.03 s | 0.01 s |
-| 9 | [Sensor Boost](tests/aoc2019/day09.tin) | 0.12 s | 0.44 s |
-| 10 | [Monitoring Station](tests/aoc2019/day10.tin) | 0.06 s | 0.07 s |
-| 11 | [Space Police](tests/aoc2019/day11.tin) | 0.08 s | 0.15 s |
-| 12 | [The N-Body Problem](tests/aoc2019/day12.tin) | 0.85 s | 1.29 s |
-| 13 | [Care Package](tests/aoc2019/day13.tin) | 0.28 s | 1.00 s |
-| 14 | [Space Stoichiometry](tests/aoc2019/day14.tin) | 0.02 s | 0.01 s |
-| 15 | [Oxygen System](tests/aoc2019/day15.tin) | 0.05 s | 0.08 s |
-| 16 | [Flawed Frequency Transmission](tests/aoc2019/day16.tin) | 0.06 s | 0.15 s |
-| 17 | [Set and Forget](tests/aoc2019/day17.tin) | 0.08 s | 0.17 s |
-| 18 | [Many-Worlds Interpretation](tests/aoc2019/day18.tin) | 1.44 s | 2.53 s |
-| 19 | [Tractor Beam](tests/aoc2019/day19.tin) | 0.41 s | 1.58 s |
-| 20 | [Donut Maze](tests/aoc2019/day20.tin) | 0.18 s | 0.25 s |
-| 21 | [Springdroid Adventure](tests/aoc2019/day21.tin) | 0.27 s | 0.99 s |
-| 22 | [Slam Shuffle](tests/aoc2019/day22.tin) | 0.02 s | 0.01 s |
-| 23 | [Category Six](tests/aoc2019/day23.tin) | 0.11 s | 0.26 s |
-| 24 | [Planet of Discord](tests/aoc2019/day24.tin) | 0.47 s | 0.65 s |
-| 25 | [Cryostasis](tests/aoc2019/day25.tin) | 0.54 s | 1.91 s |
+| 6 | [Universal Orbit Map](tests/aoc2019/day06.tin) | 0.01 s | 0.01 s |
+| 7 | [Amplification Circuit](tests/aoc2019/day07.tin) | 0.06 s | 0.07 s |
+| 8 | [Space Image Format](tests/aoc2019/day08.tin) | 0.02 s | 0.01 s |
+| 9 | [Sensor Boost](tests/aoc2019/day09.tin) | 0.09 s | 0.37 s |
+| 10 | [Monitoring Station](tests/aoc2019/day10.tin) | 0.05 s | 0.07 s |
+| 11 | [Space Police](tests/aoc2019/day11.tin) | 0.06 s | 0.13 s |
+| 12 | [The N-Body Problem](tests/aoc2019/day12.tin) | 0.84 s | 1.28 s |
+| 13 | [Care Package](tests/aoc2019/day13.tin) | 0.21 s | 0.82 s |
+| 14 | [Space Stoichiometry](tests/aoc2019/day14.tin) | 0.01 s | 0.01 s |
+| 15 | [Oxygen System](tests/aoc2019/day15.tin) | 0.04 s | 0.06 s |
+| 16 | [Flawed Frequency Transmission](tests/aoc2019/day16.tin) | 0.05 s | 0.14 s |
+| 17 | [Set and Forget](tests/aoc2019/day17.tin) | 0.06 s | 0.14 s |
+| 18 | [Many-Worlds Interpretation](tests/aoc2019/day18.tin) | 1.43 s | 2.51 s |
+| 19 | [Tractor Beam](tests/aoc2019/day19.tin) | 0.31 s | 1.31 s |
+| 20 | [Donut Maze](tests/aoc2019/day20.tin) | 0.13 s | 0.20 s |
+| 21 | [Springdroid Adventure](tests/aoc2019/day21.tin) | 0.19 s | 0.78 s |
+| 22 | [Slam Shuffle](tests/aoc2019/day22.tin) | 0.01 s | 0.01 s |
+| 23 | [Category Six](tests/aoc2019/day23.tin) | 0.08 s | 0.21 s |
+| 24 | [Planet of Discord](tests/aoc2019/day24.tin) | 0.39 s | 0.57 s |
+| 25 | [Cryostasis](tests/aoc2019/day25.tin) | 0.40 s | 1.61 s |
 
 ## 2018
 
 | Day | Puzzle | Native | Tree-walker |
 |---:|---|---:|---:|
-| 1 | [Chronal Calibration](tests/aoc2018/day01.tin) | 0.03 s | 0.05 s |
-| 2 | [Inventory Management System](tests/aoc2018/day02.tin) | 0.10 s | 0.14 s |
-| 3 | [No Matter How You Slice It](tests/aoc2018/day03.tin) | 0.13 s | 0.16 s |
-| 4 | [Repose Record](tests/aoc2018/day04.tin) | 0.02 s | 0.01 s |
-| 5 | [Alchemical Reduction](tests/aoc2018/day05.tin) | 0.05 s | 0.13 s |
-| 6 | [Chronal Coordinates](tests/aoc2018/day06.tin) | 0.38 s | 0.57 s |
+| 1 | [Chronal Calibration](tests/aoc2018/day01.tin) | 0.02 s | 0.03 s |
+| 2 | [Inventory Management System](tests/aoc2018/day02.tin) | 0.09 s | 0.13 s |
+| 3 | [No Matter How You Slice It](tests/aoc2018/day03.tin) | 0.07 s | 0.10 s |
+| 4 | [Repose Record](tests/aoc2018/day04.tin) | 0.01 s | 0.01 s |
+| 5 | [Alchemical Reduction](tests/aoc2018/day05.tin) | 0.05 s | 0.12 s |
+| 6 | [Chronal Coordinates](tests/aoc2018/day06.tin) | 0.37 s | 0.56 s |
 | 7 | [The Sum of Its Parts](tests/aoc2018/day07.tin) | 0.02 s | 0.01 s |
-| 8 | [Memory Maneuver](tests/aoc2018/day08.tin) | 0.02 s | 0.01 s |
-| 9 | [Marble Mania](tests/aoc2018/day09.tin) | 0.46 s | 2.63 s |
-| 10 | [The Stars Align](tests/aoc2018/day10.tin) | 0.03 s | 0.01 s |
-| 11 | [Chronal Charge](tests/aoc2018/day11.tin) | 0.58 s | 3.18 s |
-| 12 | [Subterranean Sustainability](tests/aoc2018/day12.tin) | 0.03 s | 0.03 s |
-| 13 | [Mine Cart Madness](tests/aoc2018/day13.tin) | 0.08 s | 0.13 s |
-| 14 | [Chocolate Charts](tests/aoc2018/day14.tin) | 1.75 s | 6.95 s |
-| 15 | [Beverage Bandits](tests/aoc2018/day15.tin) | 5.56 s | 7.24 s |
-| 16 | [Chronal Classification](tests/aoc2018/day16.tin) | 0.04 s | 0.02 s |
-| 17 | [Reservoir Research](tests/aoc2018/day17.tin) | 0.07 s | 0.08 s |
-| 18 | [Settlers of The North Pole](tests/aoc2018/day18.tin) | 0.69 s | 1.39 s |
+| 8 | [Memory Maneuver](tests/aoc2018/day08.tin) | 0.01 s | 0.01 s |
+| 9 | [Marble Mania](tests/aoc2018/day09.tin) | 0.44 s | 2.60 s |
+| 10 | [The Stars Align](tests/aoc2018/day10.tin) | 0.02 s | 0.01 s |
+| 11 | [Chronal Charge](tests/aoc2018/day11.tin) | 0.56 s | 3.15 s |
+| 12 | [Subterranean Sustainability](tests/aoc2018/day12.tin) | 0.02 s | 0.02 s |
+| 13 | [Mine Cart Madness](tests/aoc2018/day13.tin) | 0.07 s | 0.12 s |
+| 14 | [Chocolate Charts](tests/aoc2018/day14.tin) | 1.77 s | 6.84 s |
+| 15 | [Beverage Bandits](tests/aoc2018/day15.tin) | 3.99 s | 5.65 s |
+| 16 | [Chronal Classification](tests/aoc2018/day16.tin) | 0.03 s | 0.01 s |
+| 17 | [Reservoir Research](tests/aoc2018/day17.tin) | 0.05 s | 0.06 s |
+| 18 | [Settlers of The North Pole](tests/aoc2018/day18.tin) | 0.66 s | 1.36 s |
 | 19 | [Go With The Flow](tests/aoc2018/day19.tin) | 0.02 s | 0.01 s |
-| 20 | [A Regular Map](tests/aoc2018/day20.tin) | 0.04 s | 0.04 s |
-| 21 | [Chronal Conversion](tests/aoc2018/day21.tin) | 0.03 s | 0.01 s |
-| 22 | [Mode Maze](tests/aoc2018/day22.tin) | 1.13 s | 1.72 s |
-| 23 | [Experimental Emergency Teleportation](tests/aoc2018/day23.tin) | 0.64 s | 1.01 s |
-| 24 | [Immune System Simulator 20XX](tests/aoc2018/day24.tin) | 1.53 s | 4.57 s |
-| 25 | [Four-Dimensional Adventure](tests/aoc2018/day25.tin) | 0.19 s | 0.29 s |
+| 20 | [A Regular Map](tests/aoc2018/day20.tin) | 0.04 s | 0.03 s |
+| 21 | [Chronal Conversion](tests/aoc2018/day21.tin) | 0.02 s | 0.01 s |
+| 22 | [Mode Maze](tests/aoc2018/day22.tin) | 1.09 s | 1.72 s |
+| 23 | [Experimental Emergency Teleportation](tests/aoc2018/day23.tin) | 0.64 s | 0.99 s |
+| 24 | [Immune System Simulator 20XX](tests/aoc2018/day24.tin) | 1.57 s | 4.33 s |
+| 25 | [Four-Dimensional Adventure](tests/aoc2018/day25.tin) | 0.19 s | 0.28 s |
 
 The slow ones:
 
