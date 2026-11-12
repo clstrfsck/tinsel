@@ -182,3 +182,23 @@ fn eval_reports_errors() {
         assert!(err.contains("usage:"), "{args:?}: {err}");
     }
 }
+
+#[test]
+fn eval_works_with_any_program_names() {
+    // The expression is compiled as a constant whose name no program can
+    // write, so a program may define `__eval` (or anything else) itself,
+    // and the expression can use it.
+    let path = save(
+        "own_names.tin",
+        "__eval = 41\nf(x) = x + __eval\npart1 = f(1)\n",
+    );
+    let p = path.to_str().unwrap();
+    for e in ENGINES {
+        let r = tinsel(&["eval", p, "f(1)", e]);
+        assert_eq!((r.0, r.1.trim()), (true, "42"), "{e}: {r:?}");
+        let r = tinsel(&["eval", p, "__eval * 2", e]);
+        assert_eq!((r.0, r.1.trim()), (true, "82"), "{e}: {r:?}");
+        let r = tinsel(&["run", e, p]);
+        assert_eq!((r.0, r.1.trim()), (true, "part1: 42"), "{e}: {r:?}");
+    }
+}

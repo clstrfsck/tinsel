@@ -1,7 +1,7 @@
 //! Loading programs and running their checks: `test`, `test_error`,
 //! `example` and `answers` (SPEC 2).
 
-use crate::ast::{Check, CmpOp, ExprKind, Item};
+use crate::ast::{Check, CmpOp, ExprKind, Item, PatKind, RawDef};
 use crate::error::{Error, LineIndex, SourceFile, Span, file_at};
 use crate::eval::{Frame, Interp, short};
 use crate::resolve::{Program, build_program};
@@ -31,7 +31,13 @@ pub fn load(path: &Path) -> Result<Program, LoadError> {
 }
 
 /// The name of the constant that `tinsel eval` adds for its expression.
-pub const EVAL_NAME: &str = "__eval";
+/// It isn't an identifier, so it can't clash with anything a program
+/// defines, and the expression can't refer to it.
+pub const EVAL_NAME: &str = "<expression>";
+
+/// What the expression is parsed as the definition of, before it is
+/// renamed to [`EVAL_NAME`].
+const EVAL_PARSED_AS: &str = "__eval";
 
 /// The file name shown for `tinsel eval`'s expression in messages.
 pub const EVAL_FILE: &str = "<expression>";
@@ -174,6 +180,8 @@ impl Loader {
     }
 
     /// `expr` as the definition of [`EVAL_NAME`], kept as a file of its own.
+    /// It is parsed as an ordinary constant, then renamed, so a program's
+    /// own definitions can't clash with it.
     fn expr(&mut self, expr: &str) -> Result<Vec<Item>, Error> {
         if !self.src.ends_with('\n') {
             self.src.push('\n');
@@ -182,7 +190,7 @@ impl Loader {
         // shown in messages holds just the expression, on one line so that
         // layout can't split it.
         let base = self.src.len();
-        self.src.push_str(&format!("{EVAL_NAME} = "));
+        self.src.push_str(&format!("{EVAL_PARSED_AS} = "));
         let start = self.src.len();
         let line: String = expr.lines().collect::<Vec<_>>().join(" ");
         self.src.push_str(&line);
@@ -191,7 +199,24 @@ impl Loader {
             start,
             path: PathBuf::from(EVAL_FILE),
         });
-        crate::parser::parse_file(&self.src, base)
+        let mut items = crate::parser::parse_file(&self.src, base)?;
+        let renamed = match items.as_mut_slice() {
+            [Item::Def(RawDef::Const(c))] => match &mut c.pat.kind {
+                PatKind::Bind(b) if &*b.name == EVAL_PARSED_AS => {
+                    b.name = EVAL_NAME.into();
+                    true
+                }
+                _ => false,
+            },
+            _ => false,
+        };
+        if !renamed {
+            return Err(Error::new(
+                "expected a single expression",
+                Span::new(start, self.src.len() - 1),
+            ));
+        }
+        Ok(items)
     }
 }
 
