@@ -14,10 +14,9 @@ use crate::fxhash::FxHashMap;
 use crate::int::Int;
 use crate::resolve::{GlobalDef, Program};
 use crate::value::{self, Func, Heap, List, Own, Range, V, Value, compare};
-use imbl::{OrdMap, OrdSet};
+use crate::value::{ValueMap, ValueSet};
 use std::cell::RefCell;
 use std::cmp::Ordering;
-use std::ops::Bound::{Excluded, Unbounded};
 use std::rc::Rc;
 
 const STACK_RED_ZONE: usize = 256 * 1024;
@@ -188,8 +187,8 @@ pub enum ValIter {
     },
     /// Set elements or map keys in order, copied out in chunks (see
     /// `Chunks`).
-    Set(Chunks<OrdSet<Value>>),
-    MapKeys(Chunks<OrdMap<Value, Value>>),
+    Set(Chunks<ValueSet>),
+    MapKeys(Chunks<ValueMap>),
     Range {
         cur: Int,
         end: Option<Int>,
@@ -280,19 +279,11 @@ impl ValIter {
             }
             ValIter::Set(c) => Ok(c.next(|set, after, n, out| match after {
                 None => out.extend(set.iter().take(n).cloned()),
-                Some(l) => out.extend(
-                    set.range::<_, Value>((Excluded(l), Unbounded))
-                        .take(n)
-                        .cloned(),
-                ),
+                Some(l) => out.extend(set.iter_after(l).take(n).cloned()),
             })),
             ValIter::MapKeys(c) => Ok(c.next(|map, after, n, out| match after {
                 None => out.extend(map.keys().take(n).cloned()),
-                Some(l) => out.extend(
-                    map.range::<_, Value>((Excluded(l), Unbounded))
-                        .take(n)
-                        .map(|(k, _)| k.clone()),
-                ),
+                Some(l) => out.extend(map.iter_after(l).take(n).map(|(k, _)| k.clone())),
             })),
             ValIter::Range { cur, end } => {
                 if end.as_ref().is_some_and(|e| *cur > *e) {
@@ -936,7 +927,7 @@ impl<'p> Interp<'p> {
                 Ok(Value::list(v))
             }
             ExprKind::Set(xs) => {
-                let mut s = OrdSet::new();
+                let mut s = ValueSet::new();
                 for x in xs {
                     let v = self.eval(x, frame)?;
                     value::set_insert(&mut s, v).map_err(|m| Error::new(m, x.span))?;
@@ -944,7 +935,7 @@ impl<'p> Interp<'p> {
                 Ok(Value::set(s))
             }
             ExprKind::Map(entries) => {
-                let mut m = OrdMap::new();
+                let mut m = ValueMap::new();
                 for (k, v) in entries {
                     let kv = self.eval(k, frame)?;
                     let vv = self.eval(v, frame)?;
@@ -1629,7 +1620,7 @@ impl<'p> Interp<'p> {
                 Ok(Value::list(out))
             }
             CompKind::Set => {
-                let mut out = OrdSet::new();
+                let mut out = ValueSet::new();
                 self.comp_loop(comp, 0, frame, &mut |it, f| {
                     let v = it.eval(&comp.body, f)?;
                     value::set_insert(&mut out, v).map_err(|m| Error::new(m, comp.body.span))
@@ -1641,7 +1632,7 @@ impl<'p> Interp<'p> {
                     .value
                     .as_ref()
                     .ok_or_else(|| Error::new("internal: map comprehension", span))?;
-                let mut out = OrdMap::new();
+                let mut out = ValueMap::new();
                 self.comp_loop(comp, 0, frame, &mut |it, f| {
                     let k = it.eval(&comp.body, f)?;
                     let v = it.eval(value_expr, f)?;
@@ -2406,7 +2397,7 @@ pub fn binary(op: BinOp, a: &Value, b: &Value) -> std::result::Result<Value, Str
                 Ok(Value::set(match op {
                     BinOp::BitAnd => set_intersection(x, y),
                     BinOp::BitOr => set_union(x.clone(), y.clone()),
-                    _ => x.clone().symmetric_difference(y.clone()),
+                    _ => x.clone().symmetric_difference(y),
                 }))
             }
             (V::RangeSet(x), V::RangeSet(y)) if op != BinOp::Xor => {
@@ -2487,42 +2478,42 @@ pub fn binary(op: BinOp, a: &Value, b: &Value) -> std::result::Result<Value, Str
 
 /// `x - y`. When `x` is the larger set it is updated in place if nothing
 /// else refers to it.
-fn set_difference(x: OrdSet<Value>, y: &OrdSet<Value>) -> OrdSet<Value> {
+fn set_difference(x: ValueSet, y: &ValueSet) -> ValueSet {
     if x.len() <= y.len() {
-        x.iter().filter(|v| !y.contains(*v)).cloned().collect()
+        x.iter().filter(|v| !y.contains(v)).cloned().collect()
     } else {
         let mut out = x;
-        for v in y {
+        for v in y.iter() {
             out.remove(v);
         }
         out
     }
 }
 
-fn set_intersection(x: &OrdSet<Value>, y: &OrdSet<Value>) -> OrdSet<Value> {
+fn set_intersection(x: &ValueSet, y: &ValueSet) -> ValueSet {
     let (small, large) = if x.len() <= y.len() { (x, y) } else { (y, x) };
     small
         .iter()
-        .filter(|v| large.contains(*v))
+        .filter(|v| large.contains(v))
         .cloned()
         .collect()
 }
 
 /// `x | y`, inserting the smaller set into the larger, which is updated in
 /// place if nothing else refers to it.
-fn set_union(x: OrdSet<Value>, y: OrdSet<Value>) -> OrdSet<Value> {
+fn set_union(x: ValueSet, y: ValueSet) -> ValueSet {
     let (small, mut out) = if x.len() <= y.len() { (x, y) } else { (y, x) };
-    for v in small {
-        out.insert(v);
+    for v in small.iter() {
+        out.insert(v.clone());
     }
     out
 }
 
 /// `x | y` on maps; values from `y` win. `x` is updated in place if
 /// nothing else refers to it.
-fn map_merge(x: OrdMap<Value, Value>, y: &OrdMap<Value, Value>) -> OrdMap<Value, Value> {
+fn map_merge(x: ValueMap, y: &ValueMap) -> ValueMap {
     let mut out = x;
-    for (k, v) in y {
+    for (k, v) in y.iter() {
         out.insert(k.clone(), v.clone());
     }
     out

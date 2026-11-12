@@ -19,9 +19,11 @@ use crate::int::Int;
 pub use crate::list::List;
 use word::{Kind, Word};
 
+pub mod coll;
+pub mod radix;
+pub use coll::{ValueMap, ValueSet};
 #[allow(unsafe_code)]
 pub mod word;
-use imbl::{OrdMap, OrdSet};
 use num_bigint::BigInt;
 use std::cell::RefCell;
 use std::cmp::Ordering;
@@ -46,8 +48,8 @@ pub enum Heap {
     Str(Rc<str>) = 2,
     Tuple(Tup) = layout::TUPLE,
     List(List) = 4,
-    Set(OrdSet<Value>) = 5,
-    Map(OrdMap<Value, Value>) = 6,
+    Set(ValueSet) = 5,
+    Map(ValueMap) = 6,
     Range(Rc<Range>) = 7,
     Func(Rc<Func>) = 8,
     Gen(Rc<RefCell<Generator>>) = 9,
@@ -198,8 +200,8 @@ pub enum V<'a> {
     Str(&'a Rc<str>),
     Tuple(Items<'a>),
     List(&'a List),
-    Set(&'a OrdSet<Value>),
-    Map(&'a OrdMap<Value, Value>),
+    Set(&'a ValueSet),
+    Map(&'a ValueMap),
     Range(&'a Rc<Range>),
     Func(&'a Rc<Func>),
     Gen(&'a Rc<RefCell<Generator>>),
@@ -219,8 +221,8 @@ pub enum Own {
     Str(Rc<str>),
     Tuple(Tup),
     List(List),
-    Set(OrdSet<Value>),
-    Map(OrdMap<Value, Value>),
+    Set(ValueSet),
+    Map(ValueMap),
     Range(Rc<Range>),
     Func(Rc<Func>),
     Gen(Rc<RefCell<Generator>>),
@@ -614,11 +616,11 @@ impl Value {
         heap(Heap::List(items.into()))
     }
 
-    pub fn set(s: OrdSet<Value>) -> Value {
+    pub fn set(s: ValueSet) -> Value {
         heap(Heap::Set(s))
     }
 
-    pub fn map(m: OrdMap<Value, Value>) -> Value {
+    pub fn map(m: ValueMap) -> Value {
         heap(Heap::Map(m))
     }
 
@@ -1217,14 +1219,14 @@ pub fn same_key_type(a: &Value, b: &Value) -> Result<(), String> {
 }
 
 /// Inserts into a set, checking key compatibility.
-pub fn set_insert(set: &mut OrdSet<Value>, v: Value) -> Result<(), String> {
+pub fn set_insert(set: &mut ValueSet, v: Value) -> Result<(), String> {
     check_key_compatible(set.get_min(), &v)?;
     set.insert(v);
     Ok(())
 }
 
 /// Inserts into a map, checking key compatibility.
-pub fn map_insert(map: &mut OrdMap<Value, Value>, k: Value, v: Value) -> Result<(), String> {
+pub fn map_insert(map: &mut ValueMap, k: Value, v: Value) -> Result<(), String> {
     check_key_compatible(map.get_min().map(|(k, _)| k), &k)?;
     map.insert(k, v);
     Ok(())

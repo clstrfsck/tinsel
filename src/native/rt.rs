@@ -709,7 +709,7 @@ extern "C" fn rt_get(
     match coll.view() {
         V::Map(m) => {
             return m
-                .get(&*k)
+                .get(&k)
                 .cloned()
                 .unwrap_or_else(|| Value::clone(&default))
                 .into_raw();
@@ -797,8 +797,8 @@ extern "C" fn rt_acc(k: u64, hint: u64) -> u64 {
     let hint = unsafe { borrow(hint) };
     let acc = match k {
         0 => Acc::List(Vec::with_capacity(crate::ir::interp::size_hint(&hint))),
-        1 => Acc::Set(imbl::OrdSet::new()),
-        _ => Acc::Map(imbl::OrdMap::new()),
+        1 => Acc::Set(crate::value::ValueSet::new()),
+        _ => Acc::Map(crate::value::ValueMap::new()),
     };
     Value::internal(crate::value::Internal::Acc(acc)).into_raw()
 }

@@ -70,7 +70,11 @@ input/YYYY/           puzzle inputs: gitignored, never commit them or copy them 
   truthiness.
 - **Integers:** an `i64` fast path, promoting to `BigInt` on overflow (use
   the `checked_*` operations). `inf`/`-inf` are part of the integer type.
-- **Maps and sets** use `imbl::OrdMap`/`OrdSet`, and iterate in sorted order.
+- **Maps and sets** are `value::ValueMap`/`ValueSet` (`src/value/coll.rs`).
+  While all keys are small ints, or all are packed pairs, they use the
+  radix tree in `src/value/radix.rs`; any other key moves them to
+  `imbl::OrdMap`/`OrdSet`. Both forms iterate in sorted order, and
+  equality and hashing never depend on the form.
 - **Memoization (SPEC 8.1):** compute the strongly connected components of
   the static call graph. Memoize a function when it is in a recursive SCC
   **and** at least one of its recursive calls is not in tail position. A

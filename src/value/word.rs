@@ -167,6 +167,14 @@ impl Word {
         (self.0 & 0xff == PAIR_LOW).then_some((self.0 ^ (1 << (PAIR_X_SHIFT - 1))) as i64)
     }
 
+    /// The packed pair whose [`Word::pair_order`] is `n`.
+    #[inline]
+    pub fn from_pair_order(n: i64) -> Word {
+        let w = Word(n as u64 ^ (1 << (PAIR_X_SHIFT - 1)));
+        debug_assert!(w.0 & 0xff == PAIR_LOW);
+        w
+    }
+
     /// Whether the word is an immediate or a fixnum, so equal words mean
     /// equal values and different words different values.
     #[inline]
