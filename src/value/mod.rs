@@ -1048,6 +1048,9 @@ impl Ord for Value {
         if let (Some(a), Some(b)) = (self.0.as_fix(), o.0.as_fix()) {
             return a.cmp(&b);
         }
+        if let (Some(a), Some(b)) = (self.0.pair_order(), o.0.pair_order()) {
+            return a.cmp(&b);
+        }
         self.cmp_other(o)
     }
 }

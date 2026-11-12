@@ -4,7 +4,7 @@ use super::{Args, Builtin, fixed, func, type_err};
 use crate::ast::BinOp;
 use crate::error::{Error, Result};
 use crate::eval::{Generator, Interp, binary, short, with_article};
-use crate::fxhash::FxHashSet;
+use crate::fxhash::{FxHashMap, FxHashSet};
 use crate::int::Int;
 use crate::value::{self, Heap, V, Value, compare};
 use imbl::{OrdMap, OrdSet};
@@ -1058,32 +1058,65 @@ fn group_by(it: &mut Interp<'_>, args: Args) -> Result<Value> {
     Ok(Value::map(out))
 }
 
-fn add_count(out: &mut OrdMap<Value, Value>, k: Value, n: &Value, args: &Args) -> Result<()> {
-    let total = match out.get(&k) {
-        Some(prev) => binary(BinOp::Add, prev, n).map_err(|m| args.err(m))?,
-        None => n.clone(),
-    };
-    value::map_insert(out, k, total).map_err(|m| args.err(m))
+/// Running totals per key for `counts` and `tally`. Totals are kept in a
+/// hash map and sorted into a map once at the end, which is much cheaper
+/// than a lookup and an insert in the persistent map for every item.
+struct Totals {
+    sums: FxHashMap<Value, Value>,
+    first: Option<Value>,
+}
+
+impl Totals {
+    fn new() -> Totals {
+        Totals {
+            sums: FxHashMap::default(),
+            first: None,
+        }
+    }
+
+    /// Adds `n` to the total for `k`. Keys are checked against the first
+    /// key, as a map checks them against its existing keys.
+    fn add(&mut self, k: Value, n: &Value, args: &Args) -> Result<()> {
+        value::check_key_compatible(self.first.as_ref(), &k).map_err(|m| args.err(m))?;
+        if self.first.is_none() {
+            self.first = Some(k.clone());
+        }
+        match self.sums.get_mut(&k) {
+            Some(total) => {
+                *total = binary(BinOp::Add, total, n).map_err(|m| args.err(m))?;
+            }
+            None => {
+                self.sums.insert(k, n.clone());
+            }
+        }
+        Ok(())
+    }
+
+    fn into_map(self) -> Value {
+        let mut entries: Vec<(Value, Value)> = self.sums.into_iter().collect();
+        entries.sort_unstable_by(|a, b| a.0.cmp(&b.0));
+        Value::map(entries.into_iter().collect())
+    }
 }
 
 fn counts(it: &mut Interp<'_>, args: Args) -> Result<Value> {
     args.check("counts", 1, 1, &[])?;
     let items = it.to_vec(&args.pos[0])?;
-    let mut out = OrdMap::new();
+    let mut out = Totals::new();
     let one = Value::int(1);
     for x in items {
-        add_count(&mut out, x, &one, &args)?;
+        out.add(x, &one, &args)?;
     }
-    Ok(Value::map(out))
+    Ok(out.into_map())
 }
 
 fn tally(it: &mut Interp<'_>, args: Args) -> Result<Value> {
     args.check("tally", 1, 1, &[])?;
     let items = it.to_vec(&args.pos[0])?;
-    let mut out = OrdMap::new();
+    let mut out = Totals::new();
     for x in items {
         match x.view() {
-            V::Tuple(t) if t.len() == 2 => add_count(&mut out, t[0].clone(), &t[1], &args)?,
+            V::Tuple(t) if t.len() == 2 => out.add(t[0].clone(), &t[1], &args)?,
             _ => {
                 return Err(args.err(format!(
                     "`tally` expects (key, n) pairs, found {}",
@@ -1092,7 +1125,7 @@ fn tally(it: &mut Interp<'_>, args: Args) -> Result<Value> {
             }
         }
     }
-    Ok(Value::map(out))
+    Ok(out.into_map())
 }
 
 /// Index combinations of size `k` from `n`, in lexicographic order.

@@ -1,7 +1,6 @@
 # Advent of Code puzzle inputs. AoC asks that these not be published.
 /input/
 aocdl
-aoc-kotlin/
 
 # Rust build output
 /target/

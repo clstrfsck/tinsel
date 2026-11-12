@@ -159,6 +159,14 @@ impl Word {
         (self.0 & 1 == 0).then_some((self.0 as i64) >> 1)
     }
 
+    /// For a packed pair, a number that orders pairs as `(x, y)` tuples
+    /// order: `x` is already signed in the top bits, and flipping the sign
+    /// bit of `y`'s field makes that field order as an unsigned number.
+    #[inline]
+    pub fn pair_order(&self) -> Option<i64> {
+        (self.0 & 0xff == PAIR_LOW).then_some((self.0 ^ (1 << (PAIR_X_SHIFT - 1))) as i64)
+    }
+
     /// Whether the word is an immediate or a fixnum, so equal words mean
     /// equal values and different words different values.
     #[inline]
@@ -586,6 +594,16 @@ mod tests {
             );
             assert!(w.is_unboxed() && plausible(w.bits()));
         }
+        // `pair_order` orders pairs as tuples, including across signs.
+        let edge = [PAIR_MIN, PAIR_MIN + 1, -1, 0, 1, PAIR_MAX - 1, PAIR_MAX];
+        for p in edge.iter().flat_map(|&x| edge.iter().map(move |&y| (x, y))) {
+            for q in edge.iter().flat_map(|&x| edge.iter().map(move |&y| (x, y))) {
+                let order = |(x, y)| Word::pair(x, y).unwrap().pair_order().unwrap();
+                assert_eq!(order(p).cmp(&order(q)), p.cmp(&q), "{p:?} {q:?}");
+            }
+        }
+        assert!(Word::fixnum(5).unwrap().pair_order().is_none());
+        assert!(Word::char('a').pair_order().is_none());
         assert!(Word::pair(PAIR_MAX + 1, 0).is_none());
         assert!(Word::pair(0, PAIR_MIN - 1).is_none());
         for n in [0, 1, -1, FIX_MIN, FIX_MAX] {
