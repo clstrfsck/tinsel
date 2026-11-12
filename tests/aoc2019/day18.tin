@@ -90,9 +90,9 @@ spread(g, frontier, doors, found) = spread(g, next, new_doors, found ++ keys)
     reached = {q: (k, m) for (q, k, m) in steps.reverse}
     new_doors = doors | {q: m for (q, (_, m)) in reached.items}
     next = [(q, k) for (q, (k, _)) in reached.items]
-    keys = [(g[q], k, m) for (q, (k, m)) in reached.items if 'a' <= g[q] <= 'z']
+    keys = [(g[q], k, m) for (q, (k, m)) in reached.items if g[q].is_lower]
 
-door_mask(c) = if 'A' <= c <= 'Z' then door_bit(c) else 0
+door_mask(c) = if c.is_upper then door_bit(c) else 0
 
 # The fewest steps to collect every key in vault g. A state is (where each
 # robot is, as a tuple of chars, and the keys held as a bitmask).
@@ -100,9 +100,9 @@ collect(g) = dijkstra((robots, 0), next, goal: (_, held) => held == all_keys).0
   where
     starts = g.where('@').sort
     robots = tuple(starts.indices.map(i => "{i}"))
-    names = {"{i}": p for (i, p) in starts.enumerate} | {str(c): p for p in g.positions let c = g[p] if 'a' <= c <= 'z'}
+    names = {"{i}": p for (i, p) in starts.enumerate} | {str(c): p for p in g.positions let c = g[p] if c.is_lower}
     edges = {name: reachable(g, p) for (name, p) in names.items}
-    all_keys = g.positions.map(g[_]).filter(c => 'a' <= c <= 'z').map(key_bit).fold(0, (a, b) => a | b)
+    all_keys = g.positions.map(g[_]).filter(.is_lower).map(key_bit).fold(0, (a, b) => a | b)
     next((at, held)) = [((at.set(i, str(k)), held | key_bit(k)), steps)
                         for (i, r) in at.enumerate
                         for (k, steps, doors) in edges[r]

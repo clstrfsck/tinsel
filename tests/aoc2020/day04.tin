@@ -65,8 +65,7 @@ required = ["byr", "iyr", "eyr", "hgt", "hcl", "ecl", "pid"]
 
 complete(p) = required.all(_ in p)
 
-digits(s) = s.chars.all(c => '0' <= c <= '9')
-year(s, lo, hi) = s.len == 4 and digits(s) and lo <= int(s) <= hi
+year(s, lo, hi) = s.len == 4 and s.is_digit and lo <= int(s) <= hi
 
 valid("byr", v) = year(v, 1920, 2002)
 valid("iyr", v) = year(v, 2010, 2020)
@@ -75,7 +74,7 @@ valid("hgt", "{n:int}cm") = 150 <= n <= 193
 valid("hgt", "{n:int}in") = 59 <= n <= 76
 valid("hcl", v) = v.len == 7 and v[0] == '#' and v[1..].chars.all(c => c in "0123456789abcdef")
 valid("ecl", v) = v in ["amb", "blu", "brn", "gry", "grn", "hzl", "oth"]
-valid("pid", v) = v.len == 9 and digits(v)
+valid("pid", v) = v.len == 9 and v.is_digit
 valid(_, _) = false
 
 part1 = passports.count(complete)

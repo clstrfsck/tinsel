@@ -45,7 +45,7 @@ value(s, i) =
   if s[i] == '[' then items(s, i + 1, [])
   else (int(digits.join), i + digits.len)
   where
-    digits = s[i..].take_while(c => '0' <= c <= '9')
+    digits = s[i..].take_while(.is_digit)
 
 @nomemo
 items(s, i, acc) = match s[i]

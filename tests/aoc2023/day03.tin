@@ -29,7 +29,7 @@ digit(c) = c in "0123456789"
 
 # Each number, with the set of positions around it. A number starts at a
 # digit that doesn't follow another digit.
-numbers = [(n, {q for i in 0..<str(n).len for q in nbrs8((x + i, y))})
+numbers = [(n, {q for i in 0..<n.digits.len for q in nbrs8((x + i, y))})
              for (y, row) in schematic.rows.enumerate
              for x in row.indices
              if digit(row[x]) and (x == 0 or not digit(row[x - 1]))

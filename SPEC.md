@@ -696,6 +696,7 @@ Functions are listed in method form, `x.f(args)`, which is the same as
 | `int(s)`, `int(s, base)` | Parse an int (a sign and surrounding whitespace are allowed). With a base from 2 to 36, letters stand for 10 and up, in either case: `int("ff", 16) == 255`. `int(c)` parses a digit char, and `int(b)` converts a bool to 0 or 1. |
 | `str(x)`, `str(n, base)`, `str(n, base, width)` | Display form. With a base from 2 to 36, formats an int using lowercase letters: `str(255, 16) == "ff"`, `str(-5, 2) == "-101"`. With a width, pads with zeros (after any sign) to at least that many digits: `str(5, 2, 8) == "00000101"`. A result past the size limit (8.2) is an error. |
 | `ord(c)`, `chr(n)` | A `char`'s Unicode code point as an `int`, and the `char` for a code point: `ord('a') == 97`. `chr` of an invalid code point is an error. |
+| `c.is_digit`, `c.is_lower`, `c.is_upper` | Whether a char is an ASCII digit, lowercase letter or uppercase letter. On a `str`, whether it is non-empty and every char is: `"2024".is_digit`, `not "".is_digit`. |
 
 ### 9.2 Collections
 
@@ -704,8 +705,8 @@ their keys) and generators, unless stated otherwise. Functions that return
 sequences return a **list**, unless a `tuple`, `set` or `map` result makes
 more sense.
 
-`map`, `filter`, `enumerate` and `zip` read a generator or an infinite range
-lazily: given one, they return a **generator**, computing each element only
+`map`, `filter`, `enumerate`, `zip`, `drop` and `drop_while` read a
+generator or an infinite range lazily: given one, they return a **generator**, computing each element only
 when it is read. (`zip` does this when any argument is a generator, or when
 none of its arguments ends.) So `iterate(x, f).enumerate.first(...)` and
 `(1..).map(f).take(3)` work. Over finite collections they still return
@@ -723,6 +724,7 @@ lists.
 | `sort`, `sort_by(f)`, `reverse` | `sort(desc: true)` and `sort_by(f, desc: true)` sort from largest to smallest; `sort_by` keeps elements with equal keys in their original order either way. `reverse` of a `str` gives a `str`, and of a tuple gives a tuple. |
 | `first`, `first(f)`, `last` | `none` if there's no such element. `first` works on ranges that never end; `last` of one is an error. |
 | `take(n)`, `take_while(f)` | The first `n` elements, or the leading elements for which `f` is true, as a list. They read only as far as they need, so they work on infinite ranges and generators: `iterate(1, _ * 2).take(4) == [1, 2, 4, 8]`. |
+| `drop(n)`, `drop_while(f)` | The elements after the first `n`, or after the leading elements for which `f` is true. Like `map` and `filter`, they give a list for a finite collection, and stay lazy on a generator or an infinite range: `iterate(1, _ * 2).drop(3).take(2) == [8, 16]`. |
 | `r.bisect(f)` | For a range `r` only: the first int in `r` for which `f` is true, found by binary search, or `none` if there is none. `f` must be false up to some point and true from then on. It calls `f` O(log n) times, and on an infinite range `a..` it searches upwards by doubling: `(0..).bisect(n => n * n >= 50) == 8`. |
 | `fold(init, f)` | `f(acc, x)` |
 | `scan(init, f)` | Includes `init`, so the result has `len + 1` elements |
@@ -792,6 +794,7 @@ and `max` from 9.2, and `int` from 9.1), and:
 |---|---|
 | `isqrt(n)` | The largest `r` with `r * r <= n`, for any int `n` of 0 or more: `isqrt(17) == 4`. |
 | `n.bits` | How many binary digits an int of 0 or more has: `255.bits == 8`, `0.bits == 0`. |
+| `n.digits`, `digits(n, base)` | The digits of an int of 0 or more, most significant first: `1234.digits == [1, 2, 3, 4]`, `digits(5, 2) == [1, 0, 1]`, `0.digits == [0]`. A negative int is an error. The base is from 2 to 36. |
 | `modinv(a, m)` | `x` in `0..<m` with `a * x % m == 1`, or `none` if there is none |
 | `modpow(b, e, m)` | `b ** e % m`, without computing `b ** e`. `e` must be 0 or more, and `m` positive. |
 | `crt(pairs)` | For `(remainder, modulus)` pairs: `(x, m)`, where `m` is the lcm of the moduli and `x` in `0..<m` satisfies every pair. The moduli don't have to be coprime, but must be positive. `none` if no `x` exists. |

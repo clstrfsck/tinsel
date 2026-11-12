@@ -16,6 +16,7 @@ pub const BUILTINS: &[Builtin] = &[
     func("int", int),
     func("isqrt", isqrt),
     func("bits", bits),
+    func("digits", digits),
     fixed("modinv", 2, modinv),
     fixed("modpow", 3, modpow),
     func("crt", crt),
@@ -61,6 +62,30 @@ fn bits(_: &mut Interp<'_>, args: Args) -> Result<Value> {
         .to_str_radix(2)
         .ok_or_else(|| args.err(format!("`bits` cannot measure {n}")))?;
     Ok(Value::int(digits.len() as i64))
+}
+
+/// `n.digits` or `digits(n, base)`: the digits of an int of 0 or more,
+/// most significant first (SPEC 9.5). `0.digits == [0]`.
+fn digits(_: &mut Interp<'_>, args: Args) -> Result<Value> {
+    args.check("digits", 1, 2, &[])?;
+    let n = int_arg(&args, 0, "digits")?;
+    let base = match args.pos.len() {
+        2 => base_arg(&args, 1, "digits")?,
+        _ => 10,
+    };
+    if n.is_inf() || n < Int::Small(0) {
+        return Err(args.err(format!(
+            "`digits` needs a finite int of 0 or more, found {n}"
+        )));
+    }
+    let text = n
+        .to_str_radix(base)
+        .ok_or_else(|| args.err(format!("`digits` cannot take {n} apart")))?;
+    Ok(Value::list(
+        text.chars()
+            .map(|c| Value::int(i64::from(c.to_digit(base).unwrap_or(0))))
+            .collect::<Vec<_>>(),
+    ))
 }
 
 fn sign(_: &mut Interp<'_>, args: Args) -> Result<Value> {

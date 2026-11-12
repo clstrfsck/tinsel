@@ -58,11 +58,9 @@ cook(a, b, board) =
   if board.len >= after + 10 then board[after..<after + 10].join
   else add(a, b, board[a], board[b], board)
 
-add(a, b, sa, sb, board) = step(a, b, sa, sb, board ++ digits(sa + sb))
+add(a, b, sa, sb, board) = step(a, b, sa, sb, board ++ (sa + sb).digits)
 
 step(a, b, sa, sb, board) = cook((a + 1 + sa) % board.len, (b + 1 + sb) % board.len, board)
-
-digits(n) = if n >= 10 then [n / 10, n % 10] else [n]
 
 part1 = cook(0, 1, [3, 7])
 

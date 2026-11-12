@@ -86,6 +86,9 @@ test "letter priorities with ord"    = "aZ".chars.map(c => if c >= 'a' then ord(
 test_error "chr of a negative number" = chr(-1)
 test_error "chr of a surrogate"       = chr(55296)
 test_error "ord of a str"             = ord("a")
+test "char classes"                  = ('7'.is_digit, 'a'.is_digit, 'q'.is_lower, 'Q'.is_lower, 'Q'.is_upper, '_'.is_upper, 'é'.is_lower) == (true, false, true, false, true, false, false)
+test "char classes of strings"       = ("2024".is_digit, "20x4".is_digit, "".is_digit, "abc".is_lower, "aBc".is_lower, "XYZ".is_upper, "".is_upper) == (true, false, false, true, false, true, false)
+test_error "char class of an int"    = 7.is_digit
 test "int in a base"                 = (int("ff", 16), int("FF", 16), int(" -101 ", 2), int("z", 36)) == (255, 255, -5, 35)
 test "int in a base beyond i64"      = int("400000000000000000", 16) == 2 ** 70
 test_error "digits must suit the base" = int("12", 2)
@@ -135,6 +138,10 @@ test "bitwise not binds tightly"     = ~1 + 1 == -1
 test_error "bitwise not needs an int" = ~true
 test "bit length"                    = (0.bits, 1.bits, 255.bits, 256.bits, (2 ** 100).bits) == (0, 1, 8, 9, 101)
 test_error "bit length of a negative" = (-1).bits
+test "digits"                        = (1234.digits, 0.digits, 7.digits, digits(5, 2), digits(255, 16), digits(0, 2), (2 ** 70).digits.len, (10 ** 20).digits.sum) == ([1, 2, 3, 4], [0], [7], [1, 0, 1], [15, 15], [0], 22, 1)
+test_error "digits of a negative"    = (-12).digits
+test_error "digits of inf"           = inf.digits
+test_error "digits in base 1"        = digits(5, 1)
 test "str with a width"              = (str(5, 2, 8), str(-5, 2, 4), str(255, 16, 1)) == ("00000101", "-0101", "ff")
 test_error "a str width too large to build is an error" = str(5, 10, 9223372036854775807)
 test_error "a str width over the size limit is an error" = str(5, 10, 2 ** 45)

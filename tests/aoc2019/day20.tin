@@ -79,7 +79,7 @@ answers
 
 cells = {(x, y): c for (y, line) in input.lines.enumerate for (x, c) in line.chars.enumerate if c != ' '}
 
-letter(c) = c != none and 'A' <= c <= 'Z'
+letter(c) = c != none and c.is_upper
 
 # Each label reads left to right or top to bottom, with the passage just
 # before or just after it.

@@ -60,7 +60,7 @@ press(state) = go([("button", "broadcaster", false)], 0, state)
 
 part1 = lows * highs
   where
-    pulses = (0..<1000).scan((initial, []), ((s, _), _) => press(s))[1..].map(.1).flatten
+    pulses = (0..<1000).scan((initial, []), ((s, _), _) => press(s)).drop(1).map(.1).flatten
     highs = pulses.count((_, _, h) => h)
     lows = pulses.len - highs
 
