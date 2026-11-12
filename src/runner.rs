@@ -1,7 +1,7 @@
 //! Loading programs and running their checks: `test`, `test_error`,
 //! `example` and `answers` (SPEC 2).
 
-use crate::ast::{Check, CmpOp, ExprKind, Item};
+use crate::ast::{Check, CmpOp, ExprKind, Item, PatKind, RawDef};
 use crate::error::{Error, LineIndex, SourceFile, Span, file_at};
 use crate::eval::{Frame, Interp, short};
 use crate::resolve::{Program, build_program};
@@ -27,13 +27,43 @@ pub struct LoadError {
 /// Reads and compiles a `.tin` file, along with the files it includes
 /// (SPEC 2.8).
 pub fn load(path: &Path) -> Result<Program, LoadError> {
+    load_with(path, None)
+}
+
+/// The name of the constant that `tinsel eval` adds for its expression.
+/// It isn't an identifier, so it can't clash with anything a program
+/// defines, and the expression can't refer to it.
+pub const EVAL_NAME: &str = "<expression>";
+
+/// What the expression is parsed as the definition of, before it is
+/// renamed to [`EVAL_NAME`].
+const EVAL_PARSED_AS: &str = "__eval";
+
+/// The file name shown for `tinsel eval`'s expression in messages.
+pub const EVAL_FILE: &str = "<expression>";
+
+/// [`load`], plus `expr` as the constant [`EVAL_NAME`], compiled in the
+/// program's scope (SPEC 2.7, `tinsel eval`). It is kept as one more file,
+/// named [`EVAL_FILE`] in messages.
+pub fn load_with_expr(path: &Path, expr: &str) -> Result<Program, LoadError> {
+    load_with(path, Some(expr))
+}
+
+fn load_with(path: &Path, expr: Option<&str>) -> Result<Program, LoadError> {
     let mut loader = Loader {
         src: String::new(),
         files: Vec::new(),
         stack: Vec::new(),
         seen: Vec::new(),
     };
-    let items = loader.file(path, PathBuf::new(), None);
+    let items = loader
+        .file(path, PathBuf::new(), None)
+        .and_then(|mut items| {
+            if let Some(expr) = expr {
+                items.extend(loader.expr(expr)?);
+            }
+            Ok(items)
+        });
     let fail = |loader: Loader, err| LoadError {
         src: (!loader.src.is_empty()).then_some(loader.src),
         files: loader.files,
@@ -148,6 +178,46 @@ impl Loader {
         self.stack.pop();
         Ok(out)
     }
+
+    /// `expr` as the definition of [`EVAL_NAME`], kept as a file of its own.
+    /// It is parsed as an ordinary constant, then renamed, so a program's
+    /// own definitions can't clash with it.
+    fn expr(&mut self, expr: &str) -> Result<Vec<Item>, Error> {
+        if !self.src.ends_with('\n') {
+            self.src.push('\n');
+        }
+        // `__eval = ` goes at the end of the file before, so that the file
+        // shown in messages holds just the expression, on one line so that
+        // layout can't split it.
+        let base = self.src.len();
+        self.src.push_str(&format!("{EVAL_PARSED_AS} = "));
+        let start = self.src.len();
+        let line: String = expr.lines().collect::<Vec<_>>().join(" ");
+        self.src.push_str(&line);
+        self.src.push('\n');
+        self.files.push(SourceFile {
+            start,
+            path: PathBuf::from(EVAL_FILE),
+        });
+        let mut items = crate::parser::parse_file(&self.src, base)?;
+        let renamed = match items.as_mut_slice() {
+            [Item::Def(RawDef::Const(c))] => match &mut c.pat.kind {
+                PatKind::Bind(b) if &*b.name == EVAL_PARSED_AS => {
+                    b.name = EVAL_NAME.into();
+                    true
+                }
+                _ => false,
+            },
+            _ => false,
+        };
+        if !renamed {
+            return Err(Error::new(
+                "expected a single expression",
+                Span::new(start, self.src.len() - 1),
+            ));
+        }
+        Ok(items)
+    }
 }
 
 /// Removes `.` and `name/..` from a relative path, for display.
@@ -177,6 +247,7 @@ pub fn location(path: &Path, src: &str, files: &[SourceFile], offset: usize) -> 
 /// The name to show for file `i` of a program whose main file is `path`.
 pub fn file_name(path: &Path, files: &[SourceFile], i: usize) -> PathBuf {
     match files.get(i) {
+        Some(f) if f.path.as_os_str() == EVAL_FILE => f.path.clone(),
         Some(f) if !f.path.as_os_str().is_empty() => {
             normalize(&path.parent().unwrap_or(Path::new("")).join(&f.path))
         }

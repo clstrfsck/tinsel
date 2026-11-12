@@ -31,6 +31,11 @@ use std::fmt::{self, Write};
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
+/// How many elements of each collection `dbg` shows ([`Value::repr_brief`]).
+pub const BRIEF_ITEMS: usize = 20;
+/// How many chars of each string `dbg` shows.
+pub const BRIEF_CHARS: usize = 200;
+
 /// A Tinsel value: one tagged word (see [`word`]).
 #[derive(Clone)]
 pub struct Value(Word);
@@ -792,25 +797,45 @@ impl Value {
     /// Form used inside collections: strings and chars are quoted.
     pub fn repr(&self) -> String {
         let mut s = String::new();
-        self.write_repr(&mut s);
+        self.write_repr(&mut s, usize::MAX);
         s
     }
 
-    fn write_repr(&self, out: &mut String) {
+    /// `repr`, cut short for `dbg` (SPEC 9.6): at most [`BRIEF_ITEMS`]
+    /// elements of each collection and [`BRIEF_CHARS`] chars of each
+    /// string, with a note of how many more there are.
+    pub fn repr_brief(&self) -> String {
+        let mut s = String::new();
+        self.write_repr(&mut s, BRIEF_ITEMS);
+        s
+    }
+
+    /// The display form, showing at most `limit` elements of each
+    /// collection (and, when `limit` is set, a few hundred chars of each
+    /// string).
+    fn write_repr(&self, out: &mut String, limit: usize) {
         fn seq<'a>(
             out: &mut String,
             items: impl Iterator<Item = &'a Value>,
-            open: &str,
-            close: &str,
+            len: usize,
+            (open, close): (&str, &str),
+            limit: usize,
         ) {
             out.push_str(open);
-            for (i, v) in items.enumerate() {
+            for (i, v) in items.take(limit).enumerate() {
                 if i > 0 {
                     out.push_str(", ");
                 }
-                v.write_repr(out);
+                v.write_repr(out, limit);
             }
+            more(out, len, limit);
             out.push_str(close);
+        }
+        /// The note for elements left out.
+        fn more(out: &mut String, len: usize, limit: usize) {
+            if len > limit {
+                let _ = write!(out, ", … {} more", len - limit);
+            }
         }
         match self.view() {
             V::None => out.push_str("none"),
@@ -822,35 +847,51 @@ impl Value {
                 let _ = write!(out, "{c:?}");
             }
             V::Str(s) => {
-                let _ = write!(out, "{:?}", &**s);
+                // Where char BRIEF_CHARS starts, if the string is longer than
+                // that: found by reading at most BRIEF_CHARS + 1 chars, so a
+                // short string is read once, and a long one is cut there and
+                // only the rest is counted.
+                let cut = (limit != usize::MAX)
+                    .then(|| s.char_indices().nth(BRIEF_CHARS))
+                    .flatten();
+                match cut {
+                    Some((i, _)) => {
+                        let total = BRIEF_CHARS + s[i..].chars().count();
+                        let _ = write!(out, "{:?}… ({total} chars)", &s[..i]);
+                    }
+                    None => {
+                        let _ = write!(out, "{:?}", &**s);
+                    }
+                }
             }
             V::Tuple(items) => {
                 if items.len() == 1 {
                     out.push('(');
-                    items[0].write_repr(out);
+                    items[0].write_repr(out, limit);
                     out.push_str(",)");
                 } else {
-                    seq(out, items.iter(), "(", ")");
+                    seq(out, items.iter(), items.len(), ("(", ")"), limit);
                 }
             }
-            V::List(items) => seq(out, items.iter(), "[", "]"),
+            V::List(items) => seq(out, items.iter(), items.len(), ("[", "]"), limit),
             V::Set(items) => {
                 if items.is_empty() {
                     out.push_str("set()");
                 } else {
-                    seq(out, items.iter(), "{", "}");
+                    seq(out, items.iter(), items.len(), ("{", "}"), limit);
                 }
             }
             V::Map(m) => {
                 out.push('{');
-                for (i, (k, v)) in m.iter().enumerate() {
+                for (i, (k, v)) in m.iter().take(limit).enumerate() {
                     if i > 0 {
                         out.push_str(", ");
                     }
-                    k.write_repr(out);
+                    k.write_repr(out, limit);
                     out.push_str(": ");
-                    v.write_repr(out);
+                    v.write_repr(out, limit);
                 }
+                more(out, m.len(), limit);
                 out.push('}');
             }
             V::Range(r) => {
@@ -875,12 +916,13 @@ impl Value {
             }
             V::RangeSet(r) => {
                 out.push_str("rangeset([");
-                for (i, (lo, hi)) in r.spans.iter().enumerate() {
+                for (i, (lo, hi)) in r.spans.iter().take(limit).enumerate() {
                     if i > 0 {
                         out.push_str(", ");
                     }
                     let _ = write!(out, "{lo}..{hi}");
                 }
+                more(out, r.spans.len(), limit);
                 out.push_str("])");
             }
             V::Internal(_) => out.push_str("<internal>"),
@@ -1253,5 +1295,28 @@ impl Typed for V<'_> {
 impl<T: Typed + ?Sized> Typed for &T {
     fn type_name(&self) -> &'static str {
         (**self).type_name()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn repr_brief_cuts_long_strings_at_a_char() {
+        let brief = |s: &str| Value::str(s).repr_brief();
+        // Up to the limit, a string is shown whole.
+        let exact = "é".repeat(BRIEF_CHARS);
+        assert_eq!(brief(&exact), format!("{exact:?}"));
+        // Past it, the first BRIEF_CHARS chars and the total, counted in
+        // chars rather than bytes.
+        let long = format!("{exact}xé");
+        assert_eq!(
+            brief(&long),
+            format!("{exact:?}… ({} chars)", BRIEF_CHARS + 2)
+        );
+        assert_eq!(brief(""), "\"\"");
+        // `repr` never cuts.
+        assert_eq!(Value::str(&long).repr(), format!("{long:?}"));
     }
 }

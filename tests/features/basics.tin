@@ -86,6 +86,7 @@ test "letter priorities with ord"    = "aZ".chars.map(c => if c >= 'a' then ord(
 test_error "chr of a negative number" = chr(-1)
 test_error "chr of a surrogate"       = chr(55296)
 test_error "ord of a str"             = ord("a")
+test "dbg returns its value"         = dbg("dbg returns its value", (1, [2])) == (1, [2])
 test "char classes"                  = ('7'.is_digit, 'a'.is_digit, 'q'.is_lower, 'Q'.is_lower, 'Q'.is_upper, '_'.is_upper, 'é'.is_lower) == (true, false, true, false, true, false, false)
 test "char classes of strings"       = ("2024".is_digit, "20x4".is_digit, "".is_digit, "abc".is_lower, "aBc".is_lower, "XYZ".is_upper, "".is_upper) == (true, false, false, true, false, true, false)
 test_error "char class of an int"    = 7.is_digit
