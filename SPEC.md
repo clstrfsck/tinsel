@@ -131,8 +131,9 @@ test_error "length mismatch" = (1, 2) + (1, 2, 3)
 
 ```
 tinsel run FILE.tin [--input PATH] [--no-examples] [--tree | --ir | --native]
-tinsel test [--tree | --ir | --native] [FILE_OR_DIR ...]   # runs tests, examples and answers
+tinsel test [--tree | --ir | --native] [--json] [FILE_OR_DIR ...]   # runs tests, examples and answers
 tinsel eval FILE.tin EXPR [--example N | --input PATH] [--tree | --ir | --native]
+tinsel check FILE.tin [--json]
 tinsel repl [FILE.tin]             # planned, not yet implemented
 ```
 
@@ -153,6 +154,28 @@ file named `<expression>`:
 tinsel eval day11.tin 'graph["you"]'
 tinsel eval day11.tin --example 1 'ways("svr", 0)'
 ```
+
+`check` reads a program and its includes, and checks that it parses and
+that every name it uses is defined, without running anything. It reports
+the first error it finds, and exits with an error status if there is one.
+
+For editors and other tools, `--json` gives machine-readable output on
+stdout:
+
+- `check --json` prints one object, `{"errors": [...]}`, with no error
+  or one.
+- `test --json` prints one object per line: one per check, as it
+  finishes, then a summary,
+  `{"passed": 3, "failed": 1, "skipped": 0}`. A check's object has
+  `file`, `line`, `kind` (`test`, `test_error`, `example` or
+  `answers`), `name`, `outcome` (`pass`, `fail` or `skip`) and
+  `message` (why it failed or was skipped; empty for a pass). A file
+  that can't be loaded gives an object of kind `load`, with outcome
+  `fail`, its message, and the error.
+
+An error object has `file`, `message`, and, when the error has a
+position, `line`, `column`, `end_line` and `end_column` (1-based, with
+columns counted in chars).
 
 By default, `run` and `test` compile the program to machine code before
 running it. `--tree` runs it on the tree-walking interpreter instead,

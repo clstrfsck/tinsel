@@ -242,6 +242,53 @@ fn eval_source(expr: &str) -> String {
     out
 }
 
+/// `s` as a JSON string, quoted.
+pub fn json_string(s: &str) -> String {
+    let mut out = String::with_capacity(s.len() + 2);
+    out.push('"');
+    for c in s.chars() {
+        match c {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            c if u32::from(c) < 0x20 => out.push_str(&format!("\\u{:04x}", u32::from(c))),
+            c => out.push(c),
+        }
+    }
+    out.push('"');
+    out
+}
+
+/// An error as a JSON object, for tools (SPEC 2.7): its message, and the
+/// file and 1-based line and column where its span starts and ends, or
+/// just the file when it has no span.
+pub fn error_json(path: &Path, src: Option<&str>, files: &[SourceFile], err: &Error) -> String {
+    let message = json_string(&err.msg);
+    match (src, err.span) {
+        (Some(src), Some(span)) => {
+            let (i, start, text) = file_at(src, files, span.start);
+            let lines = LineIndex::new(text);
+            let at = |offset: usize| {
+                let offset = offset.clamp(start, start + text.len()) - start;
+                lines.line_col(text, offset)
+            };
+            let (line, column) = at(span.start);
+            let (end_line, end_column) = at(span.end.max(span.start));
+            let file = file_name(path, files, i);
+            format!(
+                "{{\"file\":{},\"line\":{line},\"column\":{column},\"end_line\":{end_line},\"end_column\":{end_column},\"message\":{message}}}",
+                json_string(&file.display().to_string())
+            )
+        }
+        _ => format!(
+            "{{\"file\":{},\"message\":{message}}}",
+            json_string(&path.display().to_string())
+        ),
+    }
+}
+
 /// Removes `.` and `name/..` from a relative path, for display.
 fn normalize(path: &Path) -> PathBuf {
     use std::path::Component;

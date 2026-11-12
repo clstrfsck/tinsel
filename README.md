@@ -263,6 +263,9 @@ All three must be clean.
 `editors/vscode/` is an extension for `.tin` files. It gives:
 - highlighting, folding, auto-indentation and snippets (type `day` for a
   new solution);
+- errors underlined when a file is opened or saved (`tinsel check`);
+- every `test`, `example` and `answers` block in VS Code's Test Explorer,
+  with a ✓ or ✗ and the failure message at the block;
 - "▶ Run" and "✓ Test" above the `day` line, and "▶ Run example N" above
   each example, with failed checks and errors in the Problems panel;
 - evaluating a selected expression with Cmd+Alt+E (Ctrl+Alt+E elsewhere),
@@ -293,10 +296,10 @@ folder:
 
 ```sh
 # VS Code
-ln -s "$PWD/editors/vscode" ~/.vscode/extensions/local.tinsel-0.2.0
+ln -s "$PWD/editors/vscode" ~/.vscode/extensions/local.tinsel
 
 # Cursor
-ln -s "$PWD/editors/vscode" ~/.cursor/extensions/local.tinsel-0.2.0
+ln -s "$PWD/editors/vscode" ~/.cursor/extensions/local.tinsel
 ```
 
 Then restart the editor, or run "Developer: Reload Window" from the Command
@@ -309,8 +312,8 @@ On Windows, copy the folder instead, or make a directory link from a
 Command Prompt opened in the repository root:
 
 ```bat
-mklink /D "%USERPROFILE%\.vscode\extensions\local.tinsel-0.2.0" "%CD%\editors\vscode"
-mklink /D "%USERPROFILE%\.cursor\extensions\local.tinsel-0.2.0" "%CD%\editors\vscode"
+mklink /D "%USERPROFILE%\.vscode\extensions\local.tinsel" "%CD%\editors\vscode"
+mklink /D "%USERPROFILE%\.cursor\extensions\local.tinsel" "%CD%\editors\vscode"
 ```
 
 To uninstall, delete the link and reload the window.
@@ -327,11 +330,11 @@ cd editors/vscode
 npx @vscode/vsce package --allow-missing-repository --skip-license
 ```
 
-This writes `tinsel-0.2.0.vsix`. Install it from the command line:
+This writes `tinsel-0.3.0.vsix`. Install it from the command line:
 
 ```sh
-code --install-extension tinsel-0.2.0.vsix      # VS Code
-cursor --install-extension tinsel-0.2.0.vsix    # Cursor
+code --install-extension tinsel-0.3.0.vsix      # VS Code
+cursor --install-extension tinsel-0.3.0.vsix    # Cursor
 ```
 
 Or open the Extensions view, click the `...` menu at the top of the view,
@@ -355,7 +358,7 @@ If it says "Plain Text":
 - check that the extension appears under "Installed" in the Extensions view;
 - run "Developer: Reload Window";
 - with Option 1, check that the link points at the real folder:
-  `ls ~/.vscode/extensions/local.tinsel-0.2.0/` (or `~/.cursor/...`)
+  `ls ~/.vscode/extensions/local.tinsel/` (or `~/.cursor/...`)
   should list `package.json`.
 
 ## Repository layout

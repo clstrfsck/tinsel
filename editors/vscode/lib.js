@@ -6,6 +6,15 @@
 const fs = require('fs');
 const path = require('path');
 
+// The item keywords start an item only in column 1 and when followed by
+// what the item needs (SPEC 3): `day` by a number, `example`, `test` and
+// `test_error` by a string, and `answers` by the end of its line.
+// Otherwise they are ordinary names, as in `example = 5`.
+const DAY = /^day\s+\d+\.\d+/;
+const EXAMPLE = /^example\s*"/;
+const ANSWERS = /^answers\s*(#.*)?$/;
+const TEST = /^(test_error|test)\s*"((?:[^"\\]|\\.)*)"/;
+
 /**
  * The top-level lines of a program that get code lenses: the `day` header
  * and each `example` block, numbered from 1. Lines inside triple-quoted
@@ -26,14 +35,85 @@ function findBlocks(text) {
     if (wasInString) {
       return;
     }
-    if (/^day\s+\d+\.\d+/.test(line)) {
+    if (DAY.test(line)) {
       blocks.push({ line: i, kind: 'day' });
-    } else if (/^example\b/.test(line)) {
+    } else if (EXAMPLE.test(line)) {
       examples += 1;
       blocks.push({ line: i, kind: 'example', n: examples });
     }
   });
   return blocks;
+}
+
+/**
+ * The checks a program declares, at the top level, as `tinsel test`
+ * reports them: each `test` and `test_error` with its name, each `example`
+ * (numbered from 1) and the `answers` block. `line` is 0-based. Lines
+ * inside triple-quoted strings are skipped.
+ */
+function findChecks(text) {
+  const checks = [];
+  let inString = false;
+  let examples = 0;
+  text.split('\n').forEach((line, i) => {
+    const wasInString = inString;
+    if ((line.split('"""').length - 1) % 2 === 1) {
+      inString = !inString;
+    }
+    if (wasInString) {
+      return;
+    }
+    const t = TEST.exec(line);
+    if (t) {
+      checks.push({ line: i, kind: t[1], name: unescape(t[2]) });
+    } else if (EXAMPLE.test(line)) {
+      examples += 1;
+      checks.push({ line: i, kind: 'example', name: `example ${examples}` });
+    } else if (ANSWERS.test(line)) {
+      checks.push({ line: i, kind: 'answers', name: 'answers' });
+    }
+  });
+  return checks;
+}
+
+/** A Tinsel string literal's escapes undone: `\"`, `\\`, `\n`, `\t`. */
+function unescape(s) {
+  return s.replace(/\\(.)/g, (_, c) => ({ n: '\n', t: '\t' })[c] || c);
+}
+
+/**
+ * The objects in JSON-lines output, such as `tinsel test --json`. Lines
+ * that aren't JSON objects are ignored.
+ */
+function parseJsonLines(text) {
+  const out = [];
+  for (const line of text.split('\n')) {
+    const t = line.trim();
+    if (t.startsWith('{')) {
+      try {
+        out.push(JSON.parse(t));
+      } catch (_) {
+        // Not a complete object: ignore it.
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * The 0-based range of an error object from `--json` output: from its
+ * start to its end, or one char when the span is empty.
+ */
+function errorRange(e) {
+  const line = Math.max((e.line || 1) - 1, 0);
+  const col = Math.max((e.column || 1) - 1, 0);
+  let endLine = e.end_line ? e.end_line - 1 : line;
+  let endCol = e.end_column ? e.end_column - 1 : col;
+  if (endLine < line || (endLine === line && endCol <= col)) {
+    endLine = line;
+    endCol = col + 1;
+  }
+  return { line, col, endLine, endCol };
 }
 
 /** Which of `part1` and `part2` the program defines at the top level. */
@@ -82,4 +162,7 @@ function findBinary(setting, workspaceRoots) {
   return 'tinsel';
 }
 
-module.exports = { findBlocks, definedParts, exampleCount, errorMessage, shorten, findBinary };
+module.exports = {
+  findBlocks, findChecks, definedParts, exampleCount, errorMessage, shorten, findBinary,
+  parseJsonLines, errorRange,
+};
