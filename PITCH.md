@@ -14,15 +14,15 @@ Tinsel owes its existence to two powerful forces:
 1. Two free Claude resets that needed using before December.
 2. A complete lack of effective adult supervision.
 
-The responsible response was, naturally, to build a new programming language
-and native compiler for Advent of Code. 🎄
+Naturally, the only reasonable response was to build a new programming
+language and native compiler for Advent of Code. 🧑‍💻🎄
 
 ## Why put Tinsel under your tree? 🎁
 
 - **Free dynamic programming, courtesy of purity!** 🧠
 
   Pure functions always return the same result for the same arguments, so
-  Tinsel can automatically memoize recursive functions.
+  Tinsel can automatically memoize them.
 
 - **Recursion without the stack anxiety** 🛷
 
