@@ -20,6 +20,9 @@ pub const BUILTINS: &[Builtin] = &[
     fixed("replace", 3, replace),
     func("ord", ord),
     func("chr", chr),
+    fixed("is_digit", 1, is_digit),
+    fixed("is_lower", 1, is_lower),
+    fixed("is_upper", 1, is_upper),
 ];
 
 pub fn str_arg<'a>(args: &'a Args, i: usize, fname: &str) -> Result<&'a str> {
@@ -219,6 +222,29 @@ fn ord(_: &mut Interp<'_>, args: Args) -> Result<Value> {
         V::Char(c) => Ok(Value::int(i64::from(u32::from(c)))),
         other => Err(type_err(&args, "ord", "a char", other)),
     }
+}
+
+/// Whether a char passes `test`, or a str is non-empty and every char
+/// does.
+fn char_class(args: &Args, fname: &str, test: fn(&char) -> bool) -> Result<Value> {
+    args.check(fname, 1, 1, &[])?;
+    match args.pos[0].view() {
+        V::Char(c) => Ok(Value::bool(test(&c))),
+        V::Str(s) => Ok(Value::bool(!s.is_empty() && s.chars().all(|c| test(&c)))),
+        other => Err(type_err(args, fname, "a char or str", other)),
+    }
+}
+
+fn is_digit(_: &mut Interp<'_>, args: Args) -> Result<Value> {
+    char_class(&args, "is_digit", char::is_ascii_digit)
+}
+
+fn is_lower(_: &mut Interp<'_>, args: Args) -> Result<Value> {
+    char_class(&args, "is_lower", char::is_ascii_lowercase)
+}
+
+fn is_upper(_: &mut Interp<'_>, args: Args) -> Result<Value> {
+    char_class(&args, "is_upper", char::is_ascii_uppercase)
 }
 
 fn chr(_: &mut Interp<'_>, args: Args) -> Result<Value> {

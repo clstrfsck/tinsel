@@ -34,6 +34,8 @@ pub const BUILTINS: &[Builtin] = &[
     fixed("bisect", 2, bisect),
     fixed("take", 2, take),
     fixed("take_while", 2, take_while),
+    fixed("drop", 2, drop),
+    fixed("drop_while", 2, drop_while),
     fixed("fold", 3, fold),
     fixed("scan", 3, scan),
     func("enumerate", enumerate),
@@ -727,6 +729,48 @@ fn take_while(it: &mut Interp<'_>, args: Args) -> Result<Value> {
         if !pred(it, &args.pos[1], x.clone(), "take_while", &args)? {
             break;
         }
+        out.push(x);
+    }
+    Ok(list_of(out))
+}
+
+/// The elements after the first `n`: a list, or a lazy generator for a
+/// generator or an infinite range.
+fn drop(it: &mut Interp<'_>, args: Args) -> Result<Value> {
+    args.check("drop", 2, 2, &[])?;
+    let n = usize_arg(&args, 1, "drop")?;
+    let mut iter = it.iter(&args.pos[0]).map_err(|e| e.at(args.span))?;
+    if lazy(&args.pos[0]) {
+        return Ok(generator(Generator::drop(iter, n, None, args.span)));
+    }
+    let mut out = Vec::new();
+    let mut i = 0;
+    while let Some(x) = iter.next(it)? {
+        if i >= n {
+            out.push(x);
+        } else {
+            i += 1;
+        }
+    }
+    Ok(list_of(out))
+}
+
+/// The elements after the leading ones for which `f` is true: a list, or a
+/// lazy generator for a generator or an infinite range.
+fn drop_while(it: &mut Interp<'_>, args: Args) -> Result<Value> {
+    args.check("drop_while", 2, 2, &[])?;
+    let f = args.pos[1].clone();
+    let mut iter = it.iter(&args.pos[0]).map_err(|e| e.at(args.span))?;
+    if lazy(&args.pos[0]) {
+        return Ok(generator(Generator::drop(iter, 0, Some(f), args.span)));
+    }
+    let mut out = Vec::new();
+    let mut dropping = true;
+    while let Some(x) = iter.next(it)? {
+        if dropping && it.drop_while_test(&f, &x, args.span)? {
+            continue;
+        }
+        dropping = false;
         out.push(x);
     }
     Ok(list_of(out))

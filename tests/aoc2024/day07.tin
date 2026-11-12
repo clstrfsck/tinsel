@@ -32,7 +32,7 @@ possible(cat, t, [..rest, x]) =
   (t % x == 0 and possible(cat, t / x, rest)) or
   (cat and t % p == x and possible(cat, t / p, rest))
   where
-    p = 10 ** str(x).len
+    p = 10 ** x.digits.len
 
 calibration(cat) = equations.filter((t, ns) => possible(cat, t, ns)).map(.0).sum
 

@@ -109,6 +109,15 @@ enum GenKind {
     Zip {
         srcs: Vec<ValIter>,
     },
+    /// `drop(n)` and `drop_while(f)` over a generator or an infinite
+    /// range: the first read skips `n` elements, then any for which `f`
+    /// is true; later reads pass elements through.
+    Drop {
+        src: ValIter,
+        n: usize,
+        f: Option<Value>,
+        span: Span,
+    },
     /// The items of `f(x)` for each `x` of `src`, in turn: how the IR
     /// lowers a generator comprehension.
     FlatMap {
@@ -148,6 +157,10 @@ impl Generator {
 
     pub fn zip(srcs: Vec<ValIter>) -> Generator {
         Generator::new(GenKind::Zip { srcs })
+    }
+
+    pub fn drop(src: ValIter, n: usize, f: Option<Value>, span: Span) -> Generator {
+        Generator::new(GenKind::Drop { src, n, f, span })
     }
 
     pub fn flat_map(src: ValIter, f: Value, span: Span) -> Generator {
@@ -1683,7 +1696,22 @@ impl<'p> Interp<'p> {
         }
     }
 
-    /// The next element of a lazy `map`, `filter`, `enumerate` or `zip`.
+    /// Whether `drop_while`'s predicate `p` is true of `x`.
+    pub(crate) fn drop_while_test(&mut self, p: &Value, x: &Value, span: Span) -> Result<bool> {
+        match self.call(p, vec![x.clone()], span)?.view() {
+            V::Bool(b) => Ok(b),
+            other => Err(Error::new(
+                format!(
+                    "the predicate passed to `drop_while` must return a bool, but returned {}",
+                    other.type_name()
+                ),
+                span,
+            )),
+        }
+    }
+
+    /// The next element of a lazy `map`, `filter`, `enumerate`, `zip` or
+    /// `drop`.
     fn adapter_next(&mut self, kind: &mut GenKind) -> Result<Option<Value>> {
         match kind {
             GenKind::Map { src, f, span } => match src.next(self)? {
@@ -1726,6 +1754,28 @@ impl<'p> Interp<'p> {
                 }
                 Ok(Some(Value::tuple(row)))
             }
+            GenKind::Drop { src, n, f, span } => {
+                while *n > 0 {
+                    *n -= 1;
+                    if src.next(self)?.is_none() {
+                        *n = 0;
+                        return Ok(None);
+                    }
+                }
+                let Some(p) = f.clone() else {
+                    return src.next(self);
+                };
+                loop {
+                    let Some(x) = src.next(self)? else {
+                        *f = None;
+                        return Ok(None);
+                    };
+                    if !self.drop_while_test(&p, &x, *span)? {
+                        *f = None;
+                        return Ok(Some(x));
+                    }
+                }
+            }
             GenKind::FlatMap { src, f, cur, span } => loop {
                 if let Some(c) = cur {
                     if let Some(x) = c.next(self)? {
@@ -1758,6 +1808,7 @@ impl<'p> Interp<'p> {
         | GenKind::Filter { .. }
         | GenKind::Enumerate { .. }
         | GenKind::Zip { .. }
+        | GenKind::Drop { .. }
         | GenKind::FlatMap { .. }
         | GenKind::Busy = gen_ref.kind
         {
@@ -1910,6 +1961,7 @@ fn release_frame(frame: &Rc<Frame>) {
                         | GenKind::Filter { .. }
                         | GenKind::Enumerate { .. }
                         | GenKind::Zip { .. }
+                        | GenKind::Drop { .. }
                         | GenKind::FlatMap { .. }
                         | GenKind::Busy => 0,
                     };

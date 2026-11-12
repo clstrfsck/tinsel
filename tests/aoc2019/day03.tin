@@ -33,7 +33,7 @@ dirs = {'U': N, 'R': E, 'D': S, 'L': W}
 
 # The cells a wire passes through, in order, after leaving the port.
 path(line) = [dirs[c] for "{c:char}{n:int}" in line.split(",") for _ in 1..n]
-  .scan((0, 0), (p, d) => p + d)[1..]
+  .scan((0, 0), (p, d) => p + d).drop(1)
 
 # The number of steps to reach each cell first. In a map comprehension the
 # last value wins, so go through the path backwards.

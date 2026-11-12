@@ -20,7 +20,6 @@ answers
 
 ranges = input.trim.split(",").map("{lo:int}-{hi:int}" => (lo, hi))
 
-digits(n) = str(n).len
 ceil_div(a, b) = -(-a / b)
 
 # The n-digit numbers in lo..hi made of a k-digit block repeated n / k times.
@@ -33,7 +32,7 @@ repeated(lo, hi, n, k) = {block * rep for block in first..last}
 # Invalid IDs in a range, where `allowed(r)` says whether r repeats count.
 # A set, because 222222 is 2 x 6, 22 x 3 and 222 x 2.
 invalid((lo, hi), allowed) =
-  {x for n in digits(lo)..digits(hi)
+  {x for n in lo.digits.len..hi.digits.len
      for k in 1..n / 2 if n % k == 0 and allowed(n / k)
      for x in repeated(lo, hi, n, k)}
 

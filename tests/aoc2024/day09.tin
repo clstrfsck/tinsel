@@ -47,7 +47,7 @@ move((free, _), (start, n)) = match best
     best = [(s, size) for size in n..9 let s = free[size].first
               if s != none and s < start].min
 
-moved = files.reverse.scan((initial, none), move)[1..].map(.1).reverse
+moved = files.reverse.scan((initial, none), move).drop(1).map(.1).reverse
 
 part2 = sum(id * p for (id, (s, (_, n))) in zip(moved, files).enumerate
                    for p in s..<s + n)
