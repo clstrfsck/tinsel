@@ -19,8 +19,8 @@ use std::process::ExitCode;
 use tinsel::error::{Error, SourceFile, Span, file_at};
 use tinsel::resolve::Program;
 use tinsel::runner::{
-    ARGUMENTS_BUDGET, EVAL_NAME, Engine, Outcome, error_json, file_name, json_string, load, load_with_expr, real_input,
-    run_checks_with, run_examples_with, with_arguments,
+    ARGUMENTS_BUDGET, EVAL_NAME, Engine, Outcome, error_json, file_name, json_string, load,
+    load_with_expr, real_input, run_checks_with, run_examples_with, with_arguments,
 };
 
 const USAGE: &str = "usage:
