@@ -592,6 +592,13 @@ pub fn run_checks_with(prog: &Program, path: &Path, engine: &Engine) -> Vec<Chec
 mod tests {
     use super::*;
 
+    #[test]
+    fn json_strings_are_escaped() {
+        assert_eq!(json_string(r"C:\x\a.tin"), r#""C:\\x\\a.tin""#);
+        assert_eq!(json_string("say \"hi\"\n\ttab"), r#""say \"hi\"\n\ttab""#);
+        assert_eq!(json_string("\u{1}é"), "\"\\u0001é\"");
+    }
+
     /// The trace of the error from evaluating `part1`, as (name, line,
     /// repeats, tail calls). Every engine must give the same one.
     fn trace(src: &str) -> Vec<(String, usize, usize, usize)> {

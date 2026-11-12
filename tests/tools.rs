@@ -4,6 +4,7 @@
 
 use std::path::PathBuf;
 use std::process::Command;
+use tinsel::runner::json_string;
 
 fn save(name: &str, src: &str) -> String {
     let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("tools");
@@ -40,12 +41,15 @@ fn check_reports_the_first_error_without_running() {
     );
 
     let bad = save("bad.tin", "x = 1\npart1 = x + nope\n");
+    // Paths are compared as the CLI writes them: quoted as JSON, which
+    // escapes a Windows path's backslashes.
+    let bad_q = json_string(&bad);
     let (ok, out, _) = tinsel(&["check", "--json", &bad]);
     assert!(!ok);
     assert_eq!(
         out.trim(),
         format!(
-            "{{\"errors\":[{{\"file\":\"{bad}\",\"line\":2,\"column\":13,\"end_line\":2,\"end_column\":17,\"message\":\"unknown name `nope`\"}}]}}"
+            "{{\"errors\":[{{\"file\":{bad_q},\"line\":2,\"column\":13,\"end_line\":2,\"end_column\":17,\"message\":\"unknown name `nope`\"}}]}}"
         )
     );
     // Without --json, the usual report.
@@ -65,7 +69,8 @@ fn check_json_finds_errors_in_included_files() {
     assert!(!ok);
     // The error is in the included file, at its own line and column.
     let lib = main.replace("uses_lib.tin", "lib_bad.tin");
-    assert!(out.contains(&format!("\"file\":\"{lib}\"")), "{out}");
+    let lib_q = json_string(&lib);
+    assert!(out.contains(&format!("\"file\":{lib_q}")), "{out}");
     assert!(out.contains("\"line\":1,\"column\":26"), "{out}");
     assert!(out.contains("unknown name `missing`"), "{out}");
 
@@ -82,6 +87,7 @@ fn test_json_gives_a_line_per_check_and_a_summary() {
          example \"\"\"\n1 2\n\"\"\"\n  part1 = 4\n\npart1 = input.ints.sum\n",
     );
     let broken = save("broken.tin", "part1 = nope\n");
+    let (file_q, broken_q) = (json_string(&file), json_string(&broken));
     let (ok, out, _) = tinsel(&["test", "--json", &broken, &file]);
     assert!(!ok);
     let lines: Vec<&str> = out.lines().collect();
@@ -89,19 +95,19 @@ fn test_json_gives_a_line_per_check_and_a_summary() {
         lines,
         [
             format!(
-                "{{\"file\":\"{broken}\",\"kind\":\"load\",\"outcome\":\"fail\",\"message\":\"unknown name `nope`\",\"error\":{{\"file\":\"{broken}\",\"line\":1,\"column\":9,\"end_line\":1,\"end_column\":13,\"message\":\"unknown name `nope`\"}}}}"
+                "{{\"file\":{broken_q},\"kind\":\"load\",\"outcome\":\"fail\",\"message\":\"unknown name `nope`\",\"error\":{{\"file\":{broken_q},\"line\":1,\"column\":9,\"end_line\":1,\"end_column\":13,\"message\":\"unknown name `nope`\"}}}}"
             ),
             format!(
-                "{{\"file\":\"{file}\",\"line\":1,\"kind\":\"test\",\"name\":\"ok\",\"outcome\":\"pass\",\"message\":\"\"}}"
+                "{{\"file\":{file_q},\"line\":1,\"kind\":\"test\",\"name\":\"ok\",\"outcome\":\"pass\",\"message\":\"\"}}"
             ),
             format!(
-                "{{\"file\":\"{file}\",\"line\":2,\"kind\":\"test\",\"name\":\"say \\\"no\\\"\",\"outcome\":\"fail\",\"message\":\"evaluated to false\"}}"
+                "{{\"file\":{file_q},\"line\":2,\"kind\":\"test\",\"name\":\"say \\\"no\\\"\",\"outcome\":\"fail\",\"message\":\"evaluated to false\"}}"
             ),
             format!(
-                "{{\"file\":\"{file}\",\"line\":3,\"kind\":\"test_error\",\"name\":\"err\",\"outcome\":\"pass\",\"message\":\"\"}}"
+                "{{\"file\":{file_q},\"line\":3,\"kind\":\"test_error\",\"name\":\"err\",\"outcome\":\"pass\",\"message\":\"\"}}"
             ),
             format!(
-                "{{\"file\":\"{file}\",\"line\":5,\"kind\":\"example\",\"name\":\"example 1\",\"outcome\":\"fail\",\"message\":\"part1: expected 4, got 3\"}}"
+                "{{\"file\":{file_q},\"line\":5,\"kind\":\"example\",\"name\":\"example 1\",\"outcome\":\"fail\",\"message\":\"part1: expected 4, got 3\"}}"
             ),
             "{\"passed\":2,\"failed\":3,\"skipped\":0}".to_string(),
         ]

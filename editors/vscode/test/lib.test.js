@@ -237,3 +237,19 @@ test('every check tinsel test --json reports is one findChecks finds', { skip: !
   assert.strictEqual(counted, results.length);
   assert.ok(results.length > 400, `${results.length} results`);
 });
+
+test('folderGroup keeps folders of different roots apart', () => {
+  const sep = path.sep;
+  // One root: grouped by relative folder; top-level files aren't grouped.
+  assert.deepStrictEqual(lib.folderGroup('file:///a', 'a', `tests${sep}aoc2024`, 1),
+    { id: 'dir:file:///a|tests/aoc2024', label: 'tests/aoc2024' });
+  assert.strictEqual(lib.folderGroup('file:///a', 'a', '', 1), undefined);
+  // Two roots with the same folder: different ids, labelled by root.
+  const one = lib.folderGroup('file:///one', 'one', 'tests', 2);
+  const two = lib.folderGroup('file:///two', 'two', 'tests', 2);
+  assert.notStrictEqual(one.id, two.id);
+  assert.deepStrictEqual([one.label, two.label], ['one/tests', 'two/tests']);
+  // With several roots, a root's top-level files are grouped under it.
+  assert.deepStrictEqual(lib.folderGroup('file:///one', 'one', '', 2),
+    { id: 'dir:file:///one|', label: 'one' });
+});

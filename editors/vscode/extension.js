@@ -121,20 +121,24 @@ function testController() {
   const exclude = '{**/target/**,**/node_modules/**,**/.git/**}';
 
   /**
-   * The item for a file's folder, relative to its workspace folder, made
-   * on first use; none for a file at the top of the workspace or outside
-   * it, which is listed at the top level.
+   * The item for a file's folder (see `lib.folderGroup`), made on first
+   * use; none for a file listed at the top level, such as one outside the
+   * workspace.
    */
   const folderItem = (uri) => {
     const ws = vscode.workspace.getWorkspaceFolder(uri);
-    const rel = ws ? path.relative(ws.uri.fsPath, path.dirname(uri.fsPath)) : '';
-    if (rel === '') {
+    if (!ws) {
       return undefined;
     }
-    const id = `dir:${rel}`;
-    let item = ctrl.items.get(id);
+    const rel = path.relative(ws.uri.fsPath, path.dirname(uri.fsPath));
+    const roots = (vscode.workspace.workspaceFolders || []).length;
+    const group = lib.folderGroup(ws.uri.toString(), ws.name, rel, roots);
+    if (!group) {
+      return undefined;
+    }
+    let item = ctrl.items.get(group.id);
     if (!item) {
-      item = ctrl.createTestItem(id, rel);
+      item = ctrl.createTestItem(group.id, group.label);
       ctrl.items.add(item);
     }
     return item;

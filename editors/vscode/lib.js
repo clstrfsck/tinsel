@@ -116,6 +116,26 @@ function errorRange(e) {
   return { line, col, endLine, endCol };
 }
 
+/**
+ * The Test Explorer group for a file in folder `rel` (relative to its
+ * workspace folder, `''` at the top), or none to list it at the top level.
+ * The id includes the workspace folder, so that two roots with the same
+ * folder (say both have `tests`) don't share an item. With several roots,
+ * groups are labelled with the root's name, and files at the top of a root
+ * are grouped under it.
+ */
+function folderGroup(workspaceUri, workspaceName, rel, rootCount) {
+  if (rel === '' && rootCount <= 1) {
+    return undefined;
+  }
+  const shown = rel.split(path.sep).join('/');
+  let label = shown;
+  if (rootCount > 1) {
+    label = shown === '' ? workspaceName : `${workspaceName}/${shown}`;
+  }
+  return { id: `dir:${workspaceUri}|${shown}`, label };
+}
+
 /** Which of `part1` and `part2` the program defines at the top level. */
 function definedParts(text) {
   return ['part1', 'part2'].filter((p) => new RegExp(`^${p}\\s*=`, 'm').test(text));
@@ -164,5 +184,5 @@ function findBinary(setting, workspaceRoots) {
 
 module.exports = {
   findBlocks, findChecks, definedParts, exampleCount, errorMessage, shorten, findBinary,
-  parseJsonLines, errorRange,
+  parseJsonLines, errorRange, folderGroup,
 };
