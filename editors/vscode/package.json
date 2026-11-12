@@ -1,15 +1,25 @@
 {
   "name": "tinsel",
   "displayName": "Tinsel",
-  "description": "Syntax highlighting for Tinsel (.tin), a small language for Advent of Code",
-  "version": "0.1.0",
+  "description": "Tinsel (.tin), a small language for Advent of Code: highlighting, snippets, run and test lenses, and evaluating a selection",
+  "version": "0.2.0",
   "publisher": "local",
   "private": true,
   "engines": {
     "vscode": "^1.60.0"
   },
   "categories": [
-    "Programming Languages"
+    "Programming Languages",
+    "Snippets"
+  ],
+  "main": "./extension.js",
+  "activationEvents": [
+    "onLanguage:tinsel",
+    "onCommand:tinsel.run",
+    "onCommand:tinsel.test",
+    "onCommand:tinsel.evalSelection",
+    "onCommand:tinsel.evalSelectionOnExample",
+    "onCommand:workbench.action.tasks.runTask"
   ],
   "contributes": {
     "languages": [
@@ -30,6 +40,194 @@
         "language": "tinsel",
         "scopeName": "source.tinsel",
         "path": "./syntaxes/tinsel.tmLanguage.json"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "tinsel",
+        "path": "./snippets/tinsel.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "tinsel.run",
+        "title": "Run Program",
+        "category": "Tinsel"
+      },
+      {
+        "command": "tinsel.test",
+        "title": "Test File",
+        "category": "Tinsel"
+      },
+      {
+        "command": "tinsel.evalSelection",
+        "title": "Evaluate Selection",
+        "category": "Tinsel"
+      },
+      {
+        "command": "tinsel.evalSelectionOnExample",
+        "title": "Evaluate Selection on an Example",
+        "category": "Tinsel"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "tinsel.run",
+          "when": "editorLangId == tinsel"
+        },
+        {
+          "command": "tinsel.test",
+          "when": "editorLangId == tinsel"
+        },
+        {
+          "command": "tinsel.evalSelection",
+          "when": "editorLangId == tinsel"
+        },
+        {
+          "command": "tinsel.evalSelectionOnExample",
+          "when": "editorLangId == tinsel"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "tinsel.evalSelection",
+          "when": "editorLangId == tinsel",
+          "group": "tinsel@1"
+        },
+        {
+          "command": "tinsel.evalSelectionOnExample",
+          "when": "editorLangId == tinsel",
+          "group": "tinsel@2"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "tinsel.evalSelection",
+        "key": "ctrl+alt+e",
+        "mac": "cmd+alt+e",
+        "when": "editorTextFocus && editorLangId == tinsel"
+      },
+      {
+        "command": "tinsel.evalSelectionOnExample",
+        "key": "ctrl+alt+shift+e",
+        "mac": "cmd+alt+shift+e",
+        "when": "editorTextFocus && editorLangId == tinsel"
+      }
+    ],
+    "configuration": {
+      "title": "Tinsel",
+      "properties": {
+        "tinsel.path": {
+          "type": "string",
+          "default": "",
+          "description": "The tinsel binary. If empty, target/release/tinsel (then target/debug/tinsel) in the workspace, else tinsel on the PATH."
+        },
+        "tinsel.engine": {
+          "type": "string",
+          "enum": [
+            "native",
+            "tree",
+            "ir"
+          ],
+          "default": "native",
+          "description": "Which engine runs programs (SPEC 2.7): native code, the tree-walking interpreter, or the IR interpreter."
+        }
+      }
+    },
+    "taskDefinitions": [
+      {
+        "type": "tinsel",
+        "required": [
+          "command",
+          "file"
+        ],
+        "properties": {
+          "command": {
+            "type": "string",
+            "enum": [
+              "run",
+              "test"
+            ],
+            "description": "tinsel run or tinsel test"
+          },
+          "file": {
+            "type": "string",
+            "description": "The .tin file, or for test a directory"
+          }
+        }
+      }
+    ],
+    "problemMatchers": [
+      {
+        "name": "tinsel",
+        "label": "Tinsel errors",
+        "owner": "tinsel",
+        "source": "tinsel",
+        "fileLocation": [
+          "autoDetect",
+          "${workspaceFolder}"
+        ],
+        "severity": "error",
+        "pattern": [
+          {
+            "regexp": "^Error: (.*)$",
+            "message": 1
+          },
+          {
+            "regexp": "^\\s*╭─\\[ (.+):(\\d+):(\\d+) \\]$",
+            "file": 1,
+            "line": 2,
+            "column": 3
+          }
+        ]
+      },
+      {
+        "name": "tinsel-checks",
+        "label": "Tinsel failed checks",
+        "owner": "tinsel",
+        "source": "tinsel",
+        "fileLocation": [
+          "autoDetect",
+          "${workspaceFolder}"
+        ],
+        "severity": "error",
+        "pattern": [
+          {
+            "regexp": "^FAIL (.+?):(\\d+) (.*)$",
+            "file": 1,
+            "line": 2,
+            "code": 3
+          },
+          {
+            "regexp": "^\\s+(.*)$",
+            "message": 1
+          }
+        ]
+      },
+      {
+        "name": "tinsel-examples",
+        "label": "Tinsel failed examples",
+        "owner": "tinsel",
+        "source": "tinsel",
+        "fileLocation": [
+          "autoDetect",
+          "${workspaceFolder}"
+        ],
+        "severity": "error",
+        "pattern": [
+          {
+            "regexp": "^(.+?):(\\d+): (example \\d+) failed:$",
+            "file": 1,
+            "line": 2,
+            "code": 3
+          },
+          {
+            "regexp": "^\\s+(.*)$",
+            "message": 1
+          }
+        ]
       }
     ]
   }

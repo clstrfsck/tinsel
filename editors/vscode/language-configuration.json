@@ -25,5 +25,8 @@
   "indentationRules": {
     "increaseIndentPattern": "^.*(\\bwhere|\\banswers|\\bmatch\\b.*|=)\\s*(#.*)?$",
     "decreaseIndentPattern": "^\\s*$"
+  },
+  "folding": {
+    "offSide": true
   }
 }

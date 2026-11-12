@@ -1,0 +1,129 @@
+{
+  "Solution": {
+    "prefix": "day",
+    "description": "A new solution: day header, example, answers, parsing and both parts",
+    "body": [
+      "day ${1:2025}.${2:1}",
+      "",
+      "example \"\"\"",
+      "${3:example input}",
+      "\"\"\"",
+      "  part1 = ${4:0}",
+      "",
+      "answers",
+      "  part1 = ${5:0}",
+      "",
+      "${6:items} = input.lines.map(${7:.ints})",
+      "",
+      "part1 = ${0:$6.len}"
+    ]
+  },
+  "Example": {
+    "prefix": "example",
+    "description": "An example block with its expected answers",
+    "body": [
+      "example \"\"\"",
+      "${1:input}",
+      "\"\"\"",
+      "  part1 = ${2:0}",
+      "  part2 = ${0:0}"
+    ]
+  },
+  "Example with constants": {
+    "prefix": "examplewith",
+    "description": "An example that overrides constants for its smaller input",
+    "body": [
+      "example \"\"\"",
+      "${1:input}",
+      "\"\"\"",
+      "  with ${2:size} = ${3:7}",
+      "  part1 = ${0:0}"
+    ]
+  },
+  "Answers": {
+    "prefix": "answers",
+    "description": "The accepted answers for the real input",
+    "body": [
+      "answers",
+      "  part1 = ${1:0}",
+      "  part2 = ${0:0}"
+    ]
+  },
+  "Test": {
+    "prefix": "test",
+    "description": "A test declaration",
+    "body": [
+      "test \"${1:name}\" = ${0:expr}"
+    ]
+  },
+  "Test error": {
+    "prefix": "test_error",
+    "description": "A test that the expression is an error",
+    "body": [
+      "test_error \"${1:name}\" = ${0:expr}"
+    ]
+  },
+  "Function with where": {
+    "prefix": "where",
+    "description": "A function with local definitions",
+    "body": [
+      "${1:f}(${2:x}) = ${3:result}",
+      "  where",
+      "    ${0:result = x}"
+    ]
+  },
+  "Match": {
+    "prefix": "match",
+    "description": "A match expression",
+    "body": [
+      "match ${1:x}",
+      "  ${2:pattern} => ${3:value}",
+      "  _ => ${0:other}"
+    ]
+  },
+  "Clauses": {
+    "prefix": "clauses",
+    "description": "A recursive function by clauses: a base case, then the rest",
+    "body": [
+      "${1:f}(${2:0}) = ${3:base}",
+      "$1(${4:n}) = ${0:$1($4 - 1)}"
+    ]
+  },
+  "Grid": {
+    "prefix": "grid",
+    "description": "Read the input as a grid and find the start",
+    "body": [
+      "${1:g} = input.grid",
+      "${2:start} = $1.find('${3:S}')",
+      "${4:open} = $1.where(_ != '#')$0"
+    ]
+  },
+  "Breadth-first search": {
+    "prefix": "bfs",
+    "description": "Distances from a start, by breadth-first search",
+    "body": [
+      "${1:dist} = bfs(${2:start}, p => nbrs4(p).filter(_ in ${3:open}))$0"
+    ]
+  },
+  "Dijkstra": {
+    "prefix": "dijkstra",
+    "description": "Cheapest cost to a goal, and a cheapest path; next gives (state, cost) pairs",
+    "body": [
+      "(${1:cost}, ${2:path}) = dijkstra(${3:start}, ${4:next}, goal: ${5:s => s == target})$0"
+    ]
+  },
+  "Iterate a number of times": {
+    "prefix": "iterate",
+    "description": "Apply a step function n times (cycles are skipped automatically)",
+    "body": [
+      "${1:final} = iterate(${2:start}, ${3:step}, times: ${4:1_000_000_000})$0"
+    ]
+  },
+  "Debug": {
+    "prefix": "dbg",
+    "description": "Print a value with where it was printed, and return it",
+    "body": [
+      "dbg(${1:x})$0"
+    ]
+  }
+}

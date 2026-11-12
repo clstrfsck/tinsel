@@ -11,7 +11,8 @@
 //! interpreter instead, the reference implementation; `--ir` runs the IR
 //! interpreter, the native compiler's checking engine (`tinsel::ir`).
 
-use ariadne::{Color, Label, Report, ReportKind};
+use ariadne::{Color, Config, Label, Report, ReportKind};
+use std::io::IsTerminal;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use tinsel::error::{Error, SourceFile, Span, file_at};
@@ -104,7 +105,11 @@ fn report(path: &Path, src: Option<&str>, files: &[SourceFile], err: &Error) {
                     span.start - start..span.end.saturating_sub(start).max(span.start - start),
                 )
             };
+            // Colour only for a terminal, so that tools reading the output
+            // (such as an editor's problem matcher) see plain text.
+            let config = Config::default().with_color(std::io::stderr().is_terminal());
             let mut report = Report::build(ReportKind::Error, place(span))
+                .with_config(config)
                 .with_message(&err.msg)
                 .with_label(Label::new(place(span)).with_color(Color::Red));
             for entry in &err.trace {

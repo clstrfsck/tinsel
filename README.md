@@ -258,14 +258,19 @@ cargo fmt --check
 
 All three must be clean.
 
-## Syntax highlighting in VS Code and Cursor
+## VS Code and Cursor
 
-`editors/vscode/` is a small extension that highlights `.tin` files. It
-handles:
-- comments, strings with `{...}` interpolation, and triple-quoted strings;
-- string-pattern captures such as `{n:int}`;
-- keywords, and definitions such as `example`;
-- bracket matching and auto-indentation.
+`editors/vscode/` is an extension for `.tin` files. It gives:
+- highlighting, folding, auto-indentation and snippets (type `day` for a
+  new solution);
+- "▶ Run" and "✓ Test" above the `day` line, and "▶ Run example N" above
+  each example, with failed checks and errors in the Problems panel;
+- evaluating a selected expression with Cmd+Alt+E (Ctrl+Alt+E elsewhere),
+  its value shown next to it, on the real input or on an example.
+
+The lenses and evaluation run the interpreter, so build it first with
+`cargo build --release`. [`editors/vscode/README.md`](editors/vscode/README.md)
+describes every feature and setting.
 
 Cursor is built on VS Code, so the same extension works in both. Only the
 extensions folder and the command-line tool are different:
@@ -281,29 +286,31 @@ The command-line tools are optional. If `code` isn't on your `PATH`, run
 (Cmd+Shift+P on macOS, Ctrl+Shift+P elsewhere). Cursor has the same
 command for `cursor`.
 
-### Option 1: link the folder (best if you'll edit the grammar)
+### Option 1: link the folder (best if you'll change the extension)
 
 From the repository root, link the extension into the editor's extensions
 folder:
 
 ```sh
 # VS Code
-ln -s "$PWD/editors/vscode" ~/.vscode/extensions/local.tinsel-0.1.0
+ln -s "$PWD/editors/vscode" ~/.vscode/extensions/local.tinsel-0.2.0
 
 # Cursor
-ln -s "$PWD/editors/vscode" ~/.cursor/extensions/local.tinsel-0.1.0
+ln -s "$PWD/editors/vscode" ~/.cursor/extensions/local.tinsel-0.2.0
 ```
 
 Then restart the editor, or run "Developer: Reload Window" from the Command
-Palette. After that, a change to the grammar takes effect on the next
-reload.
+Palette. After that, a change to the extension takes effect on the next
+reload. A link made for an earlier version, such as
+`local.tinsel-0.1.0`, points at the same folder, so reloading is enough to
+pick up a new version.
 
 On Windows, copy the folder instead, or make a directory link from a
 Command Prompt opened in the repository root:
 
 ```bat
-mklink /D "%USERPROFILE%\.vscode\extensions\local.tinsel-0.1.0" "%CD%\editors\vscode"
-mklink /D "%USERPROFILE%\.cursor\extensions\local.tinsel-0.1.0" "%CD%\editors\vscode"
+mklink /D "%USERPROFILE%\.vscode\extensions\local.tinsel-0.2.0" "%CD%\editors\vscode"
+mklink /D "%USERPROFILE%\.cursor\extensions\local.tinsel-0.2.0" "%CD%\editors\vscode"
 ```
 
 To uninstall, delete the link and reload the window.
@@ -320,18 +327,18 @@ cd editors/vscode
 npx @vscode/vsce package --allow-missing-repository --skip-license
 ```
 
-This writes `tinsel-0.1.0.vsix`. Install it from the command line:
+This writes `tinsel-0.2.0.vsix`. Install it from the command line:
 
 ```sh
-code --install-extension tinsel-0.1.0.vsix      # VS Code
-cursor --install-extension tinsel-0.1.0.vsix    # Cursor
+code --install-extension tinsel-0.2.0.vsix      # VS Code
+cursor --install-extension tinsel-0.2.0.vsix    # Cursor
 ```
 
 Or open the Extensions view, click the `...` menu at the top of the view,
 choose "Install from VSIX...", and pick the file. This works in both
 editors.
 
-The editor keeps its own copy, so after changing the grammar you need to
+The editor keeps its own copy, so after changing the extension you need to
 package and install it again; add `--force` to `--install-extension` to
 replace the installed copy. To uninstall, use the Extensions view, or run
 `code --uninstall-extension local.tinsel` (`cursor` for Cursor).
@@ -340,13 +347,15 @@ replace the installed copy. To uninstall, use the Extensions view, or run
 
 Open any `.tin` file, such as `tests/aoc2024/day01.tin`. The language
 indicator at the right of the status bar should say **Tinsel**, and
-keywords, strings and comments should be coloured.
+keywords, strings and comments should be coloured. "▶ Run | ✓ Test"
+should appear above the `day` line; if clicking one says it can't find the
+binary, run `cargo build --release` or set `tinsel.path`.
 
 If it says "Plain Text":
 - check that the extension appears under "Installed" in the Extensions view;
 - run "Developer: Reload Window";
 - with Option 1, check that the link points at the real folder:
-  `ls ~/.vscode/extensions/local.tinsel-0.1.0/` (or `~/.cursor/...`)
+  `ls ~/.vscode/extensions/local.tinsel-0.2.0/` (or `~/.cursor/...`)
   should list `package.json`.
 
 ## Repository layout
