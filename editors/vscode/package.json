@@ -1,20 +1,22 @@
 {
   "name": "tinsel",
   "displayName": "Tinsel",
-  "description": "Tinsel (.tin), a small language for Advent of Code: highlighting, snippets, run and test lenses, and evaluating a selection",
-  "version": "0.2.0",
+  "description": "Tinsel (.tin), a small language for Advent of Code: highlighting, snippets, errors on save, the Test Explorer, run and test lenses, and evaluating a selection",
+  "version": "0.3.0",
   "publisher": "local",
   "private": true,
   "engines": {
-    "vscode": "^1.60.0"
+    "vscode": "^1.68.0"
   },
   "categories": [
     "Programming Languages",
-    "Snippets"
+    "Snippets",
+    "Testing"
   ],
   "main": "./extension.js",
   "activationEvents": [
     "onLanguage:tinsel",
+    "workspaceContains:**/*.tin",
     "onCommand:tinsel.run",
     "onCommand:tinsel.test",
     "onCommand:tinsel.evalSelection",
@@ -133,6 +135,11 @@
           ],
           "default": "native",
           "description": "Which engine runs programs (SPEC 2.7): native code, the tree-walking interpreter, or the IR interpreter."
+        },
+        "tinsel.checkOnSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Check a Tinsel file when it is opened or saved (tinsel check), and show its errors in the Problems panel."
         }
       }
     },

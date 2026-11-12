@@ -4,6 +4,7 @@
 //! tinsel run FILE.tin [--input PATH] [--no-examples] [--tree | --ir | --native]
 //! tinsel test [--tree | --ir | --native] [FILE_OR_DIR ...]
 //! tinsel eval FILE.tin EXPR [--example N | --input PATH] [--tree | --ir | --native]
+//! tinsel check FILE.tin [--json]
 //! ```
 //!
 //! Programs are compiled to machine code by default
@@ -18,14 +19,15 @@ use std::process::ExitCode;
 use tinsel::error::{Error, SourceFile, Span, file_at};
 use tinsel::resolve::Program;
 use tinsel::runner::{
-    EVAL_NAME, Engine, Outcome, file_name, load, load_with_expr, real_input, run_checks_with,
-    run_examples_with,
+    EVAL_NAME, Engine, Outcome, error_json, file_name, json_string, load, load_with_expr,
+    real_input, run_checks_with, run_examples_with,
 };
 
 const USAGE: &str = "usage:
   tinsel run FILE.tin [--input PATH] [--no-examples] [--tree | --ir | --native]
-  tinsel test [--tree | --ir | --native] [FILE_OR_DIR ...]
-  tinsel eval FILE.tin EXPR [--example N | --input PATH] [--tree | --ir | --native]";
+  tinsel test [--tree | --ir | --native] [--json] [FILE_OR_DIR ...]
+  tinsel eval FILE.tin EXPR [--example N | --input PATH] [--tree | --ir | --native]
+  tinsel check FILE.tin [--json]";
 
 /// Which engine runs the program (SPEC 2.7): native code unless an option
 /// says otherwise.
@@ -83,6 +85,7 @@ fn main() -> ExitCode {
         Some("run") => run(&args[1..]),
         Some("test") => test(&args[1..]),
         Some("eval") => eval(&args[1..]),
+        Some("check") => check(&args[1..]),
         _ => {
             eprintln!("{USAGE}");
             ExitCode::from(2)
@@ -324,6 +327,55 @@ fn eval(args: &[String]) -> ExitCode {
     }
 }
 
+/// `tinsel check`: loads a program (parsing and resolving it, with its
+/// includes) without running anything, and reports the first error
+/// (SPEC 2.7).
+fn check(args: &[String]) -> ExitCode {
+    let json = args.iter().any(|a| a == "--json");
+    let rest: Vec<&String> = args.iter().filter(|a| *a != "--json").collect();
+    let [file] = rest.as_slice() else {
+        eprintln!("check needs one file\n{USAGE}");
+        return ExitCode::from(2);
+    };
+    if file.starts_with('-') {
+        eprintln!("unexpected argument `{file}`\n{USAGE}");
+        return ExitCode::from(2);
+    }
+    let file = PathBuf::from(file);
+    let error = load(&file).err();
+    if json {
+        let errors = error
+            .iter()
+            .map(|e| error_json(&file, e.src.as_deref(), &e.files, &e.err))
+            .collect::<Vec<_>>()
+            .join(",");
+        println!("{{\"errors\":[{errors}]}}");
+    } else if let Some(e) = &error {
+        report(&file, e.src.as_deref(), &e.files, &e.err);
+    }
+    if error.is_some() {
+        ExitCode::FAILURE
+    } else {
+        ExitCode::SUCCESS
+    }
+}
+
+/// One line of `tinsel test --json` (SPEC 2.7).
+fn result_json(file: &Path, line: usize, kind: &str, name: &str, outcome: &Outcome) -> String {
+    let (status, message) = match outcome {
+        Outcome::Pass => ("pass", ""),
+        Outcome::Fail(m) => ("fail", m.as_str()),
+        Outcome::Skip(m) => ("skip", m.as_str()),
+    };
+    format!(
+        "{{\"file\":{},\"line\":{line},\"kind\":{},\"name\":{},\"outcome\":\"{status}\",\"message\":{}}}",
+        json_string(&file.display().to_string()),
+        json_string(kind),
+        json_string(name),
+        json_string(message)
+    )
+}
+
 fn test(args: &[String]) -> ExitCode {
     let mut choice = Choice::default();
     for a in args.iter().filter(|a| Choice::of(a).is_some()) {
@@ -333,7 +385,11 @@ fn test(args: &[String]) -> ExitCode {
         }
     }
     let which = choice.which();
-    let args: Vec<&String> = args.iter().filter(|a| Choice::of(a).is_none()).collect();
+    let json = args.iter().any(|a| a == "--json");
+    let args: Vec<&String> = args
+        .iter()
+        .filter(|a| Choice::of(a).is_none() && *a != "--json")
+        .collect();
     if let Some(a) = args.iter().find(|a| a.starts_with('-')) {
         eprintln!("unexpected argument `{a}`\n{USAGE}");
         return ExitCode::from(2);
@@ -349,11 +405,25 @@ fn test(args: &[String]) -> ExitCode {
     }
     files.sort();
     let (mut passed, mut failed, mut skipped) = (0, 0, 0);
+    // A file that can't be loaded or compiled counts as one failure. With
+    // --json it is a line of kind "load" with the error.
+    let load_failure = |file: &Path, src: Option<&str>, sf: &[SourceFile], e: &Error| {
+        if json {
+            println!(
+                "{{\"file\":{},\"kind\":\"load\",\"outcome\":\"fail\",\"message\":{},\"error\":{}}}",
+                json_string(&file.display().to_string()),
+                json_string(&e.msg),
+                error_json(file, src, sf, e)
+            );
+        } else {
+            report(file, src, sf, e);
+        }
+    };
     for file in &files {
         let prog = match load(file) {
             Ok(p) => p,
             Err(e) => {
-                report(file, e.src.as_deref(), &e.files, &e.err);
+                load_failure(file, e.src.as_deref(), &e.files, &e.err);
                 failed += 1;
                 continue;
             }
@@ -361,12 +431,21 @@ fn test(args: &[String]) -> ExitCode {
         let engine = match engine(&prog, which) {
             Ok(e) => e,
             Err(e) => {
-                report(file, Some(&prog.src), &prog.files, &e);
+                load_failure(file, Some(&prog.src), &prog.files, &e);
                 failed += 1;
                 continue;
             }
         };
         for r in run_checks_with(&prog, file, &engine) {
+            if json {
+                println!("{}", result_json(file, r.line, r.kind, &r.name, &r.outcome));
+                match r.outcome {
+                    Outcome::Pass => passed += 1,
+                    Outcome::Fail(_) => failed += 1,
+                    Outcome::Skip(_) => skipped += 1,
+                }
+                continue;
+            }
             let loc = format!("{}:{}", file.display(), r.line);
             match r.outcome {
                 Outcome::Pass => passed += 1,
@@ -381,7 +460,11 @@ fn test(args: &[String]) -> ExitCode {
             }
         }
     }
-    println!("{passed} passed, {failed} failed, {skipped} skipped");
+    if json {
+        println!("{{\"passed\":{passed},\"failed\":{failed},\"skipped\":{skipped}}}");
+    } else {
+        println!("{passed} passed, {failed} failed, {skipped} skipped");
+    }
     if failed == 0 {
         ExitCode::SUCCESS
     } else {

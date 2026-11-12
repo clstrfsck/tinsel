@@ -28,6 +28,11 @@ test('findBlocks finds the day header and numbers the examples', () => {
   }
 });
 
+test('findBlocks ignores item words used as names', () => {
+  assert.deepStrictEqual(lib.findBlocks('day(n) = n\nexample = 5\nexample "x"\n  part1 = 1\n'),
+    [{ line: 2, kind: 'example', n: 1 }]);
+});
+
 test('findBlocks skips lines inside triple-quoted strings', () => {
   const text = [
     'day 2020.1',
@@ -155,4 +160,96 @@ test('problem matchers read the CLI output', { skip: !binary && 'no tinsel build
   ]);
   assert.match(errors[0].message, /input/);
   assert.match(errors[1].message, /out of range/);
+});
+
+test('findChecks finds tests, examples and answers', () => {
+  const text = [
+    'test "plain" = 1 == 1',
+    'test_error "with \\"quotes\\"" = 1 / 0',
+    'example """',
+    'test "not a test" = 1',
+    'answers',
+    '"""',
+    '  part1 = 1',
+    '',
+    'answers',
+    '  part1 = 2',
+    'tests = 3',
+    // Item words used as names (SPEC 3).
+    'example = 5',
+    'answers = 7',
+    'test(x) = x * 2',
+    'day(n) = n + 1',
+  ].join('\n');
+  assert.deepStrictEqual(lib.findChecks(text), [
+    { line: 0, kind: 'test', name: 'plain' },
+    { line: 1, kind: 'test_error', name: 'with "quotes"' },
+    { line: 2, kind: 'example', name: 'example 1' },
+    { line: 8, kind: 'answers', name: 'answers' },
+  ]);
+});
+
+test('parseJsonLines and errorRange', () => {
+  assert.deepStrictEqual(lib.parseJsonLines('{"a":1}\nnot json\n{"b":\n\n{"c":[2]}\n'), [{ a: 1 }, { c: [2] }]);
+  assert.deepStrictEqual(lib.errorRange({ line: 2, column: 3, end_line: 2, end_column: 7 }),
+    { line: 1, col: 2, endLine: 1, endCol: 6 });
+  // An empty span still covers one char.
+  assert.deepStrictEqual(lib.errorRange({ line: 1, column: 5, end_line: 1, end_column: 5 }),
+    { line: 0, col: 4, endLine: 0, endCol: 5 });
+  assert.deepStrictEqual(lib.errorRange({ message: 'no position' }),
+    { line: 0, col: 0, endLine: 0, endCol: 1 });
+});
+
+test('tinsel check --json gives errors with ranges', { skip: !binary && 'no tinsel build' }, () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tinsel-'));
+  const good = path.join(dir, 'good.tin');
+  const bad = path.join(dir, 'bad.tin');
+  fs.writeFileSync(good, 'part1 = 1\n');
+  fs.writeFileSync(bad, 'x = 1\npart1 = x + nope\n');
+  assert.deepStrictEqual(JSON.parse(cli(['check', '--json', good])), { errors: [] });
+  const errors = JSON.parse(cli(['check', '--json', bad])).errors;
+  assert.deepStrictEqual(errors, [{
+    file: bad, line: 2, column: 13, end_line: 2, end_column: 17, message: 'unknown name `nope`',
+  }]);
+});
+
+test('every check tinsel test --json reports is one findChecks finds', { skip: !binary && 'no tinsel build' }, () => {
+  // The Test Explorer matches results to its items by file and line, so
+  // both must agree on where each check is, what kind it is and its name.
+  const dirs = ['tests/features', 'tests/aoc2025', 'tests/aoc2018'].map((d) => path.join(root, d));
+  const results = lib.parseJsonLines(cli(['test', '--json', ...dirs]));
+  const summary = results.pop();
+  assert.ok('passed' in summary, 'ends with a summary');
+  assert.strictEqual(summary.failed, 0);
+  const found = new Map();
+  for (const r of results) {
+    assert.notStrictEqual(r.kind, 'load', `${r.file} loads`);
+    if (!found.has(r.file)) {
+      found.set(r.file, lib.findChecks(fs.readFileSync(r.file, 'utf8')));
+    }
+    const match = found.get(r.file).find((c) => c.line + 1 === r.line);
+    assert.ok(match, `${r.file}:${r.line} ${r.kind} ${r.name}`);
+    assert.strictEqual(match.kind, r.kind, `${r.file}:${r.line}`);
+    assert.strictEqual(match.name, r.name, `${r.file}:${r.line}`);
+  }
+  // And every check found was run, apart from those of included files.
+  const counted = [...found.values()].reduce((n, cs) => n + cs.length, 0);
+  assert.strictEqual(counted, results.length);
+  assert.ok(results.length > 400, `${results.length} results`);
+});
+
+test('folderGroup keeps folders of different roots apart', () => {
+  const sep = path.sep;
+  // One root: grouped by relative folder; top-level files aren't grouped.
+  assert.deepStrictEqual(lib.folderGroup('file:///a', 'a', `tests${sep}aoc2024`, 1),
+    { id: 'dir:file:///a|tests/aoc2024', label: 'tests/aoc2024' });
+  assert.strictEqual(lib.folderGroup('file:///a', 'a', '', 1), undefined);
+  // Two roots with the same folder: different ids, labelled by root.
+  const one = lib.folderGroup('file:///one', 'one', 'tests', 2);
+  const two = lib.folderGroup('file:///two', 'two', 'tests', 2);
+  assert.notStrictEqual(one.id, two.id);
+  assert.deepStrictEqual([one.label, two.label], ['one/tests', 'two/tests']);
+  // With several roots, a root's top-level files are grouped under it.
+  assert.deepStrictEqual(lib.folderGroup('file:///one', 'one', '', 2),
+    { id: 'dir:file:///one|', label: 'one' });
 });

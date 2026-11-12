@@ -14,6 +14,17 @@ Support for Tinsel (`.tin` files), a small language for Advent of Code.
 - **Snippets:** type `day` for a new solution, or `example`,
   `examplewith`, `answers`, `test`, `test_error`, `where`, `match`,
   `clauses`, `grid`, `bfs`, `dijkstra`, `iterate` or `dbg`.
+- **Errors on save:** when a file is opened or saved, `tinsel check`
+  reads it (without running it) and its first error, such as a syntax
+  error or an unknown name, is underlined and listed in the Problems panel.
+  An error in an included file is shown in that file.
+- **Test Explorer:** the Testing view lists every `.tin` file in the
+  workspace, by folder, with its `test`, `test_error`, `example` and
+  `answers` blocks. Run all of them, a folder, a file or one block from the
+  view or from the ▶ in the editor's margin; each gets a ✓ or ✗, and a
+  failure shows its message (such as `part1: expected 6, got 5`) at the
+  block. This runs `tinsel test --json`. A file that doesn't load is marked
+  with its error.
 - **Run and test lenses:** "▶ Run" and "✓ Test" above the `day` line run
   `tinsel run` and `tinsel test` on the file in a terminal. Failed tests,
   failed examples and errors appear in the Problems panel and as squiggles.
@@ -43,6 +54,7 @@ Support for Tinsel (`.tin` files), a small language for Advent of Code.
 |---|---|---|
 | `tinsel.path` | empty | The `tinsel` binary. If empty: `target/release/tinsel` in the workspace, then `target/debug/tinsel`, then `tinsel` on the `PATH`. |
 | `tinsel.engine` | `native` | Which engine runs programs: `native`, `tree` or `ir`. |
+| `tinsel.checkOnSave` | `true` | Check a file with `tinsel check` when it is opened or saved. |
 
 Build the interpreter first (`cargo build --release` in this repository),
 since the lenses and evaluation run it. The file is saved before it is run.
@@ -54,11 +66,15 @@ The same extension works in VS Code and in Cursor. For both, see
 from the repository root:
 
 ```bash
-ln -s "$PWD/editors/vscode" ~/.vscode/extensions/local.tinsel-0.2.0   # VS Code
-ln -s "$PWD/editors/vscode" ~/.cursor/extensions/local.tinsel-0.2.0   # Cursor
+ln -s "$PWD/editors/vscode" ~/.vscode/extensions/local.tinsel   # VS Code
+ln -s "$PWD/editors/vscode" ~/.cursor/extensions/local.tinsel   # Cursor
 ```
 
-Then run "Developer: Reload Window". Or package a `.vsix` with
+Then run "Developer: Reload Window". A link made earlier under another
+name, such as `local.tinsel-0.2.0`, points at the same folder and keeps
+working.
+
+Or package a `.vsix` with
 `npx @vscode/vsce package --allow-missing-repository --skip-license`, and
 install it with `code --install-extension` or `cursor --install-extension`.
 
@@ -72,8 +88,10 @@ install it with `code --install-extension` or `cursor --install-extension`.
   tokenizer VS Code itself uses.
 - **The code** is plain JavaScript, so there is no build step:
   `extension.js` holds what needs VS Code, and `lib.js` what doesn't
-  (finding blocks, choosing the binary, reading errors). The tests cover
-  `lib.js` and check the problem matchers against the CLI's real output.
+  (finding blocks and checks, choosing the binary, reading errors and JSON
+  output). The tests cover `lib.js`, check the problem matchers against the
+  CLI's real output, and check that every result `tinsel test --json`
+  reports lines up with a block that `lib.js` finds.
   From the repository root, after `cargo build --release`:
 
   ```bash
