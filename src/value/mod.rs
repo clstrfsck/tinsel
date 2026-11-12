@@ -846,12 +846,23 @@ impl Value {
             V::Char(c) => {
                 let _ = write!(out, "{c:?}");
             }
-            V::Str(s) if limit != usize::MAX && s.chars().count() > BRIEF_CHARS => {
-                let head: String = s.chars().take(BRIEF_CHARS).collect();
-                let _ = write!(out, "{head:?}… ({} chars)", s.chars().count());
-            }
             V::Str(s) => {
-                let _ = write!(out, "{:?}", &**s);
+                // Where char BRIEF_CHARS starts, if the string is longer than
+                // that: found by reading at most BRIEF_CHARS + 1 chars, so a
+                // short string is read once, and a long one is cut there and
+                // only the rest is counted.
+                let cut = (limit != usize::MAX)
+                    .then(|| s.char_indices().nth(BRIEF_CHARS))
+                    .flatten();
+                match cut {
+                    Some((i, _)) => {
+                        let total = BRIEF_CHARS + s[i..].chars().count();
+                        let _ = write!(out, "{:?}… ({total} chars)", &s[..i]);
+                    }
+                    None => {
+                        let _ = write!(out, "{:?}", &**s);
+                    }
+                }
             }
             V::Tuple(items) => {
                 if items.len() == 1 {
@@ -1284,5 +1295,28 @@ impl Typed for V<'_> {
 impl<T: Typed + ?Sized> Typed for &T {
     fn type_name(&self) -> &'static str {
         (**self).type_name()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn repr_brief_cuts_long_strings_at_a_char() {
+        let brief = |s: &str| Value::str(s).repr_brief();
+        // Up to the limit, a string is shown whole.
+        let exact = "é".repeat(BRIEF_CHARS);
+        assert_eq!(brief(&exact), format!("{exact:?}"));
+        // Past it, the first BRIEF_CHARS chars and the total, counted in
+        // chars rather than bytes.
+        let long = format!("{exact}xé");
+        assert_eq!(
+            brief(&long),
+            format!("{exact:?}… ({} chars)", BRIEF_CHARS + 2)
+        );
+        assert_eq!(brief(""), "\"\"");
+        // `repr` never cuts.
+        assert_eq!(Value::str(&long).repr(), format!("{long:?}"));
     }
 }

@@ -63,7 +63,12 @@ part2 = dbg(
             "where.tin:2:47: total: 15",
             "where.tin:3:9: xs .len = 5",
         ]
-        .map(|l| format!("{}{l}", path.parent().unwrap().display().to_string() + "/")),
+        .map(|l| format!(
+            "{}{}{}",
+            path.parent().unwrap().display(),
+            std::path::MAIN_SEPARATOR,
+            l
+        )),
         "stderr: {err}"
     );
 }
