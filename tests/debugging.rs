@@ -207,3 +207,31 @@ fn eval_works_with_any_program_names() {
         assert_eq!((r.0, r.1.trim()), (true, "part1: 42"), "{e}: {r:?}");
     }
 }
+
+#[test]
+fn eval_keeps_the_layout_of_multi_line_expressions() {
+    let path = save("layout.tin", "x = 5\npart1 = x\n");
+    let p = path.to_str().unwrap();
+    let cases = [
+        // Match arms are a layout block (SPEC 3.1, 5.5).
+        (
+            "match x\n  0 => \"zero\"\n  n when n > 3 => \"big\"\n  _ => \"other\"",
+            "\"big\"",
+        ),
+        ("y * 2\n  where\n    y = x + 1", "12"),
+        // A continuation line at column 1 still belongs to the expression.
+        ("match x\n0 => \"zero\"\n_ => \"other\"", "\"other\""),
+        ("[x,\n1]", "[5, 1]"),
+    ];
+    for e in ENGINES {
+        for (expr, want) in cases {
+            let r = tinsel(&["eval", p, expr, e]);
+            assert_eq!((r.0, r.1.trim()), (true, want), "{e}: {expr:?}: {r:?}");
+        }
+    }
+    // An error on a later line is reported where it was written.
+    let r = tinsel(&["eval", p, "match x\n  0 => \"zero\"\n  _ => nope"]);
+    assert!(!r.0);
+    assert!(r.2.contains("unknown name `nope`"), "{r:?}");
+    assert!(r.2.contains("<expression>:3:8"), "{r:?}");
+}

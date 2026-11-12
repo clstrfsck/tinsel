@@ -187,13 +187,11 @@ impl Loader {
             self.src.push('\n');
         }
         // `__eval = ` goes at the end of the file before, so that the file
-        // shown in messages holds just the expression, on one line so that
-        // layout can't split it.
+        // shown in messages holds just the expression.
         let base = self.src.len();
         self.src.push_str(&format!("{EVAL_PARSED_AS} = "));
         let start = self.src.len();
-        let line: String = expr.lines().collect::<Vec<_>>().join(" ");
-        self.src.push_str(&line);
+        self.src.push_str(&eval_source(expr));
         self.src.push('\n');
         self.files.push(SourceFile {
             start,
@@ -218,6 +216,30 @@ impl Loader {
         }
         Ok(items)
     }
+}
+
+/// `expr` laid out to follow `__eval = ` at the start of a line (SPEC 3.1).
+/// Its line breaks are kept, since match arms and `where` blocks depend on
+/// them. Every line after the first must be indented, or it would start a
+/// new top-level item; if any isn't, all of them move one column right,
+/// which keeps their indentation relative to each other. Otherwise the
+/// text is unchanged, so error columns match what was typed.
+fn eval_source(expr: &str) -> String {
+    let mut lines = expr.trim_end().lines();
+    let first = lines.next().unwrap_or("").to_string();
+    let rest: Vec<&str> = lines.collect();
+    let flush = rest
+        .iter()
+        .any(|l| !l.trim().is_empty() && !l.starts_with([' ', '\t']));
+    let mut out = first;
+    for line in rest {
+        out.push('\n');
+        if flush && !line.trim().is_empty() {
+            out.push(' ');
+        }
+        out.push_str(line);
+    }
+    out
 }
 
 /// Removes `.` and `name/..` from a relative path, for display.
