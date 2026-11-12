@@ -132,11 +132,25 @@ test_error "length mismatch" = (1, 2) + (1, 2, 3)
 ```
 tinsel run FILE.tin [--input PATH] [--no-examples] [--tree | --ir | --native]
 tinsel test [--tree | --ir | --native] [FILE_OR_DIR ...]   # runs tests, examples and answers
+tinsel eval FILE.tin EXPR [--example N | --input PATH] [--tree | --ir | --native]
 tinsel repl [FILE.tin]             # planned, not yet implemented
 ```
 
 `run` prints `part1: <value>` and `part2: <value>` for whichever parts are
 defined. If neither is defined, it says so and exits with an error status.
+
+`eval` prints the value of the expression `EXPR` in its display form (10),
+with strings quoted. The expression can use everything the program defines,
+and `input` is the real input, the file given by `--input`, or with
+`--example N` the input of the program's `N`th `example` block (counting
+from 1), with that block's `with` constants. Only what the expression
+needs is computed, and no checks are run. An error in the expression is
+reported in a file named `<expression>`:
+
+```
+tinsel eval day11.tin 'graph["you"]'
+tinsel eval day11.tin --example 1 'ways("svr", 0)'
+```
 
 By default, `run` and `test` compile the program to machine code before
 running it. `--tree` runs it on the tree-walking interpreter instead,
@@ -803,8 +817,23 @@ and `max` from 9.2, and `int` from 9.1), and:
 
 ### 9.6 Debugging
 
-`dbg(x)` prints `x` to stderr and returns it unchanged. `dbg(label, x)`
-prints a label first.
+`dbg(x)` prints `x` to stderr and returns it unchanged, so it can go
+anywhere in an expression, including the middle of a chain: `xs.map(f).dbg.sum`.
+It prints where it was called and the source text of `x`:
+
+```
+day15.tin:42:9: reachable.len = 17
+```
+
+`dbg(label, x)` prints the label in place of the source text. Large
+values are cut short: at most 20 elements of each collection and 200
+chars of each string are shown, followed by how many more there are. So
+`list(1..100)` shows as `[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14,
+15, 16, 17, 18, 19, 20, … 80 more]`, and a string of 5000 chars as its
+first 200, quoted, then `… (5000 chars)`.
+
+`tinsel eval` (2.7) shows the value of any expression without changing
+the program.
 
 ### 9.7 Directions and search
 

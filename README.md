@@ -174,8 +174,26 @@ part2 = ways(int(times.join), int(records.join))
   The included file's definitions join the program. Its own `test`s run
   only when it is tested by itself (SPEC 2.8).
 
-`dbg(x)` prints a value to stderr and returns it, which is useful while
-working out a solution.
+### Debugging
+
+`dbg(x)` prints a value to stderr, with where it was called and the
+expression's text, and returns it unchanged, so it can go in the middle of
+a chain. Large values are cut short.
+
+```tinsel
+part1 = reachable(start).dbg.len    # prints day15.tin:42:9: reachable(start) = {(1, 2), (1, 3), (2, 3)}
+```
+
+`tinsel eval` shows the value of any expression in a program, without
+editing it, on the real input or on one of the examples:
+
+```sh
+./target/release/tinsel eval tests/aoc2025/day11.tin 'graph["you"]'
+./target/release/tinsel eval tests/aoc2025/day11.tin --example 1 'ways("svr", 0)'
+```
+
+Only what the expression needs is computed, so this is a quick way to
+check what parsing gives, or what one function returns on one case.
 
 For complete programs, see the solutions in `tests/aoc2018` to
 `tests/aoc2025`. All of 2018 to 2025 is there.

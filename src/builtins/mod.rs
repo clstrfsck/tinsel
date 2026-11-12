@@ -136,15 +136,33 @@ fn input(it: &mut Interp<'_>, args: Args) -> Result<Value> {
     }
 }
 
-fn dbg(_it: &mut Interp<'_>, args: Args) -> Result<Value> {
+/// `dbg(x)` and `dbg(label, x)` (SPEC 9.6): prints where it was called,
+/// then the label or the source text of `x`, then `x` cut short.
+fn dbg(it: &mut Interp<'_>, args: Args) -> Result<Value> {
     args.check("dbg", 1, 2, &[])?;
+    let prog = it.prog;
+    let at = crate::runner::location(&prog.path, &prog.src, &prog.files, args.span.start);
+    let call = prog.src.get(args.span.start..args.span.end).unwrap_or("");
     let mut pos = args.pos;
     let v = pos.pop().unwrap_or(Value::NONE);
     match pos.pop() {
-        Some(label) => eprintln!("{}: {}", label.display(), v.repr()),
-        None => eprintln!("{}", v.repr()),
+        Some(label) => eprintln!("{at}: {}: {}", label.display(), v.repr_brief()),
+        None => eprintln!("{at}: {} = {}", dbg_text(call), v.repr_brief()),
     }
     Ok(v)
+}
+
+/// The text of `dbg`'s argument, from the text of the call: `dbg(x)` or
+/// `x.dbg`. Runs of whitespace (as in a call split over lines) become one
+/// space.
+fn dbg_text(call: &str) -> String {
+    let call = call.trim();
+    let arg = call
+        .strip_prefix("dbg(")
+        .and_then(|c| c.strip_suffix(')'))
+        .or_else(|| call.strip_suffix(".dbg"))
+        .unwrap_or(call);
+    arg.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
 #[cfg(test)]

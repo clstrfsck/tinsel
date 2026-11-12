@@ -3,6 +3,7 @@
 //! ```text
 //! tinsel run FILE.tin [--input PATH] [--no-examples] [--tree | --ir | --native]
 //! tinsel test [--tree | --ir | --native] [FILE_OR_DIR ...]
+//! tinsel eval FILE.tin EXPR [--example N | --input PATH] [--tree | --ir | --native]
 //! ```
 //!
 //! Programs are compiled to machine code by default
@@ -16,12 +17,14 @@ use std::process::ExitCode;
 use tinsel::error::{Error, SourceFile, Span, file_at};
 use tinsel::resolve::Program;
 use tinsel::runner::{
-    Engine, Outcome, file_name, load, real_input, run_checks_with, run_examples_with,
+    EVAL_NAME, Engine, Outcome, file_name, load, load_with_expr, real_input, run_checks_with,
+    run_examples_with,
 };
 
 const USAGE: &str = "usage:
   tinsel run FILE.tin [--input PATH] [--no-examples] [--tree | --ir | --native]
-  tinsel test [--tree | --ir | --native] [FILE_OR_DIR ...]";
+  tinsel test [--tree | --ir | --native] [FILE_OR_DIR ...]
+  tinsel eval FILE.tin EXPR [--example N | --input PATH] [--tree | --ir | --native]";
 
 /// Which engine runs the program (SPEC 2.7): native code unless an option
 /// says otherwise.
@@ -78,6 +81,7 @@ fn main() -> ExitCode {
     match args.first().map(String::as_str) {
         Some("run") => run(&args[1..]),
         Some("test") => test(&args[1..]),
+        Some("eval") => eval(&args[1..]),
         _ => {
             eprintln!("{USAGE}");
             ExitCode::from(2)
@@ -218,6 +222,101 @@ fn run(args: &[String]) -> ExitCode {
     }
     tinsel::native::prof::dump();
     status
+}
+
+/// `tinsel eval`: the value of an expression in a program's scope, with
+/// its real input or one of its examples' (SPEC 2.7).
+fn eval(args: &[String]) -> ExitCode {
+    let usage = |msg: &str| {
+        eprintln!("{msg}\n{USAGE}");
+        ExitCode::from(2)
+    };
+    let (mut file, mut expr) = (None, None);
+    let (mut input_path, mut example) = (None, None);
+    let mut choice = Choice::default();
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--input" | "--example" => {
+                let flag = args[i].as_str();
+                i += 1;
+                let Some(v) = args.get(i) else {
+                    return usage(&format!("{flag} needs a value"));
+                };
+                if flag == "--input" {
+                    input_path = Some(PathBuf::from(v));
+                } else {
+                    match v.parse::<usize>() {
+                        Ok(n) if n >= 1 => example = Some(n),
+                        _ => {
+                            return usage(&format!("--example needs a number from 1, found `{v}`"));
+                        }
+                    }
+                }
+            }
+            a if Choice::of(a).is_some() => {
+                if let Err(m) = choice.choose(a) {
+                    return usage(&m);
+                }
+            }
+            a if file.is_none() && !a.starts_with('-') => file = Some(PathBuf::from(a)),
+            a if expr.is_none() && file.is_some() => expr = Some(a.to_string()),
+            a => return usage(&format!("unexpected argument `{a}`")),
+        }
+        i += 1;
+    }
+    let (Some(file), Some(expr)) = (file, expr) else {
+        return usage("eval needs a file and an expression");
+    };
+    if input_path.is_some() && example.is_some() {
+        return usage("use only one of --example and --input");
+    }
+    let prog = match load_with_expr(&file, &expr) {
+        Ok(p) => p,
+        Err(e) => {
+            report(&file, e.src.as_deref(), &e.files, &e.err);
+            return ExitCode::FAILURE;
+        }
+    };
+    let engine = match engine(&prog, choice.which()) {
+        Ok(e) => e,
+        Err(e) => {
+            report(&file, Some(&prog.src), &prog.files, &e);
+            return ExitCode::FAILURE;
+        }
+    };
+    let mut it = match example {
+        Some(n) => match prog.examples.get(n - 1) {
+            Some(ex) => engine.interp(&prog, Ok(ex.text.clone()), Some(n - 1)),
+            None => {
+                eprintln!(
+                    "{}: there is no example {n}; the program has {}",
+                    file.display(),
+                    match prog.examples.len() {
+                        0 => "none".to_string(),
+                        1 => "1".to_string(),
+                        k => format!("{k}"),
+                    }
+                );
+                return ExitCode::FAILURE;
+            }
+        },
+        None => engine.interp(&prog, real_input(&prog, &file, input_path.as_deref()), None),
+    };
+    match it.global_by_name(EVAL_NAME, Default::default()) {
+        Some(Ok(v)) => {
+            println!("{}", v.repr());
+            ExitCode::SUCCESS
+        }
+        Some(Err(e)) => {
+            report(&file, Some(&prog.src), &prog.files, &e);
+            ExitCode::FAILURE
+        }
+        None => {
+            eprintln!("internal: the expression wasn't compiled");
+            ExitCode::FAILURE
+        }
+    }
 }
 
 fn test(args: &[String]) -> ExitCode {
