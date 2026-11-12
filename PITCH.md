@@ -1,6 +1,6 @@
 # Tinsel 🎄✨
 
-## Deck the halls with algorithms
+## Deck the halls with algorithms 🎵
 
 Tinsel is a small, pure programming language built especially for Advent of
 Code. It combines functional programming, puzzle-friendly syntax, and native
