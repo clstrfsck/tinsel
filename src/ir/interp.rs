@@ -29,7 +29,7 @@ use crate::eval::{
 };
 use crate::int::Int;
 use crate::value::{self, Func, Heap, Internal, Range, V};
-use imbl::{OrdMap, OrdSet};
+use crate::value::{ValueMap, ValueSet};
 use std::cell::RefCell;
 
 const STACK_RED_ZONE: usize = 256 * 1024;
@@ -70,8 +70,8 @@ enum State {
 #[derive(Clone)]
 pub enum Acc {
     List(Vec<Value>),
-    Set(OrdSet<Value>),
-    Map(OrdMap<Value, Value>),
+    Set(ValueSet),
+    Map(ValueMap),
 }
 
 /// The IR program's state for one run.
@@ -1070,14 +1070,14 @@ pub(crate) fn exec(
         Op::Tuple(xs) => Value::tuple((0..xs.len()).map(|_| next()).collect::<Result<_>>()?),
         Op::List(xs) => Value::list((0..xs.len()).map(|_| next()).collect::<Result<Vec<_>>>()?),
         Op::Set(xs) => {
-            let mut s = OrdSet::new();
+            let mut s = ValueSet::new();
             for _ in 0..xs.len() {
                 value::set_insert(&mut s, next()?).map_err(at)?;
             }
             Value::set(s)
         }
         Op::Map(kvs) => {
-            let mut out = OrdMap::new();
+            let mut out = ValueMap::new();
             for _ in 0..kvs.len() {
                 let k = next()?;
                 let x = next()?;
@@ -1176,8 +1176,8 @@ pub(crate) fn exec(
             };
             Value::internal(Internal::Acc(match k {
                 AccKind::List => Acc::List(Vec::with_capacity(room)),
-                AccKind::Set => Acc::Set(OrdSet::new()),
-                AccKind::Map => Acc::Map(OrdMap::new()),
+                AccKind::Set => Acc::Set(ValueSet::new()),
+                AccKind::Map => Acc::Map(ValueMap::new()),
             }))
         }
         Op::AccPush(_, _) => {

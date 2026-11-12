@@ -7,7 +7,8 @@ use crate::eval::{Generator, Interp, binary, short, with_article};
 use crate::fxhash::{FxHashMap, FxHashSet};
 use crate::int::Int;
 use crate::value::{self, Heap, V, Value, compare};
-use imbl::{OrdMap, OrdSet};
+use crate::value::{ValueMap, ValueSet};
+use imbl::OrdMap;
 use std::cmp::Ordering;
 
 pub const BUILTINS: &[Builtin] = &[
@@ -887,7 +888,7 @@ fn union(it: &mut Interp<'_>, args: Args) -> Result<Value> {
             Some(acc) => binary(BinOp::BitOr, &acc, &s).map_err(|m| args.err(m))?,
         });
     }
-    Ok(out.unwrap_or(Value::set(OrdSet::new())))
+    Ok(out.unwrap_or(Value::set(ValueSet::new())))
 }
 
 /// `sets.intersection`: what is in every one of the sets. There must be at
@@ -1051,7 +1052,7 @@ fn group_by(it: &mut Interp<'_>, args: Args) -> Result<Value> {
         };
         groups.entry(k).or_default().push(v);
     }
-    let mut out = OrdMap::new();
+    let mut out = ValueMap::new();
     for (k, group) in groups {
         value::map_insert(&mut out, k, Value::list(group)).map_err(|m| args.err(m))?;
     }
@@ -1321,9 +1322,9 @@ fn set(it: &mut Interp<'_>, args: Args) -> Result<Value> {
         return Ok(Value::str(&chars.into_iter().collect::<String>()));
     }
     match args.pos.as_slice() {
-        [] => Ok(Value::set(OrdSet::new())),
+        [] => Ok(Value::set(ValueSet::new())),
         [x] => {
-            let mut out = OrdSet::new();
+            let mut out = ValueSet::new();
             for v in it.to_vec(x)? {
                 value::set_insert(&mut out, v).map_err(|m| args.err(m))?;
             }
@@ -1358,7 +1359,7 @@ fn join(it: &mut Interp<'_>, args: Args) -> Result<Value> {
     ))
 }
 
-fn map_arg<'a>(args: &'a Args, fname: &str) -> Result<&'a OrdMap<Value, Value>> {
+fn map_arg<'a>(args: &'a Args, fname: &str) -> Result<&'a ValueMap> {
     match args.pos[0].view() {
         V::Map(m) => Ok(m),
         other => Err(type_err(args, fname, "a map", other)),

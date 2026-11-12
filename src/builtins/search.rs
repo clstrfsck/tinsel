@@ -6,7 +6,7 @@ use crate::eval::{Interp, short};
 use crate::fxhash::{FxHashMap, FxHashSet};
 use crate::int::Int;
 use crate::value::{self, V, Value};
-use imbl::{OrdMap, OrdSet};
+use crate::value::{ValueMap, ValueSet};
 use std::cmp::Reverse;
 use std::collections::{BinaryHeap, VecDeque};
 
@@ -167,7 +167,7 @@ impl Found {
 
     /// A map from each state to its distance.
     fn distances(&self, dist: &[Int], args: &Args) -> Result<Value> {
-        let mut out = OrdMap::new();
+        let mut out = ValueMap::new();
         for (s, d) in self.states.iter().zip(dist) {
             value::map_insert(&mut out, s.clone(), Value::from_int(d.clone()))
                 .map_err(|m| args.err(m))?;
@@ -287,7 +287,7 @@ impl Best {
     fn states(&self, found: &Found, args: &Args) -> Result<Value> {
         let mut seen = vec![false; found.states.len()];
         let mut todo = self.goals.clone();
-        let mut out = OrdSet::new();
+        let mut out = ValueSet::new();
         while let Some(i) = todo.pop() {
             if std::mem::replace(&mut seen[i], true) {
                 continue;
@@ -461,7 +461,7 @@ fn components(it: &mut Interp<'_>, args: Args) -> Result<Value> {
     args.check("components", 2, 2, &[])?;
     let next = args.pos[1].clone();
     // Sorted, so each component is found from its smallest member.
-    let mut nodes = OrdSet::new();
+    let mut nodes = ValueSet::new();
     for n in it.to_vec(&args.pos[0])? {
         value::set_insert(&mut nodes, n).map_err(|m| args.err(m))?;
     }
@@ -471,7 +471,7 @@ fn components(it: &mut Interp<'_>, args: Args) -> Result<Value> {
         if assigned.contains(start) {
             continue;
         }
-        let mut component = OrdSet::new();
+        let mut component = ValueSet::new();
         assigned.insert(start.clone());
         let mut queue = VecDeque::from([start.clone()]);
         while let Some(s) = queue.pop_front() {

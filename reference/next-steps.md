@@ -71,23 +71,25 @@ plan had predicted (an allocator interaction, a missing in-place update,
 a missing direct entry, a tuple built only to be matched), so this is
 the cheapest way to find the next one.
 
-### 2. An ordered radix trie for int and position keys (runtime)
+### 2. An ordered radix trie for int and position keys (runtime): done
 
-Ints, and packed `(x, y)` pairs, map to unsigned numbers that sort in the
-same order as the keys. A persistent radix trie (a Patricia tree, as in
-Haskell's `IntMap`) keyed by those numbers keeps sorted iteration
-exactly, looks keys up with bit operations instead of value comparisons,
-and has cheap updated copies. A map or set would use it while all its
-keys are ints, or all packed pairs, and `imbl` otherwise.
+Done 2026-11-12. Sets and maps are now `ValueSet`/`ValueMap`
+(`src/value/coll.rs`): a 16-way radix tree with compressed paths
+(`src/value/radix.rs`) while every key is a fixnum, or every key a packed
+pair, and `imbl` otherwise. Keys map to `u64`s that sort as the values do
+(the sign bit flipped; for pairs, `Word::pair_order`). Leaves sit inline
+in their parent's slots and keep the key's `Value`, so walks lend `&Value`
+as `imbl` does.
 
-- **Expected gain:** the lookup-heavy solutions above, on both engines;
-  it closes gaps in absolute time rather than raising the speed-up over
-  the tree-walker.
-- **Cost:** the trie itself, and routing about 25 kinds of map and set
-  operation through a two-form type.
-- **First step:** a standalone measurement against `imbl::OrdMap` and
-  `OrdSet` on int and position keys; integrate only if lookups are
-  clearly (say 2×) faster.
+A binary Patricia tree (as in Haskell's `IntMap`) was tried first: lookups
+only 1.6–1.8× faster than `imbl`, since a lookup follows about 15 pointers
+for 20,000 keys. The 16-way tree needs about 4: lookups 4.2–4.4× faster,
+persistent inserts 1.9–2.3×, in-place builds 2.3–3.4×, walks level.
+
+Whole solutions, release, native, best of two: the corpus 41.55 s →
+39.24 s (−5.6%); 2020 day 11 −44%, 2021 day 25 −34%, 2019 day 25 −28%,
+2024 day 20 −28%, 2023 day 16 −22%, 2018 day 15 −18%, 2022 day 23 −12%;
+nothing slower.
 
 ### 3. Loop-invariant hoisting (compiler)
 

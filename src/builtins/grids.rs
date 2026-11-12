@@ -6,8 +6,8 @@ use super::{Args, Builtin, fixed, func, type_err};
 use crate::error::Result;
 use crate::eval::Interp;
 use crate::int::Int;
+use crate::value::ValueSet;
 use crate::value::{self, Grid, V, Value};
-use imbl::OrdSet;
 use std::rc::Rc;
 
 pub const BUILTINS: &[Builtin] = &[
@@ -147,7 +147,7 @@ fn cell_matches(it: &mut Interp<'_>, cell: &Value, v: &Value, args: &Args) -> Re
 fn where_(it: &mut Interp<'_>, args: Args) -> Result<Value> {
     args.check("where", 2, 2, &[])?;
     let g = grid_arg(&args, "where")?.clone();
-    let mut out = OrdSet::new();
+    let mut out = ValueSet::new();
     for (i, p) in all_positions(&g) {
         if cell_matches(it, &g.cells[i], &args.pos[1], &args)? {
             value::set_insert(&mut out, p).map_err(|m| args.err(m))?;
