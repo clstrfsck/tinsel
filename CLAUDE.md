@@ -12,8 +12,13 @@ asking the user.
 
 ```
 SPEC.md               language specification
+src/                  front end, resolver, tree-walker, CLI (main.rs, runner.rs)
+src/value/            values, ValueMap/ValueSet and the radix tree
+src/ir/, src/native/  the mid-level IR and its interpreter; the Cranelift JIT
 tests/features/*.tin  feature tests (test / test_error declarations)
 tests/aocYYYY/*.tin   whole AoC solutions, with example and answers blocks
+tests/*.rs            the .tin harness (run_tin.rs) and tests of the CLI
+editors/vscode/       the VS Code/Cursor extension (plain JS; node --test)
 reference/            the user's own solutions in other languages, plus Python
                       references; these are the ground truth for answers
 input/YYYY/           puzzle inputs: gitignored, never commit them or copy them into tests
@@ -26,20 +31,15 @@ input/YYYY/           puzzle inputs: gitignored, never commit them or copy them 
 - **Never change an expected value in a `.tin` test to make it pass.** The
   answers come from the reference solutions. If a test looks wrong, check it
   independently (for example, with a quick Python script) and tell the user.
-- Run `cargo test` after every change. `cargo clippy -- -D warnings` and
-  `cargo fmt` must be clean.
-- Work towards the milestones in order. A milestone is done when its test
-  files pass completely:
-  - **A:** `basics.tin`. Lexer, layout, operators, ints/bigints, strings,
-    ranges, `test`/`test_error`.
-  - **B:** `functions.tin` and `patterns.tin`. Clauses, `where`, lambdas,
-    `_` and leading-dot shorthands, method-call syntax, all pattern kinds.
-  - **C:** `collections.tin` and `vectors.tin`. The collections library,
-    tuples as vectors, comprehensions, generators.
-  - **D:** `memo.tin` and `state.tin`. Memoization, tail calls, deep
-    recursion, `iterate`/`fixpoint`/`find_cycle`.
-  - **E:** `grids.tin` and all `tests/aoc*/` programs. Grids, input lookup,
-    `example`/`with`/`answers`.
+- Run `cargo test` after every change.
+  `cargo clippy --all-targets -- -D warnings` and `cargo fmt` must be
+  clean. After changing the extension, or CLI output it reads, run
+  `node --test editors/vscode/test` on a release build.
+- **All three engines must agree:** the tree-walker (`--tree`, the
+  reference), the IR interpreter (`--ir`) and native code (the default).
+  Same results, same errors, same traces.
+- The original milestones A to E (from `basics.tin` to every `tests/aoc*/`
+  program) are all done; every `.tin` file must keep passing.
 - Real-input `answers` checks are skipped, with a note, when `input/YYYY/` is
   missing. Example checks always run.
 
@@ -55,14 +55,16 @@ input/YYYY/           puzzle inputs: gitignored, never commit them or copy them 
   - `imbl` (`OrdMap`, `OrdSet`, `Vector`) for persistent collections;
   - `stacker` for deep recursion;
   - `mimalloc` as the global allocator (set in `src/value/word.rs`);
-  - `ariadne` or `miette` for error reports;
+  - `ariadne` for error reports;
   - the Cranelift crates (`cranelift-codegen`, `-frontend`, `-module`,
     `-jit`, `-native`) for the native compiler (`reference/native-plan.md`).
   
   Ask before adding other dependencies.
 - **Pipeline:** layout pass on the tokens, then parse into the AST, then
-  resolve names and build the call graph, then a tree-walking evaluator. No
-  bytecode VM until profiling shows it's needed.
+  resolve names and build the call graph. From there, either the
+  tree-walking evaluator, or lowering to the mid-level IR (`src/ir/`),
+  which the IR interpreter runs or Cranelift compiles (`src/native/`,
+  `reference/native-plan.md`).
 - **Values are immutable.** They're shared with `Rc`. Implement `Hash` and
   `Eq` structurally. Ordering is only between values of the same type; an
   ordering across types returns a runtime error, never a panic. Equality

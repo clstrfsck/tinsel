@@ -1,4 +1,10 @@
-# Reference solutions (2022, 2023, 2024)
+# Reference solutions and answers (2018 to 2024)
+
+Where the expected answers in `tests/aoc2018/` to `tests/aoc2024/` come
+from. For 2025, see [`2025/README.md`](2025/README.md): the user's own
+published solutions, in several languages.
+
+## Python reference scripts (2022, 2023, 2024)
 
 Written in Python for the Tinsel tests: there were no published solutions to
 copy. Each takes an optional input path and otherwise reads `yYYdDD.txt`

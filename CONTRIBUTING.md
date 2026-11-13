@@ -81,7 +81,11 @@ Important invariants include:
   and generators where the specification says otherwise.
 - Integers use an `i64` fast path and promote to `BigInt` on overflow.
 - Maps and sets are persistent, sorted collections and iterate
-  deterministically.
+  deterministically. `ValueMap` and `ValueSet` (`src/value/coll.rs`) use the
+  radix tree in `src/value/radix.rs` while every key is a small int, or
+  every key a packed `(x, y)` pair, and `imbl` otherwise. The two forms must
+  agree on order, equality and hashing, so a change to how keys compare
+  must be made in both.
 - Top-level and `where` constants are lazy, evaluated at most once, and report
   dependency cycles.
 - Tail calls use constant stack space. Non-tail recursive calls grow the stack
@@ -137,6 +141,14 @@ Tinsel's main behavioural tests are programs containing `test`,
 - Add Rust unit tests for internal algorithms and invariants that are awkward
   to express in Tinsel.
 - Keep whole-program regressions in `tests/aocYYYY/`.
+- Test the command line in the Rust files in `tests/`: `debugging.rs`
+  (`dbg`, `eval` and error traces), `tools.rs` (`check` and `--json`),
+  `engines.rs` (the engine flags) and `memo_warning.rs` (the warning for
+  large memo keys). A change to
+  `main.rs`, `runner.rs` or the wording of error output is checked there,
+  not by the `.tin` files.
+- The VS Code extension in `editors/vscode/` has its own tests, run with
+  Node.js after a release build (`node --test editors/vscode/test`).
 
 Feature files run on the tree walker, IR interpreter and native engine by
 default. AoC programs run on the tree walker in the ordinary debug suite to
@@ -216,6 +228,13 @@ Before handing off a change, run:
 cargo test
 cargo clippy --all-targets -- -D warnings
 cargo fmt -- --check
+```
+
+After changing `editors/vscode/`, or the CLI output it reads, also run:
+
+```sh
+cargo build --release
+node --test editors/vscode/test
 ```
 
 The full suite must pass without changing expected values. If a check cannot be

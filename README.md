@@ -1,8 +1,10 @@
 # Tinsel
 
 Tinsel is a small, pure, dynamically typed language for solving
-[Advent of Code](https://adventofcode.com) puzzles. The interpreter is
-written in Rust.
+[Advent of Code](https://adventofcode.com) puzzles. It is written in Rust,
+and compiles programs to machine code with
+[Cranelift](https://cranelift.dev) by default. A tree-walking interpreter
+and an IR interpreter run the same programs with the same results.
 
 ```tinsel
 day 2024.1
@@ -27,6 +29,7 @@ part2 = left.map(x => x * right.count(x)).sum
 A program names its puzzle, gives the worked examples from the puzzle text
 with their expected answers, and defines `part1` and `part2`. The language
 has a lot of built-in support for Advent of Code:
+
 - grids and `(x, y)` vectors;
 - string patterns for parsing;
 - automatic memoization;
@@ -41,7 +44,8 @@ workflow and testing requirements.
 ## Building
 
 You need a stable Rust toolchain that supports edition 2024 (Rust 1.88 or
-newer). Install it from [rustup.rs](https://rustup.rs) if you don't have it.
+newer). I am currently using 1.98.  Install it from
+[rustup.rs](https://rustup.rs) if you don't have it.
 
 ```sh
 cargo build --release
@@ -66,13 +70,18 @@ part2: 24643097
 the expected and actual values and doesn't run the real input. Options:
 
 | Option | Effect |
-|---|---|
+| --- | --- |
 | `--input PATH` | Read the puzzle input from `PATH` instead of searching for it |
 | `--no-examples` | Skip the example checks |
+| `--native` | Compile to machine code (the default) |
 | `--tree` | Run on the tree-walking interpreter (the reference implementation) instead of compiling to machine code |
 | `--ir` | Run on the IR interpreter, which checks the native compiler |
 
-`tinsel test` takes `--tree` and `--ir` too.
+`tinsel test` and `tinsel eval` take `--native`, `--tree` and `--ir` too.
+
+`tinsel check FILE.tin` checks that a program and its includes parse and
+that every name they use is defined, without running anything.
+`check` and `test` take `--json`, for editors and other tools (SPEC 2.7).
 
 ### Where the input comes from
 
@@ -194,6 +203,26 @@ editing it, on the real input or on one of the examples:
 
 Only what the expression needs is computed, so this is a quick way to
 check what parsing gives, or what one function returns on one case.
+`--input PATH` evaluates it on another input file.
+
+A runtime error shows where it happened and the calls that led there,
+with their arguments:
+
+```
+Error: key (2, 0) is not in the map
+   ╭─[ day99.tin:5:12 ]
+   │
+ 5 │ total(p) = grid[p] + total((p.0 + 1, p.1))
+   │                                ╰──────────── `total((2, 0))` called here (2 times, the innermost shown)
+   │
+ 7 │ part1 = total((0, 0))
+   │               ╰──────── `total((0, 0))` called here
+───╯
+```
+
+The arguments are found by running the failing part again on the
+tree-walker, so `dbg` output isn't repeated, and a part that takes more
+than 10 seconds to fail again is shown without them (SPEC 8.3).
 
 For complete programs, see the solutions in `tests/aoc2018` to
 `tests/aoc2025`. All of 2018 to 2025 is there.
@@ -209,12 +238,13 @@ cargo test
 ```
 
 This runs:
-- the Rust unit tests;
-- every `.tin` file under `tests/`. Each `test`, `test_error`, `example`
-  and `answers` block counts as a separate check:
+- the Rust unit tests, and the CLI and engine tests in `tests/*.rs`;
+- every `.tin` file under `tests/` on the tree-walker, and a selection of
+  them on the IR interpreter and natively. Each `test`, `test_error`,
+  `example` and `answers` block counts as a separate check:
 
 ```
-75 files: 608 passed, 0 failed, 0 skipped
+205 files (205 on the tree-walker, 15 on the IR interpreter, 15 native): 2559 passed, 0 failed, 0 skipped
 ```
 
 A failure shows the file, the line and both values:
@@ -252,11 +282,12 @@ the release build:
 
 ```sh
 cargo test
-cargo clippy -- -D warnings
+cargo clippy --all-targets -- -D warnings
 cargo fmt --check
 ```
 
-All three must be clean.
+All three must be clean. [`CONTRIBUTING.md`](CONTRIBUTING.md) has the
+other checks, such as the VS Code extension's tests.
 
 ## VS Code and Cursor
 
@@ -322,8 +353,8 @@ To uninstall, delete the link and reload the window.
 
 Package the extension with Microsoft's `vsce` tool. This needs Node.js;
 `npx` downloads `vsce` the first time. The two flags stop `vsce` from
-asking about the missing repository URL and licence file, which this local
-extension doesn't need:
+asking about the missing repository URL and the licence file, which is at
+the repository root rather than in the extension's folder:
 
 ```sh
 cd editors/vscode
@@ -365,12 +396,21 @@ If it says "Plain Text":
 
 ```
 SPEC.md               the language specification
-src/                  the interpreter: lexer, layout, parser, resolver, evaluator
+CONTRIBUTING.md       architecture, development workflow and testing rules
+TIMINGS.md            how long every solution takes
+PITCH.md              a short introduction to the language
+src/                  lexer, layout, parser, resolver, tree-walking evaluator, CLI
 src/builtins/         the standard library, grouped as in SPEC section 9
+src/value/            values, and the radix tree used by sets and maps
+src/ir/               the mid-level IR, its optimisations and interpreter
+src/native/           the Cranelift code generator and its runtime
+examples/ir.rs        prints a program's IR (cargo run --example ir -- FILE.tin)
 tests/features/       feature tests (test / test_error declarations)
 tests/aocYYYY/        complete solutions, with examples and accepted answers
-reference/            reference solutions in other languages
-editors/vscode/       syntax highlighting for VS Code
+tests/lib/            shared Tinsel code used by several solutions
+tests/*.rs            the .tin harness, and tests of the CLI and engines
+reference/            reference solutions in other languages, and design notes
+editors/vscode/       the VS Code and Cursor extension
 input/YYYY/           puzzle inputs (gitignored; not included)
 ```
 
