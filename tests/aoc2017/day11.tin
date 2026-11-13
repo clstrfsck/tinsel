@@ -1,0 +1,29 @@
+day 2017.11
+
+# A path of steps on a hex grid: n, ne, se, s, sw, nw.
+# Part 1: the fewest steps from the start to where the path ends.
+
+example "ne,ne,ne"
+  part1 = 3
+
+example "ne,ne,sw,sw"
+  part1 = 0
+
+example "ne,ne,s,s"
+  part1 = 2
+
+example "se,sw,se,sw,sw"
+  part1 = 3
+
+answers
+  part1 = 773
+
+# Axial coordinates (q, r): q counts columns to the east, and r rows to
+# the south along the column.
+step = {"n": (0, -1), "s": (0, 1), "ne": (1, -1), "sw": (-1, 1), "nw": (-1, 0), "se": (1, 0)}
+
+hex_distance((q, r)) = (abs(q) + abs(r) + abs(q + r)) / 2
+
+path = input.trim.split(",").map(step[_])
+
+part1 = hex_distance(path.sum)

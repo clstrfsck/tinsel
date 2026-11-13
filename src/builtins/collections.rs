@@ -29,6 +29,7 @@ pub const BUILTINS: &[Builtin] = &[
     func("sort", sort),
     fixed("sort_by", 2, sort_by),
     func("reverse", reverse),
+    fixed("rotate", 2, rotate),
     func("first", first),
     func("last", last),
     fixed("bisect", 2, bisect),
@@ -628,6 +629,55 @@ fn reverse(it: &mut Interp<'_>, args: Args) -> Result<Value> {
             items.reverse();
             Ok(list_of(items))
         }
+    }
+}
+
+/// `xs.rotate(k)`: the elements from position `k` on, then those before
+/// it, for a list, tuple or str. `k` counts from the end when negative, and
+/// is taken modulo the length (SPEC 9.2).
+fn rotate(_: &mut Interp<'_>, args: Args) -> Result<Value> {
+    args.check("rotate", 2, 2, &[])?;
+    let k = super::numbers::int_arg(&args, 1, "rotate")?;
+    if k.is_inf() {
+        return Err(args.err(format!("`rotate` needs a finite int, found {k}")));
+    }
+    // Where the result starts, for a sequence of length n: k modulo n.
+    let start = |n: usize| -> usize {
+        let Ok(n) = i64::try_from(n) else { return 0 };
+        if n == 0 {
+            return 0;
+        }
+        match &k {
+            Int::Small(k) => k.rem_euclid(n) as usize,
+            Int::Big(b) => {
+                let r = &**b % num_bigint::BigInt::from(n);
+                let r = i64::try_from(r).unwrap_or(0);
+                r.rem_euclid(n) as usize
+            }
+            Int::Inf(_) => 0,
+        }
+    };
+    match args.pos[0].view() {
+        V::Str(s) => {
+            let chars: Vec<char> = s.chars().collect();
+            let at = start(chars.len());
+            let out: String = chars[at..].iter().chain(&chars[..at]).collect();
+            Ok(Value::from_str_rc(out.into()))
+        }
+        V::Tuple(t) => {
+            let at = start(t.len());
+            Ok(Value::tuple(
+                t[at..].iter().chain(&t[..at]).cloned().collect(),
+            ))
+        }
+        V::List(l) => {
+            let items: Vec<Value> = l.iter().cloned().collect();
+            let at = start(items.len());
+            Ok(list_of(
+                items[at..].iter().chain(&items[..at]).cloned().collect(),
+            ))
+        }
+        other => Err(type_err(&args, "rotate", "a list, tuple or str", other)),
     }
 }
 

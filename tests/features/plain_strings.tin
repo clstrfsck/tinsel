@@ -1,0 +1,21 @@
+# The strings after `example`, `test` and `test_error` are never
+# interpolated, so their braces are plain text: `{{` is two braces, and an
+# unmatched `{` is allowed (SPEC 3). Escapes such as \n still work.
+
+example "{{{}}}"
+  part1 = 6
+  part2 = 3
+
+example "{<a>"
+  part1 = 4
+  part2 = 1
+
+example "a\n{"
+  part1 = 3
+  part2 = 1
+
+test "{{braces}} in a test name are plain text" = true
+test_error "{ in a test_error name" = 1 / 0
+
+part1 = input.len
+part2 = input.count('{')

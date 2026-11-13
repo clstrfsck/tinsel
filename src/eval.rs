@@ -564,13 +564,7 @@ impl<'p> Interp<'p> {
             .unwrap_or(0);
         let mut chain: Vec<&str> = described[start..].iter().map(String::as_str).collect();
         chain.push(name);
-        Error::new(
-            format!(
-                "constant `{name}` depends on itself: {}",
-                chain.join(" -> ")
-            ),
-            span,
-        )
+        Error::new(self.prog.cycle_message(name, &chain), span)
     }
 
     #[inline(never)]

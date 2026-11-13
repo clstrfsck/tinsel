@@ -1,0 +1,25 @@
+day 2017.16
+
+# Programs a to p in a line dance: sX spins X from the end to the front,
+# xA/B swaps the programs at positions A and B, and pA/B swaps the
+# programs named A and B.
+# Part 1: the order after one dance.
+
+example "s1,x3/4,pe/b"
+  with dancers = 5
+  part1 = "baedc"
+
+answers
+  part1 = "bijankplfgmeodhc"
+
+dancers = 16
+
+line = "abcdefghijklmnop".chars.take(dancers)
+
+move(xs, "s{n:int}") = xs.rotate(-n)
+move(xs, "x{a:int}/{b:int}") = xs.set(a, xs[b]).set(b, xs[a])
+move(xs, "p{a:char}/{b:char}") = move(xs, "x{xs.index(a)}/{xs.index(b)}")
+
+dance(xs) = input.trim.split(",").fold(xs, move)
+
+part1 = dance(line).join

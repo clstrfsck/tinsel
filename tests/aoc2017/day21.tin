@@ -1,0 +1,41 @@
+day 2017.21
+
+# Fractal art: an image of # and . grows by splitting it into 2x2 squares
+# (or 3x3, if the size isn't even) and replacing each by the rule that
+# matches it in some rotation or flip.
+# Part 1: how many pixels are on after 5 iterations.
+
+example """
+../.# => ##./#../...
+.#./..#/### => #..#/..../..../#..#
+"""
+  with iterations = 2
+  part1 = 12
+
+answers
+  part1 = 155
+
+iterations = 5
+
+start = [".#.", "..#", "###"]
+
+# Every rotation and flip of a pattern, written with / between rows.
+orientations(pattern) = [h.rows.join("/") for t in [g, g.transpose] for k in 0..3 let h = t.rot(k)]
+  where
+    g = pattern.replace('/', '\n').grid
+
+rules = {key: out.split("/") for "{from} => {out}" in input.lines for key in orientations(from)}
+
+# The square of size k whose top left corner is at block (bx, by).
+square(rows, bx, by, k) = [rows[y][bx * k..<bx * k + k] for y in by * k..<by * k + k].join("/")
+
+enhance(rows) = [
+  [rules[square(rows, bx, by, k)][line] for bx in 0..<m].join
+  for by in 0..<m for line in 0..k]
+  where
+    k = if rows.len % 2 == 0 then 2 else 3
+    m = rows.len / k
+
+on_after(n) = iterate(start, enhance, times: n).map(.count('#')).sum
+
+part1 = on_after(iterations)

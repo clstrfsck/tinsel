@@ -166,3 +166,32 @@ fn doc_json_gives_one_object_per_entry() {
     assert_eq!(all.lines().count(), tinsel::docs::ENTRIES.len());
     assert!(all.lines().all(|l| l.starts_with("{\"section\":")));
 }
+
+#[test]
+fn test_names_keep_their_braces() {
+    let path = save("brace_names.tin", "test \"{{x}} and {\" = true\n");
+    let (ok, out, err) = tinsel(&["test", "--json", &path]);
+    assert!(ok, "{err}");
+    assert!(
+        out.contains("\"name\":\"{{x}} and {\""),
+        "the name is as written: {out}"
+    );
+}
+
+#[test]
+fn a_where_under_one_match_arm_is_explained() {
+    let path = save(
+        "where_arm.tin",
+        "f(x) = match x\n  0 => a\n    where\n      a = 1\n  _ => 2\n",
+    );
+    let (ok, _, err) = tinsel(&["check", &path]);
+    assert!(!ok);
+    assert!(
+        err.starts_with(
+            "Error: a `where` block can't belong to one `match` arm: put it after the last \
+             arm, lined up with the arms, where it serves every arm, or move this arm's work \
+             into a function\n"
+        ),
+        "{err}"
+    );
+}

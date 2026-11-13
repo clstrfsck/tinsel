@@ -1,0 +1,36 @@
+day 2017.19
+
+# A routing diagram of lines (| - +) with letters on them. The path
+# starts at the line on the top row, going down, and turns only at +.
+# Part 1: the letters seen along the path, in order.
+
+example """
+     |          
+     |  +--+    
+     A  |  C    
+ F---|----E|--+ 
+     |  |  |  D 
+     +B-+  +--+ 
+                
+"""
+  part1 = "ABCDEF"
+
+answers
+  part1 = "LIWQYKMRP"
+
+diagram = input.grid
+
+start = (input.lines[0].index('|'), 0)
+
+# Follow the path from p, going in direction d, collecting letters.
+follow(p, d, seen) = match diagram.get(p)
+  none => seen
+  ' ' => seen
+  '+' => follow(p + turn(p, d), turn(p, d), seen)
+  c when c.is_upper => follow(p + d, d, seen ++ str(c))
+  _ => follow(p + d, d, seen)
+
+# At a +, the path goes on to the left or the right.
+turn(p, d) = [cw(d), ccw(d)].first(t => diagram.get(p + t) not in [none, ' '])
+
+part1 = follow(start, S, "")

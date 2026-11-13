@@ -277,20 +277,15 @@ pub(crate) fn closure(it: &mut Interp<'_>, m: &Module, func: FuncId, caps: Vec<V
     }))
 }
 
-fn cycle_error(stack: &[Rc<str>], name: &str, span: Span) -> Error {
+fn cycle_error(it: &mut Interp<'_>, name: &str, span: Span) -> Error {
+    let stack = rt(it).const_stack.clone();
     let start = stack
         .iter()
         .position(|c| c.split(", ").any(|n| n == name))
         .unwrap_or(0);
     let mut chain: Vec<&str> = stack[start..].iter().map(|s| &**s).collect();
     chain.push(name);
-    Error::new(
-        format!(
-            "constant `{name}` depends on itself: {}",
-            chain.join(" -> ")
-        ),
-        span,
-    )
+    Error::new(it.prog.cycle_message(name, &chain), span)
 }
 
 fn force_global(it: &mut Interp<'_>, m: &Module, cell: usize, span: Span) -> Result<Value> {
@@ -298,7 +293,7 @@ fn force_global(it: &mut Interp<'_>, m: &Module, cell: usize, span: Span) -> Res
     let c = c.clone();
     match state {
         State::Done(v) => return Ok(v.clone()),
-        State::Evaluating => return Err(cycle_error(&rt(it).const_stack, &c.describe, span)),
+        State::Evaluating => return Err(cycle_error(it, &c.describe, span)),
         State::Pending => {}
     }
     rt(it).cells[cell].1 = State::Evaluating;
@@ -353,7 +348,7 @@ pub(crate) fn force_begin(
     let cell = &m.layouts[rec.layout].cells[k];
     match &*rec.cells[k].borrow() {
         State::Done(v) => return Ok(Forced::Done(v.clone())),
-        State::Evaluating => return Err(cycle_error(&rt(it).const_stack, &cell.describe, span)),
+        State::Evaluating => return Err(cycle_error(it, &cell.describe, span)),
         State::Pending => {}
     }
     *rec.cells[k].borrow_mut() = State::Evaluating;

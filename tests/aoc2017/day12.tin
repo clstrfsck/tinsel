@@ -1,0 +1,22 @@
+day 2017.12
+
+# Programs joined by two-way pipes: `2 <-> 0, 3, 4`.
+# Part 1: how many programs are in the group with program 0.
+
+example """
+0 <-> 2
+1 <-> 1
+2 <-> 0, 3, 4
+3 <-> 2, 4
+4 <-> 2, 3, 6
+5 <-> 6
+6 <-> 4, 5
+"""
+  part1 = 6
+
+answers
+  part1 = 130
+
+pipes = {a: bs.ints for "{a:int} <-> {bs}" in input.lines}
+
+part1 = bfs(0, pipes[_]).len

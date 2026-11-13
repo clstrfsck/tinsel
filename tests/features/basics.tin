@@ -139,6 +139,11 @@ test "bitwise not binds tightly"     = ~1 + 1 == -1
 test_error "bitwise not needs an int" = ~true
 test "bit length"                    = (0.bits, 1.bits, 255.bits, 256.bits, (2 ** 100).bits) == (0, 1, 8, 9, 101)
 test_error "bit length of a negative" = (-1).bits
+test "one bits"                      = (0.ones, 1.ones, 11.ones, 255.ones, (2 ** 100).ones, (2 ** 100 - 1).ones) == (0, 1, 3, 8, 1, 100)
+test_error "one bits of a negative"  = (-1).ones
+test_error "one bits of inf"         = inf.ones
+test "a char in a base"              = (int('f', 16), int('F', 16), int('7', 8), int('z', 36)) == (15, 15, 7, 35)
+test_error "a char not in the base"  = int('8', 8)
 test "digits"                        = (1234.digits, 0.digits, 7.digits, digits(5, 2), digits(255, 16), digits(0, 2), (2 ** 70).digits.len, (10 ** 20).digits.sum) == ([1, 2, 3, 4], [0], [7], [1, 0, 1], [15, 15], [0], 22, 1)
 test_error "digits of a negative"    = (-12).digits
 test_error "digits of inf"           = inf.digits

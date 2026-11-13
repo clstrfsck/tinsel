@@ -1,0 +1,40 @@
+day 2017.18
+
+# Assembly: snd, set, add, mul, mod, rcv, jgz, with single-letter
+# registers and number arguments.
+# Part 1: the last sound played when the first rcv with a non-zero
+#         argument runs.
+
+example """
+set a 1
+add a 2
+mul a a
+mod a 5
+snd a
+set a 0
+rcv a
+jgz a -1
+set a 1
+jgz a -2
+"""
+  part1 = 4
+
+answers
+  part1 = 8600
+
+program = input.lines.map(.words)
+
+value(regs, "{n:int}") = n
+value(regs, r) = regs.get(r, 0)
+
+recover(pc, regs, sound) = match program[pc]
+  ["snd", x] => recover(pc + 1, regs, value(regs, x))
+  ["set", x, y] => recover(pc + 1, regs.set(x, value(regs, y)), sound)
+  ["add", x, y] => recover(pc + 1, regs.set(x, value(regs, x) + value(regs, y)), sound)
+  ["mul", x, y] => recover(pc + 1, regs.set(x, value(regs, x) * value(regs, y)), sound)
+  ["mod", x, y] => recover(pc + 1, regs.set(x, value(regs, x) % value(regs, y)), sound)
+  ["rcv", x] => if value(regs, x) != 0 then sound else recover(pc + 1, regs, sound)
+  ["jgz", x, y] =>
+    recover(pc + (if value(regs, x) > 0 then value(regs, y) else 1), regs, sound)
+
+part1 = recover(0, {}, none)

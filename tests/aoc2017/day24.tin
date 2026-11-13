@@ -1,0 +1,31 @@
+day 2017.24
+
+# Components `a/b` with a port at each end. A bridge starts at port 0, and
+# each component's port must match the one before it.
+# Part 1: the strength (the sum of all the ports) of the strongest bridge.
+
+example """
+0/2
+2/2
+2/3
+3/4
+3/5
+0/1
+10/1
+9/10
+"""
+  part1 = 31
+
+answers
+  part1 = 2006
+
+components = input.lines.map(.ints)
+
+# The strongest way to continue a bridge ending at `port`, where `used`
+# has bit i set when component i is already in the bridge.
+strongest(port, used) = [
+  a + b + strongest(if a == port then b else a, used | 1 << i)
+  for (i, [a, b]) in components.enumerate
+  if used & 1 << i == 0 and port in [a, b]].max ?? 0
+
+part1 = strongest(0, 0)

@@ -814,6 +814,15 @@ impl Parser {
                     };
                     p.expect(&Tok::Arrow, "after the match pattern")?;
                     let body = p.expr()?;
+                    // A `where` indented under one arm (SPEC 7.2).
+                    if *p.peek() == Tok::Where {
+                        return Err(Error::new(
+                            "a `where` block can't belong to one `match` arm: put it after \
+                             the last arm, lined up with the arms, where it serves every \
+                             arm, or move this arm's work into a function",
+                            p.span(),
+                        ));
+                    }
                     arms.push(Arm { pat, guard, body });
                     Ok(())
                 })?;
@@ -1276,11 +1285,12 @@ impl Parser {
     }
 }
 
-/// A string literal that isn't interpolated (test names, examples): braces
-/// are literal, and `{{`/`}}` still mean one brace.
+/// A string literal that isn't interpolated (test names, examples,
+/// include paths): braces are plain text, so `{{` is two braces (SPEC 3).
+/// Backslash escapes still apply.
 fn plain_string(raw: &str, span: Span) -> Result<String> {
     let mut out = String::new();
-    let mut chars = raw.chars().peekable();
+    let mut chars = raw.chars();
     while let Some(c) = chars.next() {
         match c {
             '\\' => {
@@ -1289,10 +1299,6 @@ fn plain_string(raw: &str, span: Span) -> Result<String> {
                     unescape_char(n)
                         .ok_or_else(|| Error::new(format!("unknown escape `\\{n}`"), span))?,
                 );
-            }
-            '{' | '}' if chars.peek() == Some(&c) => {
-                chars.next();
-                out.push(c);
             }
             _ => out.push(c),
         }

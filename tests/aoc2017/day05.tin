@@ -1,0 +1,25 @@
+day 2017.5
+
+# A list of relative jumps. After each jump, the offset just used goes up
+# by one.
+# Part 1: the number of steps until a jump leaves the list.
+
+example """
+0
+3
+0
+1
+-3
+"""
+  part1 = 5
+
+answers
+  part1 = 373543
+
+offsets = input.lines.map(int)
+
+escape(pc, offs, steps) =
+  if pc not in 0..<offs.len then steps
+  else escape(pc + offs[pc], offs.set(pc, offs[pc] + 1), steps + 1)
+
+part1 = escape(0, offsets, 0)

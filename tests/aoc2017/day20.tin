@@ -1,0 +1,26 @@
+day 2017.20
+
+# Particles with a position, velocity and acceleration in 3D. Each tick
+# adds the acceleration to the velocity, then the velocity to the
+# position.
+# Part 1: the particle that stays closest to the origin in the long run.
+
+example """
+p=< 3,0,0>, v=< 2,0,0>, a=<-1,0,0>
+p=< 4,0,0>, v=< 0,0,0>, a=<-2,0,0>
+"""
+  part1 = 0
+
+answers
+  part1 = 308
+
+particles = input.lines.map(.ints.chunks(3).map(tuple))
+
+# After t ticks, the velocity is v + a * t, and the position is
+# p + v * t + a * (1 + 2 + ... + t).
+position([p, v, a], t) = p + v * t + a * (t * (t + 1) / 2)
+
+# Far enough out, the order by distance no longer changes.
+far = 10 ** 6
+
+part1 = particles.indices.min_by(i => manhattan(position(particles[i], far), (0, 0, 0)))

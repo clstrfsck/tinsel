@@ -252,8 +252,12 @@ include "intcode.tin"
 - **Strings:** `"..."` with the escapes `\n \t \\ \"` and no others.
   `{expr}` interpolates; the expression may contain nested strings, such as
   `"{xs.join(",")}"`. `{{` and `}}` are literal braces. Any other `{` or `}`
-  that doesn't open or close an interpolation is a compile error. Test
-  names and `example` strings are not interpolated.
+  that doesn't open or close an interpolation is a compile error.
+  The strings that name a `test` or `test_error`, an `example`'s string,
+  and an `include` path are not interpolated: their braces are plain
+  text, so `{{` is two braces and a lone `{` is allowed, which keeps an
+  example copied from a puzzle exactly as written. Their escapes work as
+  in any other string.
 - **Characters:** `'a'`, `'\n'`, `'\''`: the string escapes, plus `\'`.
 - **Triple-quoted strings:** `"""..."""`. If the opening quotes are followed
   directly by a newline, that newline is dropped. Everything else is kept
@@ -619,7 +623,9 @@ other, in any order. Local constants are lazy, evaluated at most once for
 each call of the enclosing function. In a function with several clauses, a
 `where` block belongs to the clause it follows, and that clause's guard can
 see it. As at top level, each name can be defined only once in a `where`
-block.
+block. A local definition with the same name as a parameter hides the
+parameter throughout the clause, including in its own definition, so
+`where pos = pos + 1` depends on itself: an error, with a hint saying why.
 
 When a definition's whole body is a `match`, its `where` block can come
 after the arms, at the same indentation as the arms:
@@ -634,6 +640,7 @@ describe(x) = match x
 ```
 
 A `where` among the arms must be the last entry, and only one is allowed.
+A `where` can't belong to a single arm.
 
 ```tinsel
 solve(lights, buttons, joltage) = (fewest_toggles, fewest_presses(joltage))
@@ -769,7 +776,7 @@ Functions are listed in method form, `x.f(args)`, which is the same as
 | `s.split(sep)`, `xs.join(sep)` | |
 | `s.trim`, `s.starts_with(t)`, `s.ends_with(t)` | |
 | `s.replace(old, new)` | Every occurrence of `old` replaced by `new`, scanning left to right without overlaps. `old` and `new` can be a `str` or a `char`; an empty `old` is an error. |
-| `int(s)`, `int(s, base)` | Parse an int (a sign and surrounding whitespace are allowed). With a base from 2 to 36, letters stand for 10 and up, in either case: `int("ff", 16) == 255`. `int(c)` parses a digit char, and `int(b)` converts a bool to 0 or 1. |
+| `int(s)`, `int(s, base)` | Parse an int (a sign and surrounding whitespace are allowed). With a base from 2 to 36, letters stand for 10 and up, in either case: `int("ff", 16) == 255`. `s` can also be a single char in a base: `int('f', 16) == 15`. `int(c)` parses a digit char, and `int(b)` converts a bool to 0 or 1. |
 | `str(x)`, `str(n, base)`, `str(n, base, width)` | Display form. With a base from 2 to 36, formats an int using lowercase letters: `str(255, 16) == "ff"`, `str(-5, 2) == "-101"`. With a width, pads with zeros (after any sign) to at least that many digits: `str(5, 2, 8) == "00000101"`. A result past the size limit (8.2) is an error. |
 | `ord(c)`, `chr(n)` | A `char`'s Unicode code point as an `int`, and the `char` for a code point: `ord('a') == 97`. `chr` of an invalid code point is an error. |
 | `c.is_digit`, `c.is_lower`, `c.is_upper` | Whether a char is an ASCII digit, lowercase letter or uppercase letter. On a `str`, whether it is non-empty and every char is: `"2024".is_digit`, `not "".is_digit`. |
@@ -797,6 +804,7 @@ lists.
 | `sum`, `product` | `sum` of an empty collection is `0`, `product` is `1`. Tuples add element-wise (5.3), so `[(1, 2), (3, 4)].sum == (4, 6)`. |
 | `min`, `max` | Return `none` for an empty collection. `min(a, b, ...)` with two or more arguments compares those arguments instead. On a range they take constant time, so `(0..10 ** 12).max` is fine; `max` of a range that never ends is an error, as is `min` of one starting at `-inf`. |
 | `min_by(f)`, `max_by(f)` | |
+| `xs.rotate(k)` | For a list, tuple or `str`: the elements from position `k` on, then the ones before it, as the same type: `[1, 2, 3, 4].rotate(1) == [2, 3, 4, 1]`. A negative `k` turns the other way, `[1, 2, 3, 4].rotate(-1) == [4, 1, 2, 3]`, and `k` is taken modulo the length. |
 | `sort`, `sort_by(f)`, `reverse` | `sort(desc: true)` and `sort_by(f, desc: true)` sort from largest to smallest; `sort_by` keeps elements with equal keys in their original order either way. `reverse` of a `str` gives a `str`, and of a tuple gives a tuple. |
 | `first`, `first(f)`, `last` | `none` if there's no such element. `first` works on ranges that never end; `last` of one is an error. |
 | `take(n)`, `take_while(f)` | The first `n` elements, or the leading elements for which `f` is true, as a list. They read only as far as they need, so they work on infinite ranges and generators: `iterate(1, _ * 2).take(4) == [1, 2, 4, 8]`. |
@@ -870,6 +878,7 @@ and `max` from 9.2, and `int` from 9.1), and:
 |---|---|
 | `isqrt(n)` | The largest `r` with `r * r <= n`, for any int `n` of 0 or more: `isqrt(17) == 4`. |
 | `n.bits` | How many binary digits an int of 0 or more has: `255.bits == 8`, `0.bits == 0`. |
+| `n.ones` | How many of those binary digits are 1, for an int of 0 or more: `11.ones == 3` (`11` is `1011`), `0.ones == 0`. |
 | `n.digits`, `digits(n, base)` | The digits of an int of 0 or more, most significant first: `1234.digits == [1, 2, 3, 4]`, `digits(5, 2) == [1, 0, 1]`, `0.digits == [0]`. A negative int is an error. The base is from 2 to 36. |
 | `modinv(a, m)` | `x` in `0..<m` with `a * x % m == 1`, or `none` if there is none |
 | `modpow(b, e, m)` | `b ** e % m`, without computing `b ** e`. `e` must be 0 or more, and `m` positive. |
