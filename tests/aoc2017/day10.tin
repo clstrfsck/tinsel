@@ -1,0 +1,18 @@
+day 2017.10
+
+# The knot hash (see knot.tin): reverse spans of a circle of marks.
+# Part 1: the product of the first two marks after one round, with the
+#         input as the lengths.
+
+include "knot.tin"
+
+example "3,4,1,5"
+  with size = 5
+  part1 = 12
+
+answers
+  part1 = 1980
+
+size = 256
+
+part1 = knot(input.ints, 1, size).take(2).product

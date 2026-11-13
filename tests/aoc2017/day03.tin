@@ -1,0 +1,32 @@
+day 2017.3
+
+# Squares numbered 1, 2, 3, ... in a spiral out from the centre.
+# Part 1: the Manhattan distance from square n to square 1.
+
+example "1"
+  part1 = 0
+
+example "12"
+  part1 = 3
+
+example "23"
+  part1 = 2
+
+example "1024"
+  part1 = 31
+
+answers
+  part1 = 552
+
+n = int(input.trim)
+
+# Ring k holds the squares after (2k - 1)^2, up to (2k + 1)^2, in four
+# sides of 2k squares. The middle of each side is k steps from the centre;
+# the rest are further by their distance from that middle.
+distance(1) = 0
+distance(n) = k + abs(along - (k - 1))
+  where
+    k = (1..).bisect(k => (2 * k + 1) ** 2 >= n)
+    along = (n - (2 * k - 1) ** 2 - 1) % (2 * k)
+
+part1 = distance(n)

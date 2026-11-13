@@ -1,0 +1,28 @@
+day 2017.15
+
+# Two generators: each value is the last one times a factor, modulo
+# 2147483647. A judge compares the lowest 16 bits of each pair.
+# Part 1: how many of the first 40 million pairs match.
+
+example """
+Generator A starts with 65
+Generator B starts with 8921
+"""
+  with pairs = 5
+  part1 = 1
+
+answers
+  part1 = 609
+
+pairs = 40_000_000
+
+[a0, b0] = input.ints
+
+next_a(a) = a * 16807 % 2147483647
+next_b(b) = b * 48271 % 2147483647
+
+judge(a, b, n, matches) =
+  if n == 0 then matches
+  else judge(next_a(a), next_b(b), n - 1, matches + int(a % 65536 == b % 65536))
+
+part1 = judge(next_a(a0), next_b(b0), pairs, 0)

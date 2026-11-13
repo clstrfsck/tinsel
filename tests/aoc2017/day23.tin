@@ -1,0 +1,24 @@
+day 2017.23
+
+# Assembly like 2017 day 18: set, sub, mul and jnz, with registers a to h.
+# Part 1: how many times mul runs.
+
+answers
+  part1 = 9409
+
+program = input.lines.map(.words)
+
+value(regs, "{n:int}") = n
+value(regs, r) = regs.get(r, 0)
+
+# Runs from instruction pc until the program ends, counting muls.
+muls(pc, regs, count) =
+  if pc not in program.indices then count
+  else match program[pc]
+    ["set", x, y] => muls(pc + 1, regs.set(x, value(regs, y)), count)
+    ["sub", x, y] => muls(pc + 1, regs.set(x, value(regs, x) - value(regs, y)), count)
+    ["mul", x, y] => muls(pc + 1, regs.set(x, value(regs, x) * value(regs, y)), count + 1)
+    ["jnz", x, y] =>
+      muls(pc + (if value(regs, x) != 0 then value(regs, y) else 1), regs, count)
+
+part1 = muls(0, {}, 0)

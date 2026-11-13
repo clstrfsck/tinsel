@@ -281,3 +281,30 @@ fn eval_raw_prints_the_display_form() {
         assert_eq!(r.1, "a\n", "{e}");
     }
 }
+
+#[test]
+fn a_where_constant_hiding_a_parameter_gets_a_hint() {
+    let path = save(
+        "hidden_param.tin",
+        "spin(pos, n) = pos * 2\n  where\n    pos = (pos + n) % 7\n\npart1 = spin(1, 2)\n",
+    );
+    for e in ENGINES {
+        let (ok, _, err) = tinsel(&["run", e, path.to_str().unwrap()]);
+        assert!(!ok);
+        assert!(
+            err.starts_with(
+                "Error: constant `pos` depends on itself: pos -> pos (this `where` constant \
+                 hides the parameter `pos`, so `pos` in its own definition means the \
+                 constant; give it another name)\n"
+            ),
+            "{e}: {err}"
+        );
+    }
+    // Other cycles have no hint.
+    let path = save("plain_cycle.tin", "a = b\nb = a\npart1 = a\n");
+    let (_, _, err) = tinsel(&["run", path.to_str().unwrap()]);
+    assert!(
+        err.starts_with("Error: constant `a` depends on itself: a -> b -> a\n"),
+        "{err}"
+    );
+}

@@ -1,0 +1,44 @@
+day 2017.9
+
+# A stream of nested {groups} and <garbage>, where ! cancels the next
+# character inside garbage.
+# Part 1: the total score, where each group scores its depth.
+
+example "{}"
+  part1 = 1
+
+example "{{{}}}"
+  part1 = 6
+
+example "{{},{}}"
+  part1 = 5
+
+example "{{{},{},{{}}}}"
+  part1 = 16
+
+example "{<a>,<a>,<a>,<a>}"
+  part1 = 1
+
+example "{{<ab>},{<ab>},{<ab>},{<ab>}}"
+  part1 = 9
+
+example "{{<!!>},{<!!>},{<!!>},{<!!>}}"
+  part1 = 9
+
+example "{{<a!>},{<a!>},{<a!>},{<ab>}}"
+  part1 = 3
+
+answers
+  part1 = 15922
+
+# The state: (depth, score, in garbage, the next character is cancelled).
+read((d, s, g, true), _) = (d, s, g, false)
+read((d, s, true, _), '!') = (d, s, true, true)
+read((d, s, true, _), '>') = (d, s, false, false)
+read((d, s, true, _), _) = (d, s, true, false)
+read((d, s, _, _), '{') = (d + 1, s + d + 1, false, false)
+read((d, s, _, _), '}') = (d - 1, s, false, false)
+read((d, s, _, _), '<') = (d, s, true, false)
+read(state, _) = state
+
+part1 = input.trim.chars.fold((0, 0, false, false), read).1

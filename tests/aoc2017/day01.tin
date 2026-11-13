@@ -1,0 +1,26 @@
+day 2017.1
+
+# A circular list of digits.
+# Part 1: the sum of the digits that match the next digit, wrapping around.
+
+example "1122"
+  part1 = 3
+
+example "1111"
+  part1 = 4
+
+example "1234"
+  part1 = 0
+
+example "91212129"
+  part1 = 9
+
+answers
+  part1 = 1341
+
+digits = input.trim.chars.map(int)
+
+# The sum of the digits that equal the digit `k` places further on.
+matching(k) = sum(a for (a, b) in zip(digits, digits.rotate(k)) if a == b)
+
+part1 = matching(1)

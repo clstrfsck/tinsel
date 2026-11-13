@@ -1,0 +1,35 @@
+day 2017.22
+
+# A virus carrier on an unbounded grid, starting in the middle of the map
+# facing up. Each burst: turn right on an infected node (left on a clean
+# one), flip the node between clean and infected, then step forward.
+# Part 1: how many of 10000 bursts infect a node.
+
+example """
+..#
+#..
+...
+"""
+  with bursts = 70
+  part1 = 41
+
+example """
+..#
+#..
+...
+"""
+  part1 = 5587
+
+answers
+  part1 = 5575
+
+bursts = 10000
+
+map = input.grid
+
+burst(0, _, _, _, infections) = infections
+burst(n, pos, dir, infected, infections) =
+  if pos in infected then burst(n - 1, pos + cw(dir), cw(dir), infected.remove(pos), infections)
+  else burst(n - 1, pos + ccw(dir), ccw(dir), infected.add(pos), infections + 1)
+
+part1 = burst(bursts, (map.width / 2, map.height / 2), N, map.where('#'), 0)

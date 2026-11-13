@@ -1,0 +1,22 @@
+day 2017.17
+
+# A spinlock: starting from [0], step forward `steps` places around the
+# buffer, insert the next number after that place, and continue from it.
+# Part 1: the number after 2017 once 2017 has been inserted.
+
+example "3"
+  part1 = 638
+
+answers
+  part1 = 1561
+
+steps = int(input.trim)
+
+# The buffer and the position of the number just inserted.
+spin((buf, pos), n) = (buf[..at] ++ [n] ++ buf[at + 1..], at + 1)
+  where
+    at = (pos + steps) % buf.len
+
+(buffer, last) = (1..2017).fold(([0], 0), spin)
+
+part1 = buffer[(last + 1) % buffer.len]

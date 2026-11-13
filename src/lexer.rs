@@ -573,7 +573,48 @@ pub fn lex(src: &str, base: usize) -> Result<Vec<Token>, Error> {
             (Some(Token { tok: Tok::Dot, .. }), Some(name)) => Tok::Ident(name.into()),
             _ => tok,
         };
+        // The string after `example`, `test` or `test_error` at the start of
+        // a line is never interpolated, so its braces are plain text
+        // (SPEC 3): read it without looking for `{...}`.
+        let item = matches!(tok, Tok::Example | Tok::Test | Tok::TestError)
+            && (r.start == 0 || src.as_bytes()[r.start - 1] == b'\n');
         out.push(Token { tok, span });
+        if item && let Some(tok) = plain_string_after(&mut lexer, base)? {
+            out.push(tok);
+        }
     }
     Ok(out)
+}
+
+/// The `"..."` string next in `lexer`, after spaces, read with its braces
+/// as plain text, or `None` if a `"..."` string isn't next.
+fn plain_string_after(lexer: &mut logos::Lexer<Raw>, base: usize) -> Result<Option<Token>, Error> {
+    let rest = lexer.remainder().as_bytes();
+    let gap = rest
+        .iter()
+        .take_while(|&&c| c == b' ' || c == b'\t')
+        .count();
+    if rest.get(gap) != Some(&b'"') || rest.get(gap + 1..gap + 3) == Some(b"\"\"") {
+        return Ok(None);
+    }
+    let start = base + lexer.span().end + gap;
+    let mut i = gap + 1;
+    loop {
+        match rest.get(i) {
+            Some(b'\\') => i += 2,
+            Some(b'"') => break,
+            Some(b'\n') | None => {
+                return Err(Error::new(
+                    "unterminated string",
+                    Span::new(start, start + i - gap),
+                ));
+            }
+            Some(_) => i += 1,
+        }
+    }
+    let text = &lexer.remainder()[gap + 1..i];
+    let tok = Tok::Str(text.into());
+    let span = Span::new(start, start + i + 1 - gap);
+    lexer.bump(i + 1);
+    Ok(Some(Token { tok, span }))
 }

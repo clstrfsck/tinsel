@@ -1,0 +1,18 @@
+day 2017.2
+
+# A spreadsheet of rows of numbers.
+# Part 1: the sum over the rows of the largest value minus the smallest.
+
+example """
+5 1 9 5
+7 5 3
+2 4 6 8
+"""
+  part1 = 18
+
+answers
+  part1 = 41919
+
+rows = input.lines.map(.ints)
+
+part1 = rows.map(r => r.max - r.min).sum

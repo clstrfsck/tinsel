@@ -105,6 +105,12 @@ test_error "bisect needs a bool predicate" = (0..9).bisect(_ + 1)
 test "sort"                     = [3, 1, 2].sort == [1, 2, 3]
 test "sort_by"                  = ["bb", "a", "ccc"].sort_by(.len) == ["a", "bb", "ccc"]
 test "reverse"                  = [1, 2, 3].reverse == [3, 2, 1]
+test "rotate"                   = ([1, 2, 3, 4].rotate(1), [1, 2, 3, 4].rotate(-1), [1, 2, 3].rotate(0), [1, 2, 3].rotate(7)) == ([2, 3, 4, 1], [4, 1, 2, 3], [1, 2, 3], [2, 3, 1])
+test "rotate keeps the type"    = ("abcde".rotate(2), (1, 2, 3).rotate(-1), "".rotate(5), [].rotate(-2)) == ("cdeab", (3, 1, 2), "", [])
+test "rotate a big step"        = [1, 2, 3].rotate(2 ** 62 + 1) == [3, 1, 2]
+test_error "rotate a set"       = {1, 2}.rotate(1)
+test_error "rotate by inf"      = [1, 2].rotate(inf)
+test "rotate by a bigint"       = ([1, 2, 3].rotate(2 ** 100), [1, 2, 3].rotate(-(2 ** 100))) == ([2, 3, 1], [3, 1, 2])
 test "reverse keeps strings and tuples" = ("abc".reverse, (1, 2).reverse) == ("cba", (2, 1))
 test "enumerate"                = ["a", "b"].enumerate == [(0, "a"), (1, "b")]
 test "zip"                      = zip([1, 2], "ab") == [(1, 'a'), (2, 'b')]

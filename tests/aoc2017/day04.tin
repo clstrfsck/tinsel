@@ -1,0 +1,18 @@
+day 2017.4
+
+# Passphrases: lines of words.
+# Part 1: how many have no repeated word.
+
+example """
+aa bb cc dd ee
+aa bb cc dd aa
+aa bb cc dd aaa
+"""
+  part1 = 2
+
+answers
+  part1 = 466
+
+phrases = input.lines.map(.words)
+
+part1 = phrases.count(ws => ws.uniq.len == ws.len)

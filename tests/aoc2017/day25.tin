@@ -1,0 +1,52 @@
+day 2017.25
+
+# A Turing machine blueprint: for each state and the value under the
+# cursor, the value to write, which way to move and the next state.
+# Part 1: the number of 1s on the tape after the given number of steps.
+
+example """
+Begin in state A.
+Perform a diagnostic checksum after 6 steps.
+
+In state A:
+  If the current value is 0:
+    - Write the value 1.
+    - Move one slot to the right.
+    - Continue with state B.
+  If the current value is 1:
+    - Write the value 0.
+    - Move one slot to the left.
+    - Continue with state B.
+
+In state B:
+  If the current value is 0:
+    - Write the value 1.
+    - Move one slot to the left.
+    - Continue with state A.
+  If the current value is 1:
+    - Write the value 1.
+    - Move one slot to the right.
+    - Continue with state A.
+"""
+  part1 = 3
+
+answers
+  part1 = 633
+
+[header, ..blueprints] = input.blocks
+
+begin = header.lines[0][-2]
+steps = header.ints[0]
+
+# (state, value) => (value to write, move, next state)
+rules = {
+  (state, v): (lines[2 + 4 * v].ints[0], if "right" in lines[3 + 4 * v] then 1 else -1, lines[4 + 4 * v][-2])
+  for b in blueprints let lines = b.lines let state = lines[0][-2] for v in 0..1}
+
+# The tape is the set of positions holding a 1.
+run(0, _, _, ones) = ones.len
+run(n, pos, state, ones) = run(n - 1, pos + move, next, if write == 1 then ones.add(pos) else ones.remove(pos))
+  where
+    (write, move, next) = rules[(state, int(pos in ones))]
+
+part1 = run(steps, 0, begin, set())

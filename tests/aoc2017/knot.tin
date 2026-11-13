@@ -1,0 +1,28 @@
+# The knot hash (2017 days 10 and 14): for each length, reverse that many
+# marks of a circle of 256, starting at the current position, then move on
+# by the length plus a skip size that grows by one each time.
+
+# The circle after `rounds` rounds of `lengths`. It is kept turned so that
+# the current position is at the front, which makes every reversal a
+# reversal of a prefix; `turned` is how far it has been turned, undone at
+# the end.
+knot(lengths, rounds, size) = marks.rotate(-turned)
+  where
+    steps = [l for _ in 1..rounds for l in lengths].enumerate
+    (marks, turned) = steps.fold((list(0..<size), 0), tie)
+    tie((xs, t), (skip, l)) = ((xs[..<l].reverse ++ xs[l..]).rotate(k), t + k)
+      where
+        k = (l + skip) % size
+
+# The full hash of a string: its char codes and a fixed suffix as the
+# lengths, 64 rounds, then each block of 16 marks xored together, as 32
+# hex digits.
+knot_hash(s) = dense.map(str(_, 16, 2)).join
+  where
+    lengths = s.chars.map(ord) ++ [17, 31, 73, 47, 23]
+    dense = knot(lengths, 64, 256).chunks(16).map(block => block.fold(0, (a, b) => a xor b))
+
+test "empty string" = knot_hash("") == "a2582a3a0e66e6e86e3812dcb672a272"
+test "AoC 2017" = knot_hash("AoC 2017") == "33efeb34ea91902bb2f59c9920caa6cd"
+test "1,2,3" = knot_hash("1,2,3") == "3efbe78a8d82f29979031a4aa0b16a9d"
+test "1,2,4" = knot_hash("1,2,4") == "63960835bcdc130f0b66d7ff4f6a5a8e"

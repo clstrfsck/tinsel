@@ -115,12 +115,14 @@ an error.
 
 ### int(s), int(s, base) → int
 Parses an int. A sign and whitespace around it are allowed. With a base
-from 2 to 36, letters stand for 10 and up, in either case. Also turns a
-digit char into its value, and a bool into 0 or 1.
+from 2 to 36, letters stand for 10 and up, in either case, and `s` can be
+a single char. Also turns a digit char into its value, and a bool into 0
+or 1.
 
 ```tinsel
 int(" -42 ") == -42
 int("ff", 16) == 255
+int('f', 16) == 15
 int("FF", 16) == 255
 int("1011", 2) == 11
 int('7') == 7
@@ -358,6 +360,20 @@ tuple.
 [1, 2, 3].reverse == [3, 2, 1]
 "abc".reverse == "cba"
 (1, 2).reverse == (2, 1)
+```
+
+### xs.rotate(k) → list
+For a list, tuple or string: the elements from position `k` on, then the
+ones before it, as the same type. A negative `k` turns the other way, and
+`k` is taken modulo the length.
+
+```tinsel
+[1, 2, 3, 4].rotate(1) == [2, 3, 4, 1]
+[1, 2, 3, 4].rotate(-1) == [4, 1, 2, 3]
+"abcde".rotate(2) == "cdeab"
+(1, 2, 3).rotate(4) == (2, 3, 1)
+[].rotate(3) == []
+{1, 2}.rotate(1) # error
 ```
 
 ### xs.first, xs.first(f) → value
@@ -932,6 +948,18 @@ How many binary digits an int of 0 or more has.
 255.bits == 8
 256.bits == 9
 0.bits == 0
+```
+
+### n.ones → int
+How many 1s an int of 0 or more has in binary (its population count).
+Not to be confused with `n.bits`, the number of binary digits.
+
+```tinsel
+11.ones == 3
+255.ones == 8
+0.ones == 0
+(2 ** 100 - 1).ones == 100
+(-1).ones # error
 ```
 
 ### n.digits, digits(n, base) → list

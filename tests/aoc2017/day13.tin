@@ -1,0 +1,24 @@
+day 2017.13
+
+# Firewall layers `depth: range`, each with a scanner sweeping up and down
+# its range. A packet crosses one layer per picosecond, along the top.
+# Part 1: the sum of depth * range over the layers whose scanner is at the
+#         top as the packet enters.
+
+example """
+0: 3
+1: 2
+4: 4
+6: 4
+"""
+  part1 = 24
+
+answers
+  part1 = 1300
+
+layers = input.lines.map(.ints)
+
+# A scanner is back at the top every 2 * (range - 1) picoseconds.
+caught(depth, range, delay) = (depth + delay) % (2 * (range - 1)) == 0
+
+part1 = sum(d * r for [d, r] in layers if caught(d, r, 0))

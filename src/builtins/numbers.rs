@@ -16,6 +16,7 @@ pub const BUILTINS: &[Builtin] = &[
     func("int", int),
     func("isqrt", isqrt),
     func("bits", bits),
+    func("ones", ones),
     func("digits", digits),
     fixed("modinv", 2, modinv),
     fixed("modpow", 3, modpow),
@@ -62,6 +63,19 @@ fn bits(_: &mut Interp<'_>, args: Args) -> Result<Value> {
         .to_str_radix(2)
         .ok_or_else(|| args.err(format!("`bits` cannot measure {n}")))?;
     Ok(Value::int(digits.len() as i64))
+}
+
+/// `n.ones`: how many 1s an int of 0 or more has in binary (SPEC 9.5).
+fn ones(_: &mut Interp<'_>, args: Args) -> Result<Value> {
+    args.check("ones", 1, 1, &[])?;
+    let n = int_arg(&args, 0, "ones")?;
+    match n {
+        Int::Small(i) if i >= 0 => Ok(Value::int(i64::from(i.count_ones()))),
+        Int::Big(b) if b.sign() != num_bigint::Sign::Minus => {
+            Ok(Value::int(b.magnitude().count_ones() as i64))
+        }
+        _ => Err(args.err(format!("`ones` needs a finite int of 0 or more, found {n}"))),
+    }
 }
 
 /// `n.digits` or `digits(n, base)`: the digits of an int of 0 or more,
@@ -128,17 +142,22 @@ fn int(_: &mut Interp<'_>, args: Args) -> Result<Value> {
     args.check("int", 1, 2, &[])?;
     if args.pos.len() == 2 {
         let base = base_arg(&args, 1, "int")?;
-        let V::Str(s) = args.pos[0].view() else {
-            return Err(type_err(
-                &args,
-                "int",
-                "a str to parse in a base",
-                &args.pos[0],
-            ));
+        let s: std::rc::Rc<str> = match args.pos[0].view() {
+            V::Str(s) => s.clone(),
+            // A single digit, such as 'f' in base 16.
+            V::Char(c) => c.to_string().into(),
+            _ => {
+                return Err(type_err(
+                    &args,
+                    "int",
+                    "a str or char to parse in a base",
+                    &args.pos[0],
+                ));
+            }
         };
         return Int::parse_radix(s.trim(), base)
             .map(Value::from_int)
-            .ok_or_else(|| args.err(format!("`int` cannot parse {:?} in base {base}", &**s)));
+            .ok_or_else(|| args.err(format!("`int` cannot parse {:?} in base {base}", &*s)));
     }
     match args.pos[0].view() {
         V::Int(i) => Ok(Value::from_int(i.clone())),
