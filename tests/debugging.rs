@@ -261,3 +261,23 @@ fn errors_show_arguments_and_dbg_prints_once() {
         );
     }
 }
+
+#[test]
+fn eval_raw_prints_the_display_form() {
+    let path = save("eval_raw.tin", "maze = input.grid\n");
+    let input = save("eval_raw.txt", "#S.\n..E\n");
+    let (path, input) = (path.to_str().unwrap(), input.to_str().unwrap());
+    for e in ENGINES {
+        // A picture prints as itself, with no extra newline.
+        let r = tinsel(&["eval", path, "--input", input, "--raw", e, "maze.show"]);
+        assert_eq!(r, (true, "#S.\n..E\n".into(), String::new()), "{e}");
+        // Without --raw, strings are quoted.
+        let r = tinsel(&["eval", path, "--input", input, e, "maze.show"]);
+        assert_eq!(r.1, "\"#S.\\n..E\\n\"\n", "{e}");
+        // Inside a collection, strings stay quoted, as in the display form.
+        let r = tinsel(&["eval", path, "--input", input, "--raw", e, "[1, \"a\"]"]);
+        assert_eq!(r.1, "[1, \"a\"]\n", "{e}");
+        let r = tinsel(&["eval", path, "--input", input, "--raw", e, "\"a\""]);
+        assert_eq!(r.1, "a\n", "{e}");
+    }
+}

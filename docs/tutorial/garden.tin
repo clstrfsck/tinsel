@@ -1,0 +1,39 @@
+# The hedge garden: the worked example in docs/tutorial.md.
+# Part 1: how many steps is the shortest route from S to E?
+# Part 2: how many different shortest routes are there?
+
+example """
+###########
+#S..#.....#
+#.#.#.#.#.#
+#.#...#...#
+#.#####.#.#
+#.......#E#
+###########
+"""
+  part1 = 16
+  part2 = 3
+
+garden = input.grid
+start = garden.find('S')
+finish = garden.find('E')
+
+# The squares one step from p that aren't hedge.
+steps(p) = garden.nbrs4(p).filter(q => garden[q] != '#')
+
+# How many steps every reachable square is from the start.
+dist = bfs(start, steps)
+
+part1 = dist[finish]
+
+# The number of shortest routes from the start to p. Each one arrives
+# from a neighbour that is one step closer to the start.
+routes(p) =
+  if p == start then 1
+  else sum(routes(q) for q in steps(p) if dist[q] == dist[p] - 1)
+
+part2 = routes(finish)
+
+# The first shortest route, drawn on the garden.
+route = bfs(start, steps, goal: finish).1
+picture = route.filter(p => garden[p] == '.').fold(garden, (g, p) => g.set(p, 'o')).show

@@ -3,7 +3,7 @@
 //! ```text
 //! tinsel run FILE.tin [--input PATH] [--no-examples] [--tree | --ir | --native]
 //! tinsel test [--tree | --ir | --native] [FILE_OR_DIR ...]
-//! tinsel eval FILE.tin EXPR [--example N | --input PATH] [--tree | --ir | --native]
+//! tinsel eval FILE.tin EXPR [--example N | --input PATH] [--raw] [--tree | --ir | --native]
 //! tinsel check FILE.tin [--json]
 //! tinsel doc [NAME] [--json]
 //! ```
@@ -27,7 +27,7 @@ use tinsel::runner::{
 const USAGE: &str = "usage:
   tinsel run FILE.tin [--input PATH] [--no-examples] [--tree | --ir | --native]
   tinsel test [--tree | --ir | --native] [--json] [FILE_OR_DIR ...]
-  tinsel eval FILE.tin EXPR [--example N | --input PATH] [--tree | --ir | --native]
+  tinsel eval FILE.tin EXPR [--example N | --input PATH] [--raw] [--tree | --ir | --native]
   tinsel check FILE.tin [--json]
   tinsel doc [NAME] [--json]";
 
@@ -245,6 +245,7 @@ fn eval(args: &[String]) -> ExitCode {
     };
     let (mut file, mut expr) = (None, None);
     let (mut input_path, mut example) = (None, None);
+    let mut raw = false;
     let mut choice = Choice::default();
     let mut i = 0;
     while i < args.len() {
@@ -266,6 +267,7 @@ fn eval(args: &[String]) -> ExitCode {
                     }
                 }
             }
+            "--raw" => raw = true,
             a if Choice::of(a).is_some() => {
                 if let Err(m) = choice.choose(a) {
                     return usage(&m);
@@ -322,7 +324,13 @@ fn eval(args: &[String]) -> ExitCode {
     };
     match it.global_by_name(EVAL_NAME, Default::default()) {
         Some(Ok(v)) => {
-            println!("{}", v.repr());
+            // `--raw` gives the display form, so a str is its own text.
+            let shown = if raw { v.display() } else { v.repr() };
+            if shown.ends_with('\n') {
+                print!("{shown}");
+            } else {
+                println!("{shown}");
+            }
             ExitCode::SUCCESS
         }
         Some(Err(e)) => {
