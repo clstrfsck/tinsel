@@ -14,6 +14,15 @@ Support for Tinsel (`.tin` files), a small language for Advent of Code.
 - **Snippets:** type `day` for a new solution, or `example`,
   `examplewith`, `answers`, `test`, `test_error`, `where`, `match`,
   `clauses`, `grid`, `bfs`, `dijkstra`, `iterate` or `dbg`.
+- **Library reference:** hover over a built-in such as `group_by` or
+  `.ints` to see its signature, description and examples. Completion
+  lists the built-ins with the same documentation (after a `.`, without
+  constants such as `N`), and while you type a call such as `bfs(`, its
+  parameters are shown, with the current one highlighted. A name the
+  program defines itself hides the built-in, as in the language.
+  "Tinsel: Open Library Reference" opens the whole reference. All of this
+  comes from `tinsel doc --json` (SPEC 2.7), so it matches the binary the
+  extension runs.
 - **Errors on save:** when a file is opened or saved, `tinsel check`
   reads it (without running it) and its first error, such as a syntax
   error or an unknown name, is underlined and listed in the Problems panel.

@@ -21,6 +21,7 @@ pub const MAX_VALUE_BYTES: u64 = 1 << 32;
 
 pub mod ast;
 pub mod builtins;
+pub mod docs;
 pub mod error;
 pub mod eval;
 pub mod fxhash;
