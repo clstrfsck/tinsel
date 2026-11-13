@@ -3,6 +3,7 @@
   "displayName": "Tinsel",
   "description": "Tinsel (.tin), a small language for Advent of Code: highlighting, snippets, errors on save, the Test Explorer, run and test lenses, and evaluating a selection",
   "version": "0.3.0",
+  "license": "Apache-2.0",
   "publisher": "local",
   "private": true,
   "engines": {

@@ -373,3 +373,14 @@ reference/            reference solutions in other languages
 editors/vscode/       syntax highlighting for VS Code
 input/YYYY/           puzzle inputs (gitignored; not included)
 ```
+
+## License
+
+Tinsel is licensed under the [Apache License 2.0](LICENSE.md). This covers
+the interpreter, the VS Code extension and the Tinsel programs here. Copies
+must keep the [`NOTICE`](NOTICE) file.
+
+The `example` blocks in `tests/aoc*/` quote small parts of puzzle text from
+[Advent of Code](https://adventofcode.com/), which belongs to Eric Wastl and
+is not covered by this license. They are reproduced only to test the
+solutions. Puzzle inputs are not included (see "Where the input comes from").

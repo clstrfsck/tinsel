@@ -1,0 +1,9 @@
+Tinsel
+Copyright 2026 Martin Sandiford
+
+This product is licensed under the Apache License, Version 2.0
+(see LICENSE.md).
+
+The example blocks in tests/aoc*/ quote small parts of puzzle text from
+Advent of Code (https://adventofcode.com/), which belongs to Eric Wastl.
+They are not covered by the Apache License.

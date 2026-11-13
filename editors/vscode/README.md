@@ -97,3 +97,8 @@ install it with `code --install-extension` or `cursor --install-extension`.
   ```bash
   node --test editors/vscode/test
   ```
+
+## License
+
+Apache License 2.0, as for the rest of Tinsel: see
+[`LICENSE.md`](../../LICENSE.md) at the repository root.
