@@ -6,6 +6,7 @@
 //! tinsel eval FILE.tin EXPR [--example N | --input PATH] [--raw] [--tree | --ir | --native]
 //! tinsel check FILE.tin [--json]
 //! tinsel doc [NAME] [--json]
+//! tinsel symbols FILE.tin [--json] [--stdin]
 //! ```
 //!
 //! Programs are compiled to machine code by default
@@ -21,7 +22,7 @@ use tinsel::error::{Error, SourceFile, Span, file_at};
 use tinsel::resolve::Program;
 use tinsel::runner::{
     ARGUMENTS_BUDGET, EVAL_NAME, Engine, Outcome, error_json, file_name, json_string, load,
-    load_with_expr, real_input, run_checks_with, run_examples_with, with_arguments,
+    load_with_expr, real_input, run_checks_with, run_examples_with, span_json, with_arguments,
 };
 
 const USAGE: &str = "usage:
@@ -29,7 +30,8 @@ const USAGE: &str = "usage:
   tinsel test [--tree | --ir | --native] [--json] [FILE_OR_DIR ...]
   tinsel eval FILE.tin EXPR [--example N | --input PATH] [--raw] [--tree | --ir | --native]
   tinsel check FILE.tin [--json]
-  tinsel doc [NAME] [--json]";
+  tinsel doc [NAME] [--json]
+  tinsel symbols FILE.tin [--json] [--stdin]";
 
 /// Which engine runs the program (SPEC 2.7): native code unless an option
 /// says otherwise.
@@ -89,6 +91,7 @@ fn main() -> ExitCode {
         Some("eval") => eval(&args[1..]),
         Some("check") => check(&args[1..]),
         Some("doc") => doc(&args[1..]),
+        Some("symbols") => symbols(&args[1..]),
         _ => {
             eprintln!("{USAGE}");
             ExitCode::from(2)
@@ -378,6 +381,100 @@ fn check(args: &[String]) -> ExitCode {
     } else {
         ExitCode::SUCCESS
     }
+}
+
+/// `tinsel symbols`: every definition in a program and its includes, and
+/// with `--json`, every use of one (SPEC 2.7).
+fn symbols(args: &[String]) -> ExitCode {
+    let json = args.iter().any(|a| a == "--json");
+    let stdin = args.iter().any(|a| a == "--stdin");
+    let rest: Vec<&String> = args
+        .iter()
+        .filter(|a| *a != "--json" && *a != "--stdin")
+        .collect();
+    let [file] = rest.as_slice() else {
+        eprintln!("symbols needs one file\n{USAGE}");
+        return ExitCode::from(2);
+    };
+    if file.starts_with('-') {
+        eprintln!("unexpected argument `{file}`\n{USAGE}");
+        return ExitCode::from(2);
+    }
+    let file = PathBuf::from(file);
+    // With --stdin, the program's text comes from standard input, as an
+    // editor's unsaved changes; includes are still read from their files.
+    let loaded = if stdin {
+        let mut text = String::new();
+        if let Err(e) = std::io::Read::read_to_string(&mut std::io::stdin(), &mut text) {
+            eprintln!("Error: cannot read standard input: {e}");
+            return ExitCode::FAILURE;
+        }
+        tinsel::runner::load_text(&file, text)
+    } else {
+        load(&file)
+    };
+    let prog = match loaded {
+        Ok(p) => p,
+        Err(e) => {
+            report(&file, e.src.as_deref(), &e.files, &e.err);
+            return ExitCode::FAILURE;
+        }
+    };
+    let syms = &prog.symbols;
+    let at = |span| span_json(&file, &prog.src, &prog.files, span);
+    if json {
+        for (id, d) in syms.defs.iter().enumerate() {
+            let container = d.container.map_or("null".to_string(), |c| c.to_string());
+            println!(
+                "{{\"kind\":\"def\",\"id\":{id},\"name\":{},\"what\":{},\"container\":{container},{}}}",
+                json_string(&d.name),
+                json_string(d.what),
+                at(d.span)
+            );
+        }
+        for (span, def) in &syms.refs {
+            println!("{{\"kind\":\"ref\",\"def\":{def},{}}}", at(*span));
+        }
+    } else {
+        let mut uses = vec![0usize; syms.defs.len()];
+        for (_, def) in &syms.refs {
+            if let Some(n) = uses.get_mut(*def) {
+                *n += 1;
+            }
+        }
+        // A tree: each definition, then what is inside it, in source order.
+        let mut order: Vec<usize> = (0..syms.defs.len()).collect();
+        order.sort_by_key(|&i| syms.defs[i].span.start);
+        let mut stack: Vec<(usize, usize)> = order
+            .iter()
+            .rev()
+            .filter(|&&i| syms.defs[i].container.is_none())
+            .map(|&i| (i, 0))
+            .collect();
+        while let Some((id, depth)) = stack.pop() {
+            let d = &syms.defs[id];
+            let (i, start, text) = file_at(&prog.src, &prog.files, d.span.start);
+            let (line, col) =
+                tinsel::error::LineIndex::new(text).line_col(text, d.span.start - start);
+            println!(
+                "{}:{line}:{col}: {}{} {} ({} {})",
+                file_name(&file, &prog.files, i).display(),
+                "  ".repeat(depth),
+                d.what,
+                d.name,
+                uses[id],
+                if uses[id] == 1 { "use" } else { "uses" }
+            );
+            stack.extend(
+                order
+                    .iter()
+                    .rev()
+                    .filter(|&&c| syms.defs[c].container == Some(id))
+                    .map(|&c| (c, depth + 1)),
+            );
+        }
+    }
+    ExitCode::SUCCESS
 }
 
 /// `tinsel doc`: entries from the library reference (SPEC 2.7).

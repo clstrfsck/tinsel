@@ -348,3 +348,60 @@ test('every entry from tinsel doc --json can be shown', { skip: !binary && 'no t
     }
   }
 });
+
+// Definitions and uses
+
+const symbolData = [
+  { kind: 'def', id: 0, name: 'f', what: 'function', container: null, file: 'a.tin', line: 1, column: 1, end_line: 1, end_column: 2 },
+  { kind: 'def', id: 1, name: 'x', what: 'parameter', container: 0, file: 'a.tin', line: 1, column: 3, end_line: 1, end_column: 4 },
+  { kind: 'def', id: 2, name: 'k', what: 'where constant', container: 0, file: 'a.tin', line: 3, column: 5, end_line: 3, end_column: 6 },
+  { kind: 'def', id: 3, name: 'x', what: 'constant', container: null, file: 'a.tin', line: 5, column: 1, end_line: 5, end_column: 2 },
+  { kind: 'def', id: 4, name: 'helper', what: 'function', container: null, file: 'lib.tin', line: 1, column: 1, end_line: 1, end_column: 7 },
+  { kind: 'ref', def: 1, file: 'a.tin', line: 1, column: 8, end_line: 1, end_column: 9 },
+  { kind: 'ref', def: 3, file: 'a.tin', line: 6, column: 11, end_line: 6, end_column: 12 },
+  { kind: 'ref', def: 0, file: 'a.tin', line: 6, column: 9, end_line: 6, end_column: 10 },
+  { kind: 'ref', def: 4, file: 'a.tin', line: 2, column: 5, end_line: 2, end_column: 11 },
+];
+
+test('symbolAt finds the definition a use refers to, by scope', () => {
+  const index = lib.symbolIndex(symbolData, '/w');
+  // The `x` in f's body is the parameter; the one in part1 is the constant.
+  assert.strictEqual(lib.symbolAt(index, '/w/a.tin', 1, 8).id, 1);
+  assert.strictEqual(lib.symbolAt(index, '/w/a.tin', 6, 11).id, 3);
+  // Anywhere in the name, including just after it, as a cursor can be.
+  assert.strictEqual(lib.symbolAt(index, '/w/a.tin', 2, 5).id, 4);
+  assert.strictEqual(lib.symbolAt(index, '/w/a.tin', 2, 11).id, 4);
+  // On a definition itself.
+  assert.strictEqual(lib.symbolAt(index, '/w/a.tin', 5, 1).id, 3);
+  assert.strictEqual(lib.symbolAt(index, '/w/a.tin', 4, 1), undefined);
+  // A definition in an included file is located there.
+  assert.strictEqual(lib.symbolAt(index, '/w/a.tin', 2, 6).file, '/w/lib.tin');
+});
+
+test('occurrences are the definition and its uses', () => {
+  const index = lib.symbolIndex(symbolData, '/w');
+  const occ = lib.occurrences(index, index.defs.get(3));
+  assert.deepStrictEqual(occ.map((o) => [o.line, o.column]), [[5, 1], [6, 11]]);
+});
+
+test('the outline nests where definitions and leaves out parameters', () => {
+  const index = lib.symbolIndex(symbolData, '/w');
+  const names = (nodes) => nodes.map((n) => [n.def.name, names(n.children)]);
+  assert.deepStrictEqual(names(lib.outline(index, '/w/a.tin')), [['f', [['k', []]]], ['x', []]]);
+  assert.deepStrictEqual(names(lib.outline(index, '/w/lib.tin')), [['helper', []]]);
+});
+
+test('tinsel symbols --json works with the index', { skip: !binary && 'no tinsel build' }, () => {
+  const day10 = path.join(root, 'tests/aoc2017/day10.tin');
+  const knot = path.join(root, 'tests/aoc2017/knot.tin');
+  const index = lib.symbolIndex(lib.parseJsonLines(cli(['symbols', '--json', day10])), root);
+  // `knot` is defined in the included file, and used in day 10 itself.
+  const lines = fs.readFileSync(day10, 'utf8').split('\n');
+  const row = lines.findIndex((l) => l.startsWith('part1 = knot('));
+  const def = lib.symbolAt(index, day10, row + 1, 'part1 = '.length + 1);
+  assert.strictEqual(def.name, 'knot');
+  assert.strictEqual(def.file, knot);
+  assert.deepStrictEqual(lib.outline(index, knot).map((n) => n.def.name), ['knot', 'knot_hash']);
+  const tie = lib.outline(index, knot)[0].children.map((n) => n.def.name);
+  assert.deepStrictEqual(tie, ['steps', 'marks', 'turned', 'tie']);
+});

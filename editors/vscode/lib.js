@@ -448,7 +448,92 @@ function definesName(text, name) {
   return false;
 }
 
+// Definitions and uses, from `tinsel symbols --json` (SPEC 2.7)
+
+/**
+ * The output of `tinsel symbols --json`, indexed: definitions by id, and
+ * for each, its uses. Paths are made absolute against `cwd`.
+ */
+function symbolIndex(objects, cwd) {
+  const defs = new Map();
+  const uses = new Map();
+  const at = (o) => ({
+    file: path.resolve(cwd || '', o.file),
+    line: o.line, column: o.column, endLine: o.end_line, endColumn: o.end_column,
+  });
+  for (const o of objects) {
+    if (o.kind === 'def') {
+      defs.set(o.id, { id: o.id, name: o.name, what: o.what, container: o.container, ...at(o) });
+      uses.set(o.id, []);
+    }
+  }
+  for (const o of objects) {
+    if (o.kind === 'ref' && uses.has(o.def)) {
+      uses.get(o.def).push(at(o));
+    }
+  }
+  return { defs, uses };
+}
+
+/** Whether 1-based (line, column) is within a located name. */
+function covers(loc, file, line, column) {
+  return loc.file === file && loc.line === line &&
+    column >= loc.column && column <= loc.endColumn;
+}
+
+/**
+ * The definition named at 1-based (line, column) of `file`: by a use of
+ * it, or by the definition itself. Undefined for anything else, such as a
+ * library function.
+ */
+function symbolAt(index, file, line, column) {
+  for (const [id, list] of index.uses) {
+    if (list.some((u) => covers(u, file, line, column))) {
+      return index.defs.get(id);
+    }
+  }
+  for (const d of index.defs.values()) {
+    if (covers(d, file, line, column)) {
+      return d;
+    }
+  }
+  return undefined;
+}
+
+/** A definition and every use of it, as locations. */
+function occurrences(index, def) {
+  return [def, ...(index.uses.get(def.id) || [])];
+}
+
+/** The kinds of definition shown in an outline. */
+const OUTLINED = new Set(['function', 'constant', 'where function', 'where constant']);
+
+/**
+ * The outline of `file`: its functions and constants in source order, each
+ * with the `where` definitions inside it as children (parameters and
+ * variables left out).
+ */
+function outline(index, file) {
+  const shown = [...index.defs.values()].filter((d) => d.file === file && OUTLINED.has(d.what));
+  const ids = new Set(shown.map((d) => d.id));
+  // The nearest container that is shown, if any.
+  const parent = (d) => {
+    let c = d.container;
+    while (c !== null && c !== undefined && !ids.has(c)) {
+      c = index.defs.get(c) ? index.defs.get(c).container : null;
+    }
+    return c === undefined ? null : c;
+  };
+  const byPosition = (a, b) => a.line - b.line || a.column - b.column;
+  const node = (d) => ({
+    def: d,
+    children: shown.filter((c) => parent(c) === d.id).sort(byPosition).map(node),
+  });
+  return shown.filter((d) => parent(d) === null).sort(byPosition).map(node);
+}
+
 module.exports = {
+  symbolIndex, symbolAt, occurrences, outline,
   findBlocks, findChecks, definedParts, exampleCount, errorMessage, shorten, findBinary,
   parseJsonLines, errorRange, folderGroup,
   docIndex, entryMarkdown, referenceMarkdown, signatureForms, isConstant, signatures,

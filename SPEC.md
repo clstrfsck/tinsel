@@ -135,6 +135,7 @@ tinsel test [--tree | --ir | --native] [--json] [FILE_OR_DIR ...]   # runs tests
 tinsel eval FILE.tin EXPR [--example N | --input PATH] [--raw] [--tree | --ir | --native]
 tinsel check FILE.tin [--json]
 tinsel doc [NAME] [--json]
+tinsel symbols FILE.tin [--json] [--stdin]
 tinsel repl [FILE.tin]             # planned, not yet implemented
 ```
 
@@ -172,6 +173,16 @@ every entry. A name with no entry is an error.
 tinsel doc find_cycle
 ```
 
+`symbols` lists the definitions in a program and the files it includes:
+top-level functions and constants, `where` functions and constants,
+parameters, and the names that lambdas, `match` arms and comprehensions
+bind (but not the parameters that `_` and `_1`, ... stand for, 5.4). Each
+is shown with where it is defined and how often it is used, indented under
+the definition it is inside. With `--stdin`, the program's own text is read
+from standard input in place of the file, for an editor with unsaved
+changes; included files are still found relative to `FILE.tin` and read
+from disk.
+
 For editors and other tools, `--json` gives machine-readable output on
 stdout:
 
@@ -185,6 +196,18 @@ stdout:
   `message` (why it failed or was skipped; empty for a pass). A file
   that can't be loaded gives an object of kind `load`, with outcome
   `fail`, its message, and the error.
+- `symbols --json` prints one object per line: first one per definition,
+  `{"kind": "def", "id", "name", "what", "container", ...}`, then one per
+  use of a definition, `{"kind": "ref", "def", ...}`, where `def` is the
+  `id` of the definition the use refers to, as the program's scoping
+  rules decide (a parameter hides a top-level name of the same name, for
+  example). `what` is one of `function`, `constant`, `where function`,
+  `where constant`, `parameter` or `variable`, and `container` is the
+  `id` of the definition this one is inside, or `null`. Both kinds of
+  object locate a name with `file`, `line`, `column`, `end_line` and
+  `end_column`, as an error object does (below). The head of each clause
+  of a function after the first, and the name in a `with` line, count as
+  uses.
 - `doc --json` prints one object per line, for each entry: `section`
   (such as `Strings`), `signature` (such as `s.split(sep) → list`),
   `names` (the built-ins it describes), `description` (Markdown) and

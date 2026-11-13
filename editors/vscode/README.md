@@ -25,6 +25,14 @@ Support for Tinsel (`.tin` files), a small language for Advent of Code.
   "Tinsel: Open Library Reference" opens the whole reference. All of this
   comes from `tinsel doc --json` (SPEC 2.7), so it matches the binary the
   extension runs.
+- **Go to definition and references:** F12 (or Cmd/Ctrl-click) on a name
+  goes to where it is defined, in this file or an included one; Shift+F12
+  lists every use; and the uses of the name under the cursor are
+  highlighted. Names follow the language's scoping, so a parameter that
+  hides a top-level name of the same name is told apart. The outline (and
+  breadcrumbs) show the file's functions and constants, with their `where`
+  definitions inside. This comes from `tinsel symbols --json --stdin`
+  (SPEC 2.7), given the editor's text, so it works on unsaved changes too.
 - **Errors on save:** when a file is opened or saved, `tinsel check`
   reads it (without running it) and its first error, such as a syntax
   error or an unknown name, is underlined and listed in the Problems panel.
