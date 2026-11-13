@@ -1015,6 +1015,15 @@ impl fmt::Debug for Value {
 /// `a.cmp(b)` for the elements of two tuples or lists, comparing small
 /// ints directly. Positions such as `(x, y)` are the most common map and
 /// set keys, so this is on the hot path of most lookups.
+/// The order of `none`, a bool, a small int or a char, as `cmp_other`
+/// orders them: by type (`V::tag`), then by value. `None` for anything
+/// else, including `inf` and big ints, which compare as ints but aren't
+/// small.
+#[inline]
+fn simple_order(v: &Value) -> Option<(u8, i64)> {
+    v.0.simple_order()
+}
+
 #[inline]
 fn cmp_items<'a>(
     a: impl Iterator<Item = &'a Value>,
@@ -1025,7 +1034,7 @@ fn cmp_items<'a>(
         let Some(y) = b.next() else {
             return Ordering::Greater;
         };
-        let o = match (x.0.as_fix(), y.0.as_fix()) {
+        let o = match (simple_order(x), simple_order(y)) {
             (Some(p), Some(q)) => p.cmp(&q),
             _ => x.cmp(y),
         };
@@ -1095,6 +1104,9 @@ impl Ord for Value {
         if let (Some(a), Some(b)) = (self.0.pair_order(), o.0.pair_order()) {
             return a.cmp(&b);
         }
+        if let (Some(a), Some(b)) = (simple_order(self), simple_order(o)) {
+            return a.cmp(&b);
+        }
         self.cmp_other(o)
     }
 }
@@ -1115,6 +1127,13 @@ impl Value {
             && let (Some(y0), Some(y1)) = (b0.0.as_fix(), b1.0.as_fix())
         {
             return (x0, x1).cmp(&(y0, y1));
+        }
+        // Other tuples on the heap, such as `(state, 0)` with a char: by
+        // element, without building a view of each.
+        if let (Kind::Heap(Heap::Tuple(a)), Kind::Heap(Heap::Tuple(b))) =
+            (self.0.kind(), o.0.kind())
+        {
+            return cmp_items(a.as_slice().iter(), b.as_slice().iter());
         }
         match (self.view(), o.view()) {
             (V::Tuple(a), V::Tuple(b)) => cmp_items(a.iter(), b.iter()),
@@ -1301,6 +1320,73 @@ impl<T: Typed + ?Sized> Typed for &T {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The order as it was before the fast paths: by view, recursively.
+    fn slow_cmp(a: &Value, b: &Value) -> Ordering {
+        match (a.view(), b.view()) {
+            (V::Tuple(x), V::Tuple(y)) => {
+                let (x, y): (Vec<&Value>, Vec<&Value>) = (x.iter().collect(), y.iter().collect());
+                for (p, q) in x.iter().zip(&y) {
+                    let o = slow_cmp(p, q);
+                    if o != Ordering::Equal {
+                        return o;
+                    }
+                }
+                x.len().cmp(&y.len())
+            }
+            (V::None, V::None) => Ordering::Equal,
+            (V::Bool(x), V::Bool(y)) => x.cmp(&y),
+            (V::Int(x), V::Int(y)) => x.cmp(&y),
+            (V::Char(x), V::Char(y)) => x.cmp(&y),
+            (V::Str(x), V::Str(y)) => x.cmp(y),
+            (x, y) => x.tag().cmp(&y.tag()),
+        }
+    }
+
+    #[test]
+    fn fast_comparisons_agree_with_the_general_order() {
+        let c = |c: char| Value(Word::char(c));
+        let b = |b: bool| Value(Word::bool(b));
+        let big = Value::from_int(Int::Small(2).pow(&Int::Small(70)).expect("2 ** 70"));
+        let t = Value::tuple;
+        let values = vec![
+            Value::NONE,
+            b(false),
+            b(true),
+            Value::int(-3),
+            Value::int(0),
+            Value::int(5),
+            big.clone(),
+            Value::from_int(Int::Inf(true)),
+            Value::from_int(Int::Inf(false)),
+            c('a'),
+            c('b'),
+            c('\u{10FFFF}'),
+            Value::str("a"),
+            t(vec![Value::int(1), c('a')]),
+            t(vec![Value::int(1), c('b')]),
+            t(vec![c('a'), Value::int(1)]),
+            t(vec![Value::int(1), Value::int(2)]),
+            t(vec![Value::int(1), Value::int(2), Value::int(3)]),
+            t(vec![Value::int(1), c('a'), b(true)]),
+            t(vec![Value::NONE, Value::int(1)]),
+            t(vec![big.clone(), Value::int(1)]),
+            t(vec![Value::int(1), big]),
+            t(vec![t(vec![Value::int(1), Value::int(2)]), c('x')]),
+            t(vec![Value::int(1), Value::str("x")]),
+        ];
+        for x in &values {
+            for y in &values {
+                assert_eq!(
+                    x.cmp(y),
+                    slow_cmp(x, y),
+                    "{} against {}",
+                    x.repr(),
+                    y.repr()
+                );
+            }
+        }
+    }
 
     #[test]
     fn repr_brief_cuts_long_strings_at_a_char() {

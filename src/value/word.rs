@@ -182,6 +182,27 @@ impl Word {
         self.0 & TAG_MASK != PTR_TAG
     }
 
+    /// For a fixnum, char, bool or `none`: the order of its type and its
+    /// value, as values of those types order (`none`, then bools, then
+    /// ints, then chars, as `V::tag` numbers them). `None` for anything
+    /// else, including `inf` and packed pairs. Read from the bits alone.
+    #[inline]
+    pub fn simple_order(&self) -> Option<(u8, i64)> {
+        if self.0 & 1 == 0 {
+            return Some((2, (self.0 as i64) >> 1));
+        }
+        if self.0 & TAG_MASK == PTR_TAG {
+            return None;
+        }
+        let payload = self.0 >> PAYLOAD_SHIFT;
+        match self.0 & KIND_MASK {
+            KIND_NONE => Some((0, 0)),
+            KIND_BOOL => Some((1, i64::from(payload != 0))),
+            KIND_CHAR => Some((3, payload as i64)),
+            _ => None,
+        }
+    }
+
     /// The raw bits, for comparisons between unboxed words and for pointer
     /// identity.
     #[inline]
