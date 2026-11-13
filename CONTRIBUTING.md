@@ -149,6 +149,11 @@ Tinsel's main behavioural tests are programs containing `test`,
   large memo keys). A change to
   `main.rs`, `runner.rs` or the wording of error output is checked there,
   not by the `.tin` files.
+- The tutorial is checked by `tests/tutorial.rs`: its programs and `test`
+  lines run on all three engines, its listings must match the files in
+  `docs/tutorial/`, and every `$ tinsel ...` command must print what the
+  tutorial shows. After changing an error message or an output format,
+  update the tutorial to match.
 - The VS Code extension in `editors/vscode/` has its own tests, run with
   Node.js after a release build (`node --test editors/vscode/test`).
 

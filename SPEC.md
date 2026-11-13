@@ -132,7 +132,7 @@ test_error "length mismatch" = (1, 2) + (1, 2, 3)
 ```
 tinsel run FILE.tin [--input PATH] [--no-examples] [--tree | --ir | --native]
 tinsel test [--tree | --ir | --native] [--json] [FILE_OR_DIR ...]   # runs tests, examples and answers
-tinsel eval FILE.tin EXPR [--example N | --input PATH] [--tree | --ir | --native]
+tinsel eval FILE.tin EXPR [--example N | --input PATH] [--raw] [--tree | --ir | --native]
 tinsel check FILE.tin [--json]
 tinsel doc [NAME] [--json]
 tinsel repl [FILE.tin]             # planned, not yet implemented
@@ -142,7 +142,9 @@ tinsel repl [FILE.tin]             # planned, not yet implemented
 defined. If neither is defined, it says so and exits with an error status.
 
 `eval` prints the value of the expression `EXPR` in its display form (10),
-with strings quoted. The expression can use everything the program defines,
+with strings quoted. With `--raw`, it prints the display form itself, so a
+string is printed as its text, without quotes or escapes (and without an
+extra newline if it ends in one), which suits a picture such as `g.show`. The expression can use everything the program defines,
 and `input` is the real input, the file given by `--input`, or with
 `--example N` the input of the program's `N`th `example` block (counting
 from 1), with that block's `with` constants. Only what the expression

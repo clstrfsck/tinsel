@@ -37,6 +37,8 @@ has a lot of built-in support for Advent of Code:
 - cycle detection;
 - persistent sets and maps.
 
+New to Tinsel? Start with [the tutorial](docs/tutorial.md): the language in
+half an hour, and a puzzle solved step by step.
 [`SPEC.md`](SPEC.md) is the full language definition, and
 [`docs/library.md`](docs/library.md) is a quick reference to every built-in
 function, with examples.
@@ -211,6 +213,8 @@ editing it, on the real input or on one of the examples:
 
 Only what the expression needs is computed, so this is a quick way to
 check what parsing gives, or what one function returns on one case.
+A string is shown quoted; `--raw` prints it as it is, which suits a
+picture such as `grid.show`.
 `--input PATH` evaluates it on another input file.
 
 A runtime error shows where it happened and the calls that led there,
@@ -409,6 +413,7 @@ If it says "Plain Text":
 ```
 SPEC.md               the language specification
 docs/library.md       the library reference, with checked examples
+docs/tutorial.md      the tutorial; its programs are in docs/tutorial/
 CONTRIBUTING.md       architecture, development workflow and testing rules
 TIMINGS.md            how long every solution takes
 PITCH.md              a short introduction to the language

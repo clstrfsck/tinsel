@@ -1,0 +1,11 @@
+example """
+3 4 5
+10 -2
+"""
+  part1 = 20
+  part2 = 15
+
+rows = input.lines.map(.ints)
+
+part1 = rows.flatten.sum
+part2 = rows.map(.max).sum
