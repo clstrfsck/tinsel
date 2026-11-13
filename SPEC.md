@@ -134,6 +134,7 @@ tinsel run FILE.tin [--input PATH] [--no-examples] [--tree | --ir | --native]
 tinsel test [--tree | --ir | --native] [--json] [FILE_OR_DIR ...]   # runs tests, examples and answers
 tinsel eval FILE.tin EXPR [--example N | --input PATH] [--tree | --ir | --native]
 tinsel check FILE.tin [--json]
+tinsel doc [NAME] [--json]
 tinsel repl [FILE.tin]             # planned, not yet implemented
 ```
 
@@ -159,6 +160,16 @@ tinsel eval day11.tin --example 1 'ways("svr", 0)'
 that every name it uses is defined, without running anything. It reports
 the first error it finds, and exits with an error status if there is one.
 
+`doc` prints the entries for the built-in `NAME` from the library
+reference, `docs/library.md`, which is built into the binary: each one's
+signature, description and examples. Some names have more than one entry,
+such as `set` for collections and for grids. Without `NAME`, it prints
+every entry. A name with no entry is an error.
+
+```
+tinsel doc find_cycle
+```
+
 For editors and other tools, `--json` gives machine-readable output on
 stdout:
 
@@ -172,6 +183,10 @@ stdout:
   `message` (why it failed or was skipped; empty for a pass). A file
   that can't be loaded gives an object of kind `load`, with outcome
   `fail`, its message, and the error.
+- `doc --json` prints one object per line, for each entry: `section`
+  (such as `Strings`), `signature` (such as `s.split(sep) → list`),
+  `names` (the built-ins it describes), `description` (Markdown) and
+  `examples` (the example lines, as written).
 
 An error object has `file`, `message`, and, when the error has a
 position, `line`, `column`, `end_line` and `end_column` (1-based, with

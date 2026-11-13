@@ -47,6 +47,17 @@ function activate(context) {
     vscode.commands.registerCommand('tinsel.runExample', runExample),
     vscode.commands.registerCommand('tinsel.evalSelection', () => evalSelection(false)),
     vscode.commands.registerCommand('tinsel.evalSelectionOnExample', () => evalSelection(true)),
+    vscode.commands.registerCommand('tinsel.openReference', openReference),
+    vscode.languages.registerHoverProvider(selector, new DocHoverProvider()),
+    vscode.languages.registerCompletionItemProvider(selector, new DocCompletionProvider(), '.'),
+    vscode.languages.registerSignatureHelpProvider(selector, new DocSignatureProvider(),
+      { triggerCharacters: ['(', ','], retriggerCharacters: [')'] }),
+    // A different binary may have a different reference.
+    vscode.workspace.onDidChangeConfiguration((e) => {
+      if (e.affectsConfiguration('tinsel.path')) {
+        docs = null;
+      }
+    }),
     // An edit makes the values shown out of date.
     vscode.workspace.onDidChangeTextDocument((e) => {
       const editor = vscode.window.activeTextEditor;
@@ -553,6 +564,151 @@ async function evalSelection(onExample) {
   }]);
   output.appendLine(`${lib.shorten(expr.text, 80)}  (${where})`);
   output.appendLine(r.ok ? `  ${r.stdout.trim()}` : r.stderr.trim().replace(/^/gm, '  '));
+}
+
+// The library reference: `tinsel doc --json`
+
+/** How long to wait before asking a binary without `doc` again. */
+const DOCS_RETRY_MS = 30_000;
+
+/** The reference, once read: { entries, index, at }. */
+let docs = null;
+
+/**
+ * The library reference from the binary, read once. If it can't be read
+ * (no build yet, or one from before `tinsel doc`), the reference is empty
+ * and is asked for again a little later.
+ */
+async function libraryDocs() {
+  if (docs && (docs.entries.length > 0 || Date.now() - docs.at < DOCS_RETRY_MS)) {
+    return docs.promise;
+  }
+  const loading = { entries: [], at: Date.now(), promise: null };
+  loading.promise = tinsel(['doc', '--json']).then((r) => {
+    const entries = lib.parseJsonLines(r.stdout).filter((e) => Array.isArray(e.names));
+    if (entries.length === 0) {
+      output.appendLine(`Library reference unavailable: ${lib.errorMessage(r.stderr)}`);
+    }
+    loading.entries = entries;
+    return { entries, index: lib.docIndex(entries) };
+  });
+  docs = loading;
+  return loading.promise;
+}
+
+/**
+ * The built-in entries for `name` at `offset` in `doc`, or none: not in a
+ * string or comment, and not hidden by the program's own definition.
+ */
+async function entriesAt(doc, name, offset) {
+  const text = doc.getText();
+  if (!lib.inCode(text.slice(0, offset)) || lib.definesName(text, name)) {
+    return undefined;
+  }
+  const { index } = await libraryDocs();
+  return index.get(name);
+}
+
+function docMarkdown(entries) {
+  return new vscode.MarkdownString(entries.map(lib.entryMarkdown).join('\n\n---\n\n'));
+}
+
+const NAME = /[A-Za-z_][A-Za-z0-9_]*/;
+
+/** Hovering over a built-in shows its entries. */
+class DocHoverProvider {
+  async provideHover(doc, position) {
+    const range = doc.getWordRangeAtPosition(position, NAME);
+    if (!range) {
+      return undefined;
+    }
+    const entries = await entriesAt(doc, doc.getText(range), doc.offsetAt(range.start));
+    return entries ? new vscode.Hover(docMarkdown(entries), range) : undefined;
+  }
+}
+
+/**
+ * Completes the names of built-ins, with their entries as documentation.
+ * After a `.`, constants such as `N` are left out.
+ */
+class DocCompletionProvider {
+  async provideCompletionItems(doc, position) {
+    const offset = doc.offsetAt(position);
+    const text = doc.getText();
+    const before = text.slice(0, offset);
+    if (!lib.inCode(before)) {
+      return undefined;
+    }
+    const method = /\.[A-Za-z_0-9]*$/.test(before) && !/\d\.$/.test(before);
+    const range = doc.getWordRangeAtPosition(position, NAME);
+    const { index } = await libraryDocs();
+    const items = [];
+    for (const [name, entries] of index) {
+      const constant = entries.every(lib.isConstant);
+      if ((method && constant) || lib.definesName(text, name)) {
+        continue;
+      }
+      const kind = constant ? vscode.CompletionItemKind.Constant
+        : method ? vscode.CompletionItemKind.Method : vscode.CompletionItemKind.Function;
+      const item = new vscode.CompletionItem(name, kind);
+      item.detail = entries.map((e) => e.signature).join('  |  ');
+      item.documentation = docMarkdown(entries);
+      if (range) {
+        item.range = range;
+      }
+      items.push(item);
+    }
+    return items;
+  }
+}
+
+/** While typing a call to a built-in, shows its parameters. */
+class DocSignatureProvider {
+  async provideSignatureHelp(doc, position) {
+    const before = doc.getText(new vscode.Range(new vscode.Position(0, 0), position));
+    const call = lib.callContext(before);
+    if (!call) {
+      return undefined;
+    }
+    const entries = await entriesAt(doc, call.name, before.length);
+    if (!entries) {
+      return undefined;
+    }
+    const sigs = lib.signatures(entries, call.method);
+    if (sigs.length === 0) {
+      return undefined;
+    }
+    const help = new vscode.SignatureHelp();
+    help.signatures = sigs.map((s) => {
+      const info = new vscode.SignatureInformation(s.label,
+        new vscode.MarkdownString(s.entry.description));
+      info.parameters = s.params.map((p) => new vscode.ParameterInformation([p.start, p.end]));
+      return info;
+    });
+    help.activeSignature = lib.activeSignature(sigs, call.arg);
+    const params = sigs[help.activeSignature].params.length;
+    help.activeParameter = Math.min(call.arg, Math.max(params - 1, 0));
+    return help;
+  }
+}
+
+/** "Tinsel: Open Library Reference": the whole reference, previewed. */
+async function openReference() {
+  const { entries } = await libraryDocs();
+  if (entries.length === 0) {
+    vscode.window.showErrorMessage('Tinsel: the library reference is unavailable. ' +
+      'Build the interpreter with `cargo build --release`, or set `tinsel.path`.');
+    return;
+  }
+  const doc = await vscode.workspace.openTextDocument({
+    content: lib.referenceMarkdown(entries),
+    language: 'markdown',
+  });
+  try {
+    await vscode.commands.executeCommand('markdown.showPreview', doc.uri);
+  } catch (_) {
+    await vscode.window.showTextDocument(doc);
+  }
 }
 
 module.exports = { activate, deactivate };

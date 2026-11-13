@@ -126,3 +126,43 @@ fn check_usage_errors() {
         assert!(err.contains("usage:"), "{args:?}: {err}");
     }
 }
+
+#[test]
+fn doc_prints_a_builtins_entries() {
+    let (ok, out, err) = tinsel(&["doc", "split"]);
+    assert!(ok, "{err}");
+    assert!(out.starts_with("s.split(sep) → list    (Strings)\n\nSplits on"));
+    assert!(out.contains("\n    \"abc\".split(\"\")  # error\n"));
+    // The method form works too, and a name can have several entries.
+    let (ok, out, _) = tinsel(&["doc", ".set"]);
+    assert!(ok);
+    assert!(out.contains("set(xs), set() → set"));
+    assert!(out.contains("g.set(p, v) → grid    (Grids and positions)"));
+}
+
+#[test]
+fn doc_reports_a_name_without_an_entry() {
+    let (ok, out, err) = tinsel(&["doc", "nonexistent"]);
+    assert!(!ok);
+    assert_eq!(out, "");
+    assert_eq!(
+        err,
+        "Error: no entry for `nonexistent` in the library reference\n"
+    );
+}
+
+#[test]
+fn doc_json_gives_one_object_per_entry() {
+    let (ok, out, err) = tinsel(&["doc", "--json", "chr"]);
+    assert!(ok, "{err}");
+    assert_eq!(
+        out,
+        "{\"section\":\"Strings\",\"signature\":\"chr(n) → char\",\"names\":[\"chr\"],\
+         \"description\":\"The char for a Unicode code point. An invalid code point is an error.\",\
+         \"examples\":[\"chr(97) == 'a'\",\"chr(ord('a') + 2) == 'c'\",\"chr(-1) # error\"]}\n"
+    );
+    let (ok, all, _) = tinsel(&["doc", "--json"]);
+    assert!(ok);
+    assert_eq!(all.lines().count(), tinsel::docs::ENTRIES.len());
+    assert!(all.lines().all(|l| l.starts_with("{\"section\":")));
+}

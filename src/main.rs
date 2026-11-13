@@ -5,6 +5,7 @@
 //! tinsel test [--tree | --ir | --native] [FILE_OR_DIR ...]
 //! tinsel eval FILE.tin EXPR [--example N | --input PATH] [--tree | --ir | --native]
 //! tinsel check FILE.tin [--json]
+//! tinsel doc [NAME] [--json]
 //! ```
 //!
 //! Programs are compiled to machine code by default
@@ -27,7 +28,8 @@ const USAGE: &str = "usage:
   tinsel run FILE.tin [--input PATH] [--no-examples] [--tree | --ir | --native]
   tinsel test [--tree | --ir | --native] [--json] [FILE_OR_DIR ...]
   tinsel eval FILE.tin EXPR [--example N | --input PATH] [--tree | --ir | --native]
-  tinsel check FILE.tin [--json]";
+  tinsel check FILE.tin [--json]
+  tinsel doc [NAME] [--json]";
 
 /// Which engine runs the program (SPEC 2.7): native code unless an option
 /// says otherwise.
@@ -86,6 +88,7 @@ fn main() -> ExitCode {
         Some("test") => test(&args[1..]),
         Some("eval") => eval(&args[1..]),
         Some("check") => check(&args[1..]),
+        Some("doc") => doc(&args[1..]),
         _ => {
             eprintln!("{USAGE}");
             ExitCode::from(2)
@@ -367,6 +370,50 @@ fn check(args: &[String]) -> ExitCode {
     } else {
         ExitCode::SUCCESS
     }
+}
+
+/// `tinsel doc`: entries from the library reference (SPEC 2.7).
+fn doc(args: &[String]) -> ExitCode {
+    let json = args.iter().any(|a| a == "--json");
+    let rest: Vec<&String> = args.iter().filter(|a| *a != "--json").collect();
+    let entries: Vec<&tinsel::docs::Entry> = match rest.as_slice() {
+        [] => tinsel::docs::ENTRIES.iter().collect(),
+        [name] if !name.starts_with('-') => {
+            // Allow the method form, as in `tinsel doc .lines`.
+            let name = name.strip_prefix('.').unwrap_or(name);
+            let found = tinsel::docs::lookup(name);
+            if found.is_empty() {
+                eprintln!("Error: no entry for `{name}` in the library reference");
+                return ExitCode::FAILURE;
+            }
+            found
+        }
+        [arg] => {
+            eprintln!("unexpected argument `{arg}`\n{USAGE}");
+            return ExitCode::from(2);
+        }
+        _ => {
+            eprintln!("doc takes at most one name\n{USAGE}");
+            return ExitCode::from(2);
+        }
+    };
+    if json {
+        for e in &entries {
+            println!("{}", tinsel::docs::entry_json(e));
+        }
+    } else {
+        // With every entry, each section gets a heading.
+        let all = rest.is_empty();
+        let mut section = "";
+        for e in &entries {
+            if all && e.section != section {
+                section = &e.section;
+                println!("{section}\n{}\n", "=".repeat(section.chars().count()));
+            }
+            println!("{}", tinsel::docs::entry_text(e));
+        }
+    }
+    ExitCode::SUCCESS
 }
 
 /// One line of `tinsel test --json` (SPEC 2.7).

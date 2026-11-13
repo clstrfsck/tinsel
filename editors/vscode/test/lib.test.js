@@ -253,3 +253,98 @@ test('folderGroup keeps folders of different roots apart', () => {
   assert.deepStrictEqual(lib.folderGroup('file:///one', 'one', '', 2),
     { id: 'dir:file:///one|', label: 'one' });
 });
+
+// The library reference
+
+const splitEntry = {
+  section: 'Strings',
+  signature: 's.split(sep) → list',
+  names: ['split'],
+  description: 'Splits on every occurrence of `sep`.',
+  examples: ['"a,b".split(",") == ["a", "b"]', '"abc".split("") # error'],
+};
+
+test('callContext finds the call being typed and its argument', () => {
+  assert.deepStrictEqual(lib.callContext('x = grid.where(_ > 4, '),
+    { name: 'where', method: true, arg: 1 });
+  assert.deepStrictEqual(lib.callContext('x = zip(a, [1, 2'), { name: 'zip', method: false, arg: 1 });
+  assert.deepStrictEqual(lib.callContext('x = bfs(start, n => f(n), '),
+    { name: 'bfs', method: false, arg: 2 });
+  // Brackets and commas in strings, chars and comments don't count.
+  assert.deepStrictEqual(lib.callContext("x = f(')', \"a,(b\", "), { name: 'f', method: false, arg: 2 });
+  assert.deepStrictEqual(lib.callContext('x = f(1, # (a, b\n  '), { name: 'f', method: false, arg: 1 });
+  // Not in a named call: a tuple, a string, or a closed call.
+  assert.strictEqual(lib.callContext('x = (1, '), null);
+  assert.strictEqual(lib.callContext('x = "abc('), null);
+  assert.strictEqual(lib.callContext('x = f(1) + '), null);
+});
+
+test('inCode is false in strings and comments', () => {
+  assert.strictEqual(lib.inCode('x = lines'), true);
+  assert.strictEqual(lib.inCode('x = "lines'), false);
+  assert.strictEqual(lib.inCode('x = 1  # lines'), false);
+  assert.strictEqual(lib.inCode('example """\nday 3 lines'), false);
+  assert.strictEqual(lib.inCode('example """\n1\n"""\npart1 = lines'), true);
+});
+
+test('definesName finds definitions that hide a built-in', () => {
+  assert.strictEqual(lib.definesName('N = 100\n', 'N'), true);
+  assert.strictEqual(lib.definesName('f(x) = x\n', 'f'), true);
+  assert.strictEqual(lib.definesName('  f((x, y)) when x > 0 = y\n', 'f'), true);
+  assert.strictEqual(lib.definesName('fewest(goal) when all(goal .== 0) = 0\n', 'fewest'), true);
+  // Uses, not definitions.
+  assert.strictEqual(lib.definesName('N == 1\n', 'N'), false);
+  assert.strictEqual(lib.definesName('  bfs(start, next)\n', 'bfs'), false);
+  assert.strictEqual(lib.definesName('  bfs(start, next).len >= 3\n', 'bfs'), false);
+  assert.strictEqual(lib.definesName('sets = [1]\n', 'set'), false);
+});
+
+test('signatures are given in method or function form', () => {
+  const labels = (sig, method) => lib.signatures([{ signature: sig }], method).map((s) => s.label);
+  assert.deepStrictEqual(labels('s.split(sep) → list', true), ['s.split(sep) → list']);
+  assert.deepStrictEqual(labels('s.split(sep) → list', false), ['split(s, sep) → list']);
+  assert.deepStrictEqual(labels('zip(a, b, ...) → list', true), ['a.zip(b, ...) → list']);
+  assert.deepStrictEqual(labels('xs.count(f), xs.count(x), xs.count → int', true),
+    ['xs.count(f) → int', 'xs.count(x) → int']);
+  assert.deepStrictEqual(labels('xs.count(f), xs.count(x), xs.count → int', false),
+    ['count(xs, f) → int', 'count(xs, x) → int', 'count(xs) → int']);
+  assert.deepStrictEqual(labels('N, E, S, W → tuple', false), []);
+  // Each parameter's range is its text in the label.
+  const [sig] = lib.signatures([{ signature: 'bfs(start, next), bfs(start, next, goal: g) → map' }], false);
+  assert.deepStrictEqual(sig.params.map((p) => sig.label.slice(p.start, p.end)), ['start', 'next']);
+});
+
+test('activeSignature picks one with enough parameters', () => {
+  const sigs = lib.signatures([{ signature: 'int(s), int(s, base) → int' }], false);
+  assert.strictEqual(lib.activeSignature(sigs, 0), 0);
+  assert.strictEqual(lib.activeSignature(sigs, 1), 1);
+  const zip = lib.signatures([{ signature: 'zip(a, b, ...) → list' }], false);
+  assert.strictEqual(lib.activeSignature(zip, 5), 0);
+});
+
+test('entries become Markdown and are indexed by name', () => {
+  const md = lib.entryMarkdown(splitEntry);
+  assert.match(md, /^```tinsel\ns\.split\(sep\) → list\n```\n\nSplits on/);
+  assert.match(md, /"abc"\.split\(""\) # error\n```$/);
+  const index = lib.docIndex([splitEntry, { ...splitEntry, names: ['split', 'other'] }]);
+  assert.strictEqual(index.get('split').length, 2);
+  assert.strictEqual(index.get('other').length, 1);
+  assert.match(lib.referenceMarkdown([splitEntry]), /^# Tinsel library reference\n\n## Strings\n\n### s\.split/);
+  assert.strictEqual(lib.isConstant({ signature: 'N, E, S, W → tuple' }), true);
+  assert.strictEqual(lib.isConstant({ signature: 's.lines → list' }), false);
+});
+
+test('every entry from tinsel doc --json can be shown', { skip: !binary && 'no tinsel build' }, () => {
+  const entries = lib.parseJsonLines(cli(['doc', '--json']));
+  assert.ok(entries.length > 100, `only ${entries.length} entries`);
+  for (const entry of entries) {
+    const forms = lib.signatureForms(entry.signature);
+    assert.ok(forms.length > 0, `can't read ${entry.signature}`);
+    // The extension and the CLI agree on which names an entry describes.
+    const names = [...new Set(forms.map((f) => f.name))];
+    assert.deepStrictEqual(names, entry.names, entry.signature);
+    if (!lib.isConstant(entry)) {
+      assert.ok(lib.signatures([entry], false).length > 0, `no signature for ${entry.signature}`);
+    }
+  }
+});

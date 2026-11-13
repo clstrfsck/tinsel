@@ -1,8 +1,8 @@
 {
   "name": "tinsel",
   "displayName": "Tinsel",
-  "description": "Tinsel (.tin), a small language for Advent of Code: highlighting, snippets, errors on save, the Test Explorer, run and test lenses, and evaluating a selection",
-  "version": "0.3.0",
+  "description": "Tinsel (.tin), a small language for Advent of Code: highlighting, snippets, library docs on hover and completion, errors on save, the Test Explorer, run and test lenses, and evaluating a selection",
+  "version": "0.4.0",
   "license": "Apache-2.0",
   "publisher": "local",
   "private": true,
@@ -22,6 +22,7 @@
     "onCommand:tinsel.test",
     "onCommand:tinsel.evalSelection",
     "onCommand:tinsel.evalSelectionOnExample",
+    "onCommand:tinsel.openReference",
     "onCommand:workbench.action.tasks.runTask"
   ],
   "contributes": {
@@ -70,6 +71,11 @@
       {
         "command": "tinsel.evalSelectionOnExample",
         "title": "Evaluate Selection on an Example",
+        "category": "Tinsel"
+      },
+      {
+        "command": "tinsel.openReference",
+        "title": "Open Library Reference",
         "category": "Tinsel"
       }
     ],

@@ -37,7 +37,9 @@ has a lot of built-in support for Advent of Code:
 - cycle detection;
 - persistent sets and maps.
 
-[`SPEC.md`](SPEC.md) is the full language definition.
+[`SPEC.md`](SPEC.md) is the full language definition, and
+[`docs/library.md`](docs/library.md) is a quick reference to every built-in
+function, with examples.
 See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the architecture, development
 workflow and testing requirements.
 
@@ -81,7 +83,13 @@ the expected and actual values and doesn't run the real input. Options:
 
 `tinsel check FILE.tin` checks that a program and its includes parse and
 that every name they use is defined, without running anything.
-`check` and `test` take `--json`, for editors and other tools (SPEC 2.7).
+
+`tinsel doc NAME` shows a built-in's entry from the library reference,
+with examples, such as `tinsel doc find_cycle`; with no name, it shows
+them all.
+
+`check`, `test` and `doc` take `--json`, for editors and other tools
+(SPEC 2.7).
 
 ### Where the input comes from
 
@@ -278,16 +286,18 @@ the release build:
 ./target/release/tinsel test                            # everything under .
 ```
 
-### Before committing interpreter changes
+### Before committing
 
 ```sh
-cargo test
-cargo clippy --all-targets -- -D warnings
-cargo fmt --check
+just check
 ```
 
-All three must be clean. [`CONTRIBUTING.md`](CONTRIBUTING.md) has the
-other checks, such as the VS Code extension's tests.
+This runs every check that must pass: formatting, clippy, `cargo test`,
+every `.tin` file compiled natively, and the VS Code extension's tests. It
+needs [`just`](https://github.com/casey/just) and Node.js. `just` on its own
+lists the other recipes, such as `just run FILE` and `just doc NAME`.
+[`CONTRIBUTING.md`](CONTRIBUTING.md) lists the commands, for running them
+without `just`.
 
 ## VS Code and Cursor
 
@@ -300,7 +310,9 @@ other checks, such as the VS Code extension's tests.
 - "▶ Run" and "✓ Test" above the `day` line, and "▶ Run example N" above
   each example, with failed checks and errors in the Problems panel;
 - evaluating a selected expression with Cmd+Alt+E (Ctrl+Alt+E elsewhere),
-  its value shown next to it, on the real input or on an example.
+  its value shown next to it, on the real input or on an example;
+- documentation for every built-in on hover, in completion and while
+  typing a call, from the library reference.
 
 The lenses and evaluation run the interpreter, so build it first with
 `cargo build --release`. [`editors/vscode/README.md`](editors/vscode/README.md)
@@ -361,11 +373,11 @@ cd editors/vscode
 npx @vscode/vsce package --allow-missing-repository --skip-license
 ```
 
-This writes `tinsel-0.3.0.vsix`. Install it from the command line:
+This writes `tinsel-0.4.0.vsix`. Install it from the command line:
 
 ```sh
-code --install-extension tinsel-0.3.0.vsix      # VS Code
-cursor --install-extension tinsel-0.3.0.vsix    # Cursor
+code --install-extension tinsel-0.4.0.vsix      # VS Code
+cursor --install-extension tinsel-0.4.0.vsix    # Cursor
 ```
 
 Or open the Extensions view, click the `...` menu at the top of the view,
@@ -396,6 +408,7 @@ If it says "Plain Text":
 
 ```
 SPEC.md               the language specification
+docs/library.md       the library reference, with checked examples
 CONTRIBUTING.md       architecture, development workflow and testing rules
 TIMINGS.md            how long every solution takes
 PITCH.md              a short introduction to the language

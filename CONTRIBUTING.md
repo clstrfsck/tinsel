@@ -100,7 +100,9 @@ Most language changes cross more than one layer:
   bindings are involved, and every execution path that evaluates the new AST.
 - **A built-in:** add it to the matching `src/builtins/` module and its
   `BUILTINS` table. Use `Args::check`, `type_err` and source-aware errors
-  consistently.
+  consistently. Give it an entry in `docs/library.md`, the library
+  reference: `cargo test --test docs` fails for a built-in without one,
+  and runs every example line on all three engines.
 - **Value semantics:** start in `src/value/`, `src/int.rs` or `src/list.rs`.
   Re-check equality, hashing, internal ordering, display and ownership
   together; sets, maps and memoization rely on these agreeing.
@@ -222,7 +224,11 @@ benchmark and preserve reference-engine behaviour.
 
 ## Run the Required Checks
 
-Before handing off a change, run:
+Before handing off a change, run `just check` (with
+[`just`](https://github.com/casey/just)). It runs everything below, and
+every `.tin` file natively as well, in about four minutes. `just check-all`
+adds every `.tin` file on the IR interpreter, which is worth it after
+changing the IR or its lowering. Without `just`, run:
 
 ```sh
 cargo test
@@ -230,7 +236,7 @@ cargo clippy --all-targets -- -D warnings
 cargo fmt -- --check
 ```
 
-After changing `editors/vscode/`, or the CLI output it reads, also run:
+and, as `just check` does in any case, the extension's tests:
 
 ```sh
 cargo build --release

@@ -31,10 +31,9 @@ input/YYYY/           puzzle inputs: gitignored, never commit them or copy them 
 - **Never change an expected value in a `.tin` test to make it pass.** The
   answers come from the reference solutions. If a test looks wrong, check it
   independently (for example, with a quick Python script) and tell the user.
-- Run `cargo test` after every change.
-  `cargo clippy --all-targets -- -D warnings` and `cargo fmt` must be
-  clean. After changing the extension, or CLI output it reads, run
-  `node --test editors/vscode/test` on a release build.
+- Run `cargo test` after every change. Before saying a change is done,
+  run `just check` (fmt, clippy, all tests, the native corpus and the
+  extension's tests); it must pass.
 - **All three engines must agree:** the tree-walker (`--tree`, the
   reference), the IR interpreter (`--ir`) and native code (the default).
   Same results, same errors, same traces.

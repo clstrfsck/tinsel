@@ -182,7 +182,275 @@ function findBinary(setting, workspaceRoots) {
   return 'tinsel';
 }
 
+// The library reference, from `tinsel doc --json` (SPEC 2.7)
+
+/** The reference's entries indexed by name; a name can have several. */
+function docIndex(entries) {
+  const index = new Map();
+  for (const entry of entries) {
+    for (const name of entry.names) {
+      if (!index.has(name)) {
+        index.set(name, []);
+      }
+      index.get(name).push(entry);
+    }
+  }
+  return index;
+}
+
+/** An entry as Markdown, for a hover or a completion's documentation. */
+function entryMarkdown(entry) {
+  return [
+    '```tinsel', entry.signature, '```', '', entry.description, '',
+    '```tinsel', ...entry.examples, '```',
+  ].join('\n');
+}
+
+/** The whole reference as Markdown, grouped by section. */
+function referenceMarkdown(entries) {
+  const out = ['# Tinsel library reference', ''];
+  let section = null;
+  for (const entry of entries) {
+    if (entry.section !== section) {
+      section = entry.section;
+      out.push(`## ${section}`, '');
+    }
+    out.push(`### ${entry.signature}`, '', entry.description, '',
+      '```tinsel', ...entry.examples, '```', '');
+  }
+  return out.join('\n');
+}
+
+/** `text` split on `, ` outside brackets. */
+function splitTop(text) {
+  const parts = [];
+  let depth = 0;
+  let current = '';
+  for (const c of text) {
+    if ('([{'.includes(c)) {
+      depth += 1;
+    } else if (')]}'.includes(c)) {
+      depth -= 1;
+    }
+    if (c === ',' && depth === 0) {
+      parts.push(current.trim());
+      current = '';
+    } else {
+      current += c;
+    }
+  }
+  if (current.trim() !== '') {
+    parts.push(current.trim());
+  }
+  return parts;
+}
+
+/**
+ * The forms in an entry's signature, such as `s.split(sep)`: each with its
+ * receiver (`s`, or null), name, parameters (null for no brackets) and
+ * result.
+ */
+function signatureForms(signature) {
+  const [forms, result] = signature.split(' → ');
+  return splitTop(forms).map((form) => {
+    const m = /^(?:([A-Za-z_]\w*)\.)?([A-Za-z_]\w*)(?:\((.*)\))?$/.exec(form);
+    if (!m) {
+      return null;
+    }
+    return {
+      receiver: m[1] || null,
+      name: m[2],
+      params: m[3] === undefined ? null : splitTop(m[3]),
+      result: result || '',
+    };
+  }).filter((f) => f !== null);
+}
+
+/** Whether an entry is a constant, such as `N` or `DIRS4`. */
+function isConstant(entry) {
+  return signatureForms(entry.signature).every((f) => f.receiver === null && f.params === null);
+}
+
+/**
+ * The signatures to show while typing a call to one of `entries`: in
+ * method form (`xs.split(sep)`) when `method`, otherwise as a function
+ * call (`split(s, sep)`). Each has its label, the [start, end) of each
+ * parameter in the label, and its entry.
+ */
+function signatures(entries, method) {
+  const out = [];
+  const seen = new Set();
+  for (const entry of entries) {
+    for (const form of signatureForms(entry.signature)) {
+      if (form.receiver === null && form.params === null) {
+        continue; // A constant, which isn't called.
+      }
+      const all = form.receiver === null ? form.params : [form.receiver, ...(form.params || [])];
+      let label;
+      let params;
+      if (method) {
+        // `xs.count` has no brackets in method form, so it isn't what
+        // `xs.count(` is typing.
+        if (form.params === null || all.length === 0 || all[0] === '...') {
+          continue;
+        }
+        label = `${all[0]}.${form.name}(`;
+        params = all.slice(1);
+      } else {
+        label = `${form.name}(`;
+        params = all;
+      }
+      const ranges = params.map((p, i) => {
+        if (i > 0) {
+          label += ', ';
+        }
+        const start = label.length;
+        label += p;
+        return { label: p, start, end: label.length };
+      });
+      label += ')';
+      if (form.result) {
+        label += ` → ${form.result}`;
+      }
+      if (!seen.has(label)) {
+        seen.add(label);
+        out.push({ label, params: ranges, entry });
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * Which of `sigs` fits a call whose current argument is number `arg`
+ * (from 0): the first with enough parameters, or ending in `...`.
+ */
+function activeSignature(sigs, arg) {
+  const i = sigs.findIndex((s) => s.params.length > arg ||
+    (s.params.length > 0 && s.params[s.params.length - 1].label === '...'));
+  return i < 0 ? 0 : i;
+}
+
+/**
+ * Reads `text` as Tinsel, skipping strings, chars and comments. Gives the
+ * brackets still open at its end, each with its position and how many
+ * commas it has so far, and whether the end is inside a string or comment.
+ */
+function scan(text) {
+  const stack = [];
+  const triple = '"'.repeat(3);
+  let i = 0;
+  while (i < text.length) {
+    const c = text[i];
+    if (c === '#') {
+      const nl = text.indexOf('\n', i);
+      if (nl < 0) {
+        return { stack, inside: 'comment' };
+      }
+      i = nl + 1;
+    } else if (text.startsWith(triple, i)) {
+      const end = text.indexOf(triple, i + 3);
+      if (end < 0) {
+        return { stack, inside: 'string' };
+      }
+      i = end + 3;
+    } else if (c === '"') {
+      let j = i + 1;
+      while (j < text.length && text[j] !== '"' && text[j] !== '\n') {
+        j += text[j] === '\\' ? 2 : 1;
+      }
+      if (j >= text.length || text[j] === '\n') {
+        return { stack, inside: 'string' };
+      }
+      i = j + 1;
+    } else if (c === "'" && /^'(\\.|[^'\\])'/.test(text.slice(i, i + 4))) {
+      i += text[i + 1] === '\\' ? 4 : 3;
+    } else {
+      if ('([{'.includes(c)) {
+        stack.push({ ch: c, pos: i, commas: 0 });
+      } else if (')]}'.includes(c)) {
+        stack.pop();
+      } else if (c === ',' && stack.length > 0) {
+        stack[stack.length - 1].commas += 1;
+      }
+      i += 1;
+    }
+  }
+  return { stack, inside: null };
+}
+
+/** Whether the end of `text` is in code, not in a string or comment. */
+function inCode(text) {
+  return scan(text).inside === null;
+}
+
+/**
+ * The call being typed at the end of `text`: the name before the
+ * innermost open `(`, whether it is in method form (`xs.name(`), and
+ * which argument, from 0, the end is in. Null if not in a named call.
+ */
+function callContext(text) {
+  const { stack, inside } = scan(text);
+  if (inside !== null) {
+    return null;
+  }
+  for (let k = stack.length - 1; k >= 0; k -= 1) {
+    const frame = stack[k];
+    if (frame.ch !== '(') {
+      continue;
+    }
+    const m = /([A-Za-z_]\w*)$/.exec(text.slice(0, frame.pos));
+    if (!m) {
+      return null;
+    }
+    const before = frame.pos - m[1].length - 1;
+    return { name: m[1], method: before >= 0 && text[before] === '.', arg: frame.commas };
+  }
+  return null;
+}
+
+/**
+ * Whether the program defines `name` itself, which hides a built-in of
+ * that name (SPEC 9.7): a line starting `name =`, or `name(...)` followed
+ * by `=`, as in `f(x) = ...` or `f(x) when x > 0 = ...`.
+ */
+function definesName(text, name) {
+  const start = new RegExp(`^\\s*${name}\\s*([(=])`);
+  for (const line of text.split('\n')) {
+    const m = start.exec(line);
+    if (!m) {
+      continue;
+    }
+    const at = m.index + m[0].length - 1;
+    if (m[1] === '=') {
+      if (!/^=[=>]/.test(line.slice(at))) {
+        return true;
+      }
+      continue;
+    }
+    let depth = 0;
+    let close = -1;
+    for (let j = at; j < line.length; j += 1) {
+      if (line[j] === '(') {
+        depth += 1;
+      } else if (line[j] === ')') {
+        depth -= 1;
+        if (depth === 0) {
+          close = j;
+          break;
+        }
+      }
+    }
+    if (close >= 0 && /(^|[^=<>!.])=(?![=>])/.test(line.slice(close + 1))) {
+      return true;
+    }
+  }
+  return false;
+}
+
 module.exports = {
   findBlocks, findChecks, definedParts, exampleCount, errorMessage, shorten, findBinary,
   parseJsonLines, errorRange, folderGroup,
+  docIndex, entryMarkdown, referenceMarkdown, signatureForms, isConstant, signatures,
+  activeSignature, inCode, callContext, definesName,
 };
