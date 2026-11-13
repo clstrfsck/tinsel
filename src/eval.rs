@@ -2321,9 +2321,13 @@ pub(crate) fn match_segs(
                 bind(binds, b, Value::str(rest));
                 return true;
             }
-            // Shortest first.
-            let mut ends: Vec<usize> = rest.char_indices().map(|(j, _)| j).collect();
-            ends.push(rest.len());
+            // Shortest first, and within the line: an untyped capture before
+            // the end of the pattern doesn't match a line break (SPEC 6.1),
+            // so a line missing from the text fails to match rather than
+            // being taken into a capture.
+            let line = rest.find('\n').unwrap_or(rest.len());
+            let mut ends: Vec<usize> = rest[..line].char_indices().map(|(j, _)| j).collect();
+            ends.push(line);
             if let Some(StrSeg::Lit(l)) = segs.get(i + 1) {
                 ends.retain(|&j| rest[j..].starts_with(l.as_str()));
             }

@@ -518,8 +518,14 @@ impl Parser {
             Tok::True => PatKind::Lit(Value::bool(true)),
             Tok::False => PatKind::Lit(Value::bool(false)),
             Tok::None => PatKind::Lit(Value::NONE),
-            Tok::TripleStr(s) => PatKind::Lit(Value::from_str_rc(s)),
-            Tok::Str(raw) => string_pattern(&raw, start)?,
+            // A triple-quoted pattern: verbatim, so no escapes. Its text
+            // ends just before the closing quotes, which locates captures
+            // even when a leading newline was dropped (SPEC 6.1).
+            Tok::TripleStr(s) => {
+                let base = start.end - 3 - s.len();
+                string_pattern(&s, start, base, true)?
+            }
+            Tok::Str(raw) => string_pattern(&raw, start, start.start + 1, false)?,
             Tok::LParen => {
                 let mut items = Vec::new();
                 let mut trailing_comma = false;
@@ -864,7 +870,9 @@ impl Parser {
             return false;
         }
         match self.peek() {
-            Tok::Ident(_) | Tok::Underscore | Tok::Str(_) => *self.peek_at(1) == Tok::Arrow,
+            Tok::Ident(_) | Tok::Underscore | Tok::Str(_) | Tok::TripleStr(_) => {
+                *self.peek_at(1) == Tok::Arrow
+            }
             Tok::LParen | Tok::LBracket => {
                 let mut depth = 0usize;
                 let mut i = self.pos;
@@ -1307,8 +1315,9 @@ fn plain_string(raw: &str, span: Span) -> Result<String> {
 }
 
 /// Compiles a string literal in pattern position (SPEC 6.1).
-fn string_pattern(raw: &str, span: Span) -> Result<PatKind> {
-    let base = span.start + 1;
+/// `base` is where `raw` starts in the source. A `verbatim` pattern (a
+/// triple-quoted one) has no escapes: a backslash is itself.
+fn string_pattern(raw: &str, span: Span, base: usize, verbatim: bool) -> Result<PatKind> {
     let mut segs: Vec<StrSeg> = Vec::new();
     let mut lit = String::new();
     let bytes = raw.as_bytes();
@@ -1316,7 +1325,7 @@ fn string_pattern(raw: &str, span: Span) -> Result<PatKind> {
     while i < raw.len() {
         let c = raw[i..].chars().next().unwrap_or('\0');
         match c {
-            '\\' => {
+            '\\' if !verbatim => {
                 let next = raw[i + 1..].chars().next().unwrap_or('\0');
                 lit.push(
                     unescape_char(next)

@@ -567,7 +567,7 @@ A string literal in pattern position matches the **whole** string. Its
 
 | Capture | Matches | Result |
 |---|---|---|
-| `{name}` | the shortest text that lets the rest of the pattern match (or everything that's left, if it is last) | always a `str` |
+| `{name}` | the shortest text that lets the rest of the pattern match, within one line (or everything that's left, if it is last, line breaks and all) | always a `str` |
 | `{name:str}` | same as `{name}` (an explicit spelling of the default) | `str` |
 | `{name:int}` | `[-+]?[0-9]+` (greedy, with no backtracking, so `"{a:int}5"` never matches `"125"`) | `int` |
 | `{name:char}` | exactly one character | `char` |
@@ -586,6 +586,32 @@ move("{dir:char}{n:int}") = ...
 parse("[{lights}] {buttons} {{{joltage}}}") = ...
 graph = { k: v.words for "{k}: {v}" in input.lines }
 ```
+
+A **triple-quoted** string in pattern position is a string pattern too,
+for records that take several lines. As with any triple-quoted string, it
+is verbatim (a backslash is just a backslash), and a newline straight
+after the opening quotes is dropped, so the pattern can start on the next
+line. The captures and `{{`/`}}` are as above. A line break in the pattern
+matches a line break in the text, and since an untyped capture before
+the end doesn't match one, each line of the pattern matches exactly one
+line of the text: a line missing from the text, or an extra one, makes
+the match fail rather than ending up inside a capture.
+
+```tinsel
+rule("""
+In state {state:char}:
+  If the current value is 0:
+    - Write the value {w0:int}.
+    - Move one slot to the {m0}.
+    - Continue with state {n0:char}.
+  If the current value is 1:
+    - Write the value {w1:int}.
+    - Move one slot to the {m1}.
+    - Continue with state {n1:char}.""") = ...
+```
+
+The closing quotes go at the end of the last line, as here, unless the
+text itself ends with a line break.
 
 ---
 

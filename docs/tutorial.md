@@ -232,6 +232,18 @@ test "parsing a line" = parse("Rudolph is 7 years old") == ("Rudolph", 7)
 test "patterns filter" = [n for "x={n:int}" in ["x=1", "y=2", "x=3"]] == [1, 3]
 ```
 
+For a record that takes several lines, write the pattern in triple
+quotes, laid out like the text. Each line of the pattern matches one line
+of the text, so a missing or extra line means no match.
+
+```tinsel
+reindeer("""
+Name: {name}
+Speed: {speed:int}""") = (name, speed)
+
+test "a record over two lines" = reindeer("Name: Dasher\nSpeed: 14") == ("Dasher", 14)
+```
+
 ## 4. A worked example: the hedge garden
 
 ### The puzzle

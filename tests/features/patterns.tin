@@ -102,3 +102,32 @@ test "an arm for a longer tuple is skipped" = (longer_arm(1, 2), longer_arm(3, 4
 only_zero(a, b) = match (a, b)
   (0, 0) => true
 test_error "no arm matches a tuple written in place" = only_zero(1, 2)
+
+# Triple-quoted patterns: records over several lines (SPEC 6.1).
+card("""
+Name: {name}
+Age: {age:int}
+Likes: {likes}""") = (name, age, likes.split(", "))
+card(_) = none
+
+test "a triple-quoted pattern" = card("Name: Rudolph\nAge: 7\nLikes: carrots, snow") == ("Rudolph", 7, ["carrots", "snow"])
+test "a missing line doesn't match" = card("Name: Rudolph\nLikes: carrots") == none
+test "an extra line doesn't match" = card("Name: Rudolph\nHorns: 2\nAge: 7\nLikes: x") == none
+test "a last capture takes the rest, line breaks and all" = match "a: 1\nb: 2"
+  "a: {rest}" => rest == "1\nb: 2"
+  _ => false
+test "a capture before the end stays within its line" = match "x=1\ny=2"
+  "x={a}y={b}" => false
+  "x={a}\ny={b}" => (a, b) == ("1", "2")
+  _ => false
+test "a triple-quoted pattern is verbatim" = match "a\\nb"
+  """a\nb""" => true
+  _ => false
+test "braces in a triple-quoted pattern" = match "{{x}}"
+  """{{{v}}}""" => v == "x"
+  _ => false
+test "a triple-quoted lambda parameter" = ("""x={a:int}
+y={b:int}""" => a * b)("x=6\ny=7") == 42
+test "a triple-quoted pattern filters a comprehension" = [n for """
+id {n:int}
+ok""" in "id 1\nok\n\nid 2\nbad\n\nid 3\nok".blocks] == [1, 3]

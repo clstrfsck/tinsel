@@ -213,3 +213,16 @@ fn an_include_path_keeps_its_braces() {
     assert!(ok, "{err}");
     assert_eq!(out, "part1: 2\n");
 }
+
+#[test]
+fn a_capture_in_a_triple_quoted_pattern_is_located() {
+    // The newline after the opening quotes is dropped from the text, but
+    // the capture's position still counts it.
+    let path = save(
+        "triple_capture.tin",
+        "f(\"\"\"\nName: {name}\nAge: {age:float}\"\"\") = 1\n",
+    );
+    let (ok, out, _) = tinsel(&["check", "--json", &path]);
+    assert!(!ok);
+    assert!(out.contains("\"line\":3,\"column\":6"), "{out}");
+}
