@@ -361,10 +361,18 @@ $ tinsel eval --raw --example 1 docs/tutorial/garden.tin picture
 
 ### Part 2: counting the routes
 
-How many shortest routes reach a square `p`? Each one arrives from a
-neighbour that is exactly one step closer to the start. So the number of
-routes to `p` is the sum of the numbers of routes to those neighbours, and
-there is one route to the start itself: staying put.
+How many shortest routes reach a square `p`? Think about the last step of
+a shortest route to `p`. It comes from a neighbour `q` that is one step
+closer to the start: `dist[q] == dist[p] - 1`. Coming from any other
+neighbour would make the route longer. Everything before that last step is
+a shortest route to `q`.
+
+So to count the shortest routes to `p`, add up the counts for those
+neighbours. If 2 shortest routes reach the square above `p` and 3 reach the
+square to its left, then 5 reach `p`.
+
+The counting ends at the start, which has exactly one route to itself: the
+route that hasn't taken a step yet.
 
 <!-- continues: garden -->
 ```tinsel
