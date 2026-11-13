@@ -701,6 +701,74 @@ mod tests {
         assert_eq!(json_string("\u{1}é"), "\"\\u0001é\"");
     }
 
+    /// The error from `part1` on `engine`, run again with arguments.
+    fn traced(src: &str, engine: &Engine, budget: std::time::Duration) -> Vec<String> {
+        let prog = compile(src.to_string()).expect("compiles");
+        let mut it = engine.interp(&prog, Err("no input".into()), None);
+        let err = match it.global_by_name("part1", Span::default()) {
+            Some(Err(e)) => e,
+            other => panic!(
+                "expected an error, got {:?}",
+                other.map(|r| r.map(|v| v.repr()))
+            ),
+        };
+        let err = with_arguments(&prog, Err("no input".into()), None, "part1", err, budget);
+        err.trace.iter().map(|t| t.describe("here")).collect()
+    }
+
+    #[test]
+    fn traces_show_arguments_on_every_engine() {
+        let src = "down(0) = [1][9]\ndown(n) = 1 + down(n - 1)\n\
+                   walk(p, 0) = down(p.0)\nwalk(p, n) = walk(p + (1, 0), n - 1)\n\
+                   part1 = [(0, 0)].map(p => walk(p, 2)).len\n";
+        let prog = compile(src.to_string()).expect("compiles");
+        let engines = [
+            Engine::Tree,
+            Engine::ir(&prog).expect("lowers"),
+            Engine::native(&prog).expect("compiles natively"),
+        ];
+        for engine in &engines {
+            assert_eq!(
+                traced(src, engine, ARGUMENTS_BUDGET),
+                // `walk` and its call of `down` are tail calls, so the
+                // lambda's call starts a chain of 4 of them, ending in
+                // `down(2)`.
+                [
+                    "`down(0)` called here (2 times, the innermost shown)",
+                    "`down(2)` called here",
+                    "`<lambda>((0, 0))` called here, then 4 tail calls",
+                ]
+            );
+        }
+    }
+
+    #[test]
+    fn long_arguments_are_cut_short() {
+        let src = "f(xs, s) = xs[99]\npart1 = f(list(1..30), \"ab\".repeat(50).join)\n";
+        let trace = traced(src, &Engine::Tree, ARGUMENTS_BUDGET);
+        let list = "[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,…";
+        let string = format!("\"{}…", "ab".repeat(29));
+        assert_eq!(trace, [format!("`f({list}, {string})` called here")]);
+        assert_eq!(list.chars().count(), 60);
+    }
+
+    #[test]
+    fn running_again_stops_at_the_budget() {
+        // Thousands of calls before the error: with no time to spare, the
+        // trace comes back without arguments.
+        let src = "count(0) = [1][9]\ncount(n) = 0 + count(n - 1)\npart1 = count(5000)\n";
+        let trace = traced(src, &Engine::Tree, std::time::Duration::ZERO);
+        assert_eq!(
+            trace,
+            ["`count` called here (5000 times)", "`count` called here"]
+        );
+        let trace = traced(src, &Engine::Tree, ARGUMENTS_BUDGET);
+        assert_eq!(
+            trace[0],
+            "`count(0)` called here (5000 times, the innermost shown)"
+        );
+    }
+
     /// The trace of the error from evaluating `part1`, as (name, line,
     /// repeats, tail calls). Every engine must give the same one.
     fn trace(src: &str) -> Vec<(String, usize, usize, usize)> {
