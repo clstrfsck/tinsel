@@ -4,6 +4,8 @@ day 2017.20
 # adds the acceleration to the velocity, then the velocity to the
 # position.
 # Part 1: the particle that stays closest to the origin in the long run.
+# Part 2: how many are left once every collision (particles in the same
+#         place after a tick) has removed the particles in it.
 
 example """
 p=< 3,0,0>, v=< 2,0,0>, a=<-1,0,0>
@@ -11,8 +13,17 @@ p=< 4,0,0>, v=< 0,0,0>, a=<-2,0,0>
 """
   part1 = 0
 
+example """
+p=<-6,0,0>, v=< 3,0,0>, a=< 0,0,0>
+p=<-4,0,0>, v=< 2,0,0>, a=< 0,0,0>
+p=<-2,0,0>, v=< 1,0,0>, a=< 0,0,0>
+p=< 3,0,0>, v=<-1,0,0>, a=< 0,0,0>
+"""
+  part2 = 1
+
 answers
   part1 = 308
+  part2 = 504
 
 particles = input.lines.map(.ints.chunks(3).map(tuple))
 
@@ -24,3 +35,15 @@ position([p, v, a], t) = p + v * t + a * (t * (t + 1) / 2)
 far = 10 ** 6
 
 part1 = particles.indices.min_by(i => manhattan(position(particles[i], far), (0, 0, 0)))
+
+# One tick, then the particles that share a place are removed.
+tick(ps) = moved.filter(m => crowd[m[0]] == 1)
+  where
+    moved = [[p + v + a, v + a, a] for [p, v, a] in ps]
+    crowd = moved.map(.0).counts
+
+# Collisions happen early: well before this many ticks, every particle is
+# moving away from all the others for good.
+ticks = 1000
+
+part2 = iterate(particles, tick).drop(ticks).first.len

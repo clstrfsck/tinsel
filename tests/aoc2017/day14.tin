@@ -2,14 +2,18 @@ day 2017.14
 
 # A 128x128 disk: row i is the bits of the knot hash of "key-i".
 # Part 1: how many squares are used (1 bits).
+# Part 2: how many regions the used squares form, joined up, down, left
+#         and right.
 
 include "knot.tin"
 
 example "flqrgnkx"
   part1 = 8108
+  part2 = 1242
 
 answers
   part1 = 8074
+  part2 = 1212
 
 key = input.trim
 
@@ -19,3 +23,4 @@ bits(hash) = hash.chars.map(c => str(int(c, 16), 2, 4)).join
 rows = [bits(knot_hash("{key}-{i}")) for i in 0..<128]
 
 part1 = rows.map(.count('1')).sum
+part2 = components(rows.join("\n").grid.where('1'), nbrs4).len

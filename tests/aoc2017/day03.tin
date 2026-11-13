@@ -2,6 +2,9 @@ day 2017.3
 
 # Squares numbered 1, 2, 3, ... in a spiral out from the centre.
 # Part 1: the Manhattan distance from square n to square 1.
+# Part 2: filling the squares in the same order, each with the sum of its
+#         filled neighbours (square 1 holds 1), the first value larger
+#         than n.
 
 example "1"
   part1 = 0
@@ -17,6 +20,7 @@ example "1024"
 
 answers
   part1 = 552
+  part2 = 330785
 
 n = int(input.trim)
 
@@ -30,3 +34,14 @@ distance(n) = k + abs(along - (k - 1))
     along = (n - (2 * k - 1) ** 2 - 1) % (2 * k)
 
 part1 = distance(n)
+
+# The spiral's squares in order: runs of 1, 1, 2, 2, 3, 3, ... steps,
+# turning each time. (Which way it turns doesn't change the sums.)
+spiral = [(0, 0)] ++ [d for i in 0..<100 let d = [E, N, W, S][i % 4] for _ in 0..i / 2].scan((0, 0), _1 + _2).drop(1)
+
+# The values so far, and the last one written.
+fill((written, _), p) = (written.set(p, v), v)
+  where
+    v = sum(written.get(q, 0) for q in nbrs8(p))
+
+part2 = spiral.drop(1).scan(({(0, 0): 1}, 1), fill).map(.1).first(_ > n)

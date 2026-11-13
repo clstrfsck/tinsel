@@ -1,9 +1,9 @@
 # Solution timings
 
-How long each solution in `tests/aocYYYY/` takes to solve both parts for
-the real input, with `tinsel run --no-examples`: compiled to machine code
-(the default since 2026-11-11, `reference/native-plan.md`) and on the
-tree-walking interpreter (`--tree`). The examples are left out because
+How long each solution in `tests/aocYYYY/` (2017 to 2025) takes to solve
+both parts for the real input, with `tinsel run --no-examples`: compiled to
+machine code (the default since 2026-11-11, `reference/native-plan.md`) and
+on the tree-walking interpreter (`--tree`). The examples are left out because
 they vary so much: some are a few lines, while others (such as 2020 day
 23's part 2 example, a full 10-million-move game) cost as much as the real
 input. Each time is the faster of two runs of the release build, on an
@@ -20,9 +20,10 @@ Apple M3 Max, measured on 2026-11-13, and includes compiling the program
 | 2020 | 25 | 4.45 s | 16.85 s | day 22, 1.27 s |
 | 2019 | 25 | 4.42 s | 10.92 s | day 18, 1.47 s |
 | 2018 | 25 | 11.11 s | 28.62 s | day 15, 3.97 s |
-| **All** | **187** | **35.46 s** | **86.56 s** | |
+| 2017 | 25 | 10.41 s | 56.39 s | day 5, 2.22 s |
+| **All** | **212** | **45.87 s** | **142.95 s** | |
 
-175 of the 187 solutions finish in under a second natively, and 162 on the tree-walker.
+196 of the 212 solutions finish in under a second natively, and 180 on the tree-walker.
 
 The interpreter speedups of 2026-11-08 (reused call frames and argument
 vectors, parameters bound without copying, and fast paths for small-int
@@ -79,7 +80,8 @@ Natively, the slowest solutions gain most: 2018 day 9 and 2020 day 15
 run about 6× faster than on the tree-walker, 2018 day 11 about 5.5×.
 The quickest ones run slightly slower, since compiling takes 10–20 ms.
 Apart from that, every solution runs at least as fast natively as on the
-tree-walker. 2022 day 20 was the exception, level at the time, since its
+tree-walker, except 2017 day 14 (added later, below), which is level. 2022
+day 20 was also an exception, level at the time, since its
 time is mostly list slicing in the runtime both share; natively it took
 1.91 s every run, against 1.96 s (now and then about 1.6 s) on the
 tree-walker, until the change of 2026-11-13 below. The first timing of
@@ -120,9 +122,9 @@ from 44.52 s to 39.03 s (12% less) and the tree-walker's from 92.50 s to
   2019 day 25 from 0.54 s to 0.40 s, 2018 day 15 to 3.99 s, and 2022
   day 23 from 2.43 s to 2.12 s.
 
-On 2026-11-13, two changes took the native total from 38.60 s (measured
-again that day, before them) to 35.46 s (8% less); no solution got
-slower. The tree-walker shares only the first, and is unchanged within
+On 2026-11-13, two changes took the native total for 2018 to 2025 from
+38.60 s (measured again that day, before them) to 35.46 s (8% less); no
+solution got slower. The tree-walker shares only the first, and is unchanged within
 the noise of measuring on different days (85.63 s, then 86.56 s):
 
 - `none`, bools, small ints and chars compare by their type and value,
@@ -139,8 +141,10 @@ the noise of measuring on different days (85.63 s, then 86.56 s):
   day 14 from 1.79 s to 1.29 s, 2024 day 22 from 0.94 s to 0.71 s, and
   2022 day 20 from 1.79 s to 1.41 s, now ahead of the tree-walker.
 
-The 2017 solutions (`tests/aoc2017/`) aren't in these tables yet: only
-their first parts are written so far.
+The 2017 solutions (`tests/aoc2017/`) were added on 2026-11-13, as a
+practice run before December; the fixes it led to are the two changes
+above, `where` constants and faster comparisons, and several additions to
+the language and library (`reference/next-steps.md`, items 3 and 4).
 
 ## 2025
 
@@ -389,6 +393,50 @@ The slow ones:
   links, updated in place.
 - **Day 11** checks every square of every size on a 300x300 grid with a
   summed-area table, about 9 million squares.
+
+## 2017
+
+| Day | Puzzle | Native | Tree-walker |
+|---:|---|---:|---:|
+| 1 | [Inverse Captcha](tests/aoc2017/day01.tin) | 0.00 s | 0.00 s |
+| 2 | [Corruption Checksum](tests/aoc2017/day02.tin) | 0.00 s | 0.00 s |
+| 3 | [Spiral Memory](tests/aoc2017/day03.tin) | 0.01 s | 0.00 s |
+| 4 | [High-Entropy Passphrases](tests/aoc2017/day04.tin) | 0.00 s | 0.00 s |
+| 5 | [A Maze of Twisty Trampolines, All Alike](tests/aoc2017/day05.tin) | 2.22 s | 9.05 s |
+| 6 | [Memory Reallocation](tests/aoc2017/day06.tin) | 0.02 s | 0.03 s |
+| 7 | [Recursive Circus](tests/aoc2017/day07.tin) | 0.01 s | 0.00 s |
+| 8 | [I Heard You Like Registers](tests/aoc2017/day08.tin) | 0.01 s | 0.00 s |
+| 9 | [Stream Processing](tests/aoc2017/day09.tin) | 0.01 s | 0.00 s |
+| 10 | [Knot Hash](tests/aoc2017/day10.tin) | 0.02 s | 0.01 s |
+| 11 | [Hex Ed](tests/aoc2017/day11.tin) | 0.00 s | 0.00 s |
+| 12 | [Digital Plumber](tests/aoc2017/day12.tin) | 0.00 s | 0.00 s |
+| 13 | [Packet Scanners](tests/aoc2017/day13.tin) | 0.58 s | 1.92 s |
+| 14 | [Disk Defragmentation](tests/aoc2017/day14.tin) | 0.50 s | 0.50 s |
+| 15 | [Dueling Generators](tests/aoc2017/day15.tin) | 1.63 s | 18.47 s |
+| 16 | [Permutation Promenade](tests/aoc2017/day16.tin) | 0.10 s | 0.12 s |
+| 17 | [Spinlock](tests/aoc2017/day17.tin) | 0.51 s | 6.73 s |
+| 18 | [Duet](tests/aoc2017/day18.tin) | 0.06 s | 0.09 s |
+| 19 | [A Series of Tubes](tests/aoc2017/day19.tin) | 0.00 s | 0.00 s |
+| 20 | [Particle Swarm](tests/aoc2017/day20.tin) | 0.27 s | 0.33 s |
+| 21 | [Fractal Art](tests/aoc2017/day21.tin) | 0.01 s | 0.00 s |
+| 22 | [Sporifica Virus](tests/aoc2017/day22.tin) | 1.46 s | 10.72 s |
+| 23 | [Coprocessor Conflagration](tests/aoc2017/day23.tin) | 0.04 s | 0.05 s |
+| 24 | [Electromagnetic Moat](tests/aoc2017/day24.tin) | 0.75 s | 1.76 s |
+| 25 | [The Halting Problem](tests/aoc2017/day25.tin) | 2.20 s | 6.61 s |
+
+The slow ones:
+
+- **Day 5** follows 27.5 million jumps through a list of offsets, each
+  updated in place.
+- **Day 25** runs a Turing machine for 12.3 million steps, its tape a set
+  of the positions holding a 1.
+- **Day 15** makes 40 million pairs of generator values for part 1, and
+  about 60 million values, kept or skipped, for part 2's 5 million pairs.
+- **Day 22** runs 10 million bursts of the virus carrier over a map of
+  node states.
+- **Day 14** computes 128 knot hashes of 64 rounds each. It is the one
+  solution that runs no faster natively than on the tree-walker: its
+  time is reversing and joining lists in the runtime both share.
 
 ## Measuring again
 

@@ -3,6 +3,9 @@ day 2017.7
 # A tower of programs: each line names a program, its weight, and the
 # programs standing on its disc.
 # Part 1: the name of the program at the bottom.
+# Part 2: exactly one program has the wrong weight; the weight it should
+#         have for every disc to be balanced (each sub-tower on a disc
+#         weighing the same).
 
 example """
 pbga (66)
@@ -20,14 +23,35 @@ gyxo (61)
 cntj (57)
 """
   part1 = "tknk"
+  part2 = 60
 
 answers
   part1 = "mwzaxaj"
+  part2 = 1219
 
 parse("{name} ({weight:int}) -> {above}") = (name, weight, above.split(", "))
 parse("{name} ({weight:int})") = (name, weight, [])
 
 programs = input.lines.map(parse)
 
+weight = {name: w for (name, w, _) in programs}
+above = {name: ps for (name, _, ps) in programs}
+
 # The bottom program is the only one not standing on another.
-part1 = (set(programs.map(.0)) - set(programs.map(.2).flatten)).first
+bottom = (set(programs.map(.0)) - set(programs.map(.2).flatten)).first
+
+part1 = bottom
+
+# The weight of the tower standing on `p`'s disc, with `p`.
+tower(p) = weight[p] + above[p].map(tower).sum
+
+# The corrected weight, if the tower on `p` holds the wrong program, or
+# none. The odd one out among the sub-towers is either wrong itself or
+# holds the wrong program; it's wrong itself if its own disc balances.
+fix(p) = if odd == none then none else fix(odd) ?? weight[odd] + (usual - tower(odd))
+  where
+    towers = above[p].map(tower)
+    usual = towers.counts.items.max_by(.1).0
+    odd = above[p].first(q => tower(q) != usual)
+
+part2 = fix(bottom)

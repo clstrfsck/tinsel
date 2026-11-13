@@ -1,6 +1,6 @@
-# Reference solutions and answers (2018 to 2024)
+# Reference solutions and answers (2017 to 2024)
 
-Where the expected answers in `tests/aoc2018/` to `tests/aoc2024/` come
+Where the expected answers in `tests/aoc2017/` to `tests/aoc2024/` come
 from. For 2025, see [`2025/README.md`](2025/README.md): the user's own
 published solutions, in several languages.
 
@@ -90,3 +90,24 @@ day 19's sums the divisors of a number it builds, and day 21's hashes a
 value in a loop; each file explains this and checks its shortcut against
 the device running the program. `tests/lib/ocr.tin` reads day 10's taller
 letters, but knows only the letters seen so far.
+
+## 2017
+
+Converted on 2026-11-13 as a practice run before December, with the
+puzzles new to this account. Every answer, both parts, was first checked
+against separately written Python scripts that are not kept in the
+repository, then submitted; all 49 were accepted by the site (day 25 has
+no second puzzle). The `example` blocks hold the puzzles' own worked
+examples and the results the puzzle text gives for them.
+
+The knot hash is shared through `include`: `tests/aoc2017/knot.tin`
+holds it, used by days 10 and 14, with the puzzle's published hashes as
+its tests. Two answers rest on reasoning as well as computation:
+
+- **Day 23, part 2:** the program is far too slow to run with `a` set to
+  1. Read as code, it counts the numbers from `b` to `c`, in steps of 17,
+  that aren't prime, and the solution computes that. The Python check ran
+  the real program on small ranges of `b` and `c` and got the same counts.
+- **Day 20, part 2:** collisions are simulated for 1000 ticks, after
+  which every particle is moving away from the rest for good; the Python
+  check simulated 2000.

@@ -3,6 +3,7 @@ day 2017.19
 # A routing diagram of lines (| - +) with letters on them. The path
 # starts at the line on the top row, going down, and turns only at +.
 # Part 1: the letters seen along the path, in order.
+# Part 2: how many steps the path takes.
 
 example """
      |          
@@ -14,23 +15,29 @@ example """
                 
 """
   part1 = "ABCDEF"
+  part2 = 38
 
 answers
   part1 = "LIWQYKMRP"
+  part2 = 16764
 
 diagram = input.grid
 
 start = (input.lines[0].index('|'), 0)
 
-# Follow the path from p, going in direction d, collecting letters.
-follow(p, d, seen) = match diagram.get(p)
-  none => seen
-  ' ' => seen
-  '+' => follow(p + turn(p, d), turn(p, d), seen)
-  c when c.is_upper => follow(p + d, d, seen ++ str(c))
-  _ => follow(p + d, d, seen)
+# Follow the path from p, going in direction d, collecting letters and
+# counting squares: (letters, steps).
+follow(p, d, seen, steps) = match diagram.get(p)
+  none => (seen, steps)
+  ' ' => (seen, steps)
+  '+' => follow(p + turn(p, d), turn(p, d), seen, steps + 1)
+  c when c.is_upper => follow(p + d, d, seen ++ str(c), steps + 1)
+  _ => follow(p + d, d, seen, steps + 1)
 
 # At a +, the path goes on to the left or the right.
 turn(p, d) = [cw(d), ccw(d)].first(t => diagram.get(p + t) not in [none, ' '])
 
-part1 = follow(start, S, "")
+(letters, steps) = follow(start, S, "", 0)
+
+part1 = letters
+part2 = steps

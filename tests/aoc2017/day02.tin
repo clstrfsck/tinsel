@@ -2,6 +2,8 @@ day 2017.2
 
 # A spreadsheet of rows of numbers.
 # Part 1: the sum over the rows of the largest value minus the smallest.
+# Part 2: the sum over the rows of the quotient of the only two values
+#         where one divides the other.
 
 example """
 5 1 9 5
@@ -10,9 +12,21 @@ example """
 """
   part1 = 18
 
+example """
+5 9 2 8
+9 4 7 3
+3 8 6 5
+"""
+  part2 = 9
+
 answers
   part1 = 41919
+  part2 = 303
 
 rows = input.lines.map(.ints)
 
 part1 = rows.map(r => r.max - r.min).sum
+
+quotient(row) = [x / y for (a, b) in row.combos(2) let (x, y) = (max(a, b), min(a, b)) if x % y == 0][0]
+
+part2 = rows.map(quotient).sum

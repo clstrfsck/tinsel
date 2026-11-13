@@ -236,8 +236,8 @@ The arguments are found by running the failing part again on the
 tree-walker, so `dbg` output isn't repeated, and a part that takes more
 than 10 seconds to fail again is shown without them (SPEC 8.3).
 
-For complete programs, see the solutions in `tests/aoc2018` to
-`tests/aoc2025`. All of 2018 to 2025 is there.
+For complete programs, see the solutions in `tests/aoc2017` to
+`tests/aoc2025`. All of 2017 to 2025 is there.
 [`TIMINGS.md`](TIMINGS.md) lists every solution with how long it takes
 on its real input (see "Timing solutions" above).
 

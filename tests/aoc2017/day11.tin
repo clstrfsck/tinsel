@@ -2,6 +2,7 @@ day 2017.11
 
 # A path of steps on a hex grid: n, ne, se, s, sw, nw.
 # Part 1: the fewest steps from the start to where the path ends.
+# Part 2: the furthest the path ever gets from the start.
 
 example "ne,ne,ne"
   part1 = 3
@@ -17,6 +18,7 @@ example "se,sw,se,sw,sw"
 
 answers
   part1 = 773
+  part2 = 1560
 
 # Axial coordinates (q, r): q counts columns to the east, and r rows to
 # the south along the column.
@@ -27,3 +29,4 @@ hex_distance((q, r)) = (abs(q) + abs(r) + abs(q + r)) / 2
 path = input.trim.split(",").map(step[_])
 
 part1 = hex_distance(path.sum)
+part2 = path.scan((0, 0), _1 + _2).map(hex_distance).max

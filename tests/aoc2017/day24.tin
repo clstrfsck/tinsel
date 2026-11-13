@@ -3,6 +3,7 @@ day 2017.24
 # Components `a/b` with a port at each end. A bridge starts at port 0, and
 # each component's port must match the one before it.
 # Part 1: the strength (the sum of all the ports) of the strongest bridge.
+# Part 2: the strength of the longest bridge (the strongest, if several).
 
 example """
 0/2
@@ -15,9 +16,11 @@ example """
 9/10
 """
   part1 = 31
+  part2 = 19
 
 answers
   part1 = 2006
+  part2 = 1994
 
 components = input.lines.map(.ints)
 
@@ -29,3 +32,12 @@ strongest(port, used) = [
   if used & 1 << i == 0 and port in [a, b]].max ?? 0
 
 part1 = strongest(0, 0)
+
+# The same search for (length, strength), which compares by length first.
+longest(port, used) = [
+  (1 + l, a + b + s)
+  for (i, [a, b]) in components.enumerate
+  if used & 1 << i == 0 and port in [a, b]
+  let (l, s) = longest(if a == port then b else a, used | 1 << i)].max ?? (0, 0)
+
+part2 = longest(0, 0).1
