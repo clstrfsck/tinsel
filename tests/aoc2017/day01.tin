@@ -24,3 +24,4 @@ digits = input.trim.chars.map(int)
 matching(k) = sum(a for (a, b) in zip(digits, digits.rotate(k)) if a == b)
 
 part1 = matching(1)
+part2 = matching(digits.len / 2)

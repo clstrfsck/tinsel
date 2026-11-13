@@ -307,4 +307,59 @@ fn a_where_constant_hiding_a_parameter_gets_a_hint() {
         err.starts_with("Error: constant `a` depends on itself: a -> b -> a\n"),
         "{err}"
     );
+    // Nor does a constant of the same name that hides nothing, even when
+    // some other function hides a parameter called `pos`.
+    let path = save(
+        "same_name_cycle.tin",
+        "spin(pos) = pos * 2\n  where\n    pos = 3\n\n\
+         grow(x) = pos\n  where\n    pos = pos + x\n\n\
+         pos = pos + 1\n\n\
+         part1 = spin(1)\npart2 = grow(1)\n",
+    );
+    for e in ENGINES {
+        for expr in ["grow(1)", "pos"] {
+            let (ok, _, err) = tinsel(&["eval", e, path.to_str().unwrap(), expr]);
+            assert!(!ok);
+            assert!(
+                err.starts_with("Error: constant `pos` depends on itself: pos -> pos\n"),
+                "{e} {expr}: {err}"
+            );
+        }
+    }
+}
+
+#[test]
+fn a_where_constant_is_computed_once_and_in_order() {
+    // Used in two loops and a branch: `dbg` shows it computed just once.
+    let path = save(
+        "where_once.tin",
+        "calls(xs) = [x + base for x in xs] ++ [if x > 1 then base else 0 for x in xs]\n  \
+         where\n    base = dbg(\"base\", xs.len)\n\npart1 = calls([1, 2, 3]).sum\n",
+    );
+    let err = run_all(&path);
+    assert_eq!(err.matches("base: 3").count(), 1, "{err}");
+    // First used inside a single loop: computed on the first pass only,
+    // not on every pass.
+    let path = save(
+        "where_loop.tin",
+        "calls(xs) = [x + base for x in xs]\n  where\n    base = dbg(\"base\", xs.len)\n\n\
+         part1 = calls([1, 2, 3]).sum\n",
+    );
+    let err = run_all(&path);
+    assert_eq!(err.matches("base: 3").count(), 1, "{err}");
+    // Two failing constants: the one the body reaches first fails, the
+    // same on every engine.
+    let path = save(
+        "where_order.tin",
+        "both(x) = b + a\n  where\n    a = [][x]\n    b = [1][x + 5]\n\npart1 = both(0)\n",
+    );
+    let path = path.to_str().unwrap();
+    for e in ENGINES {
+        let (ok, _, err) = tinsel(&["run", e, path]);
+        assert!(!ok);
+        assert!(
+            err.starts_with("Error: index 5 is out of range for a list of length 1\n"),
+            "{e}: {err}"
+        );
+    }
 }
