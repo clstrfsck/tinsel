@@ -2,6 +2,7 @@ day 2017.8
 
 # Register instructions: `b inc 5 if a > 1`. Registers start at 0.
 # Part 1: the largest value in any register at the end.
+# Part 2: the largest value any register held at any point.
 
 example """
 b inc 5 if a > 1
@@ -10,9 +11,11 @@ c dec -10 if a >= 1
 c inc -20 if c == 10
 """
   part1 = 1
+  part2 = 10
 
 answers
   part1 = 5946
+  part2 = 6026
 
 compare(a, "<", b) = a < b
 compare(a, "<=", b) = a <= b
@@ -28,6 +31,8 @@ execute(regs, "{r} {op} {n:int} if {c} {cmp} {m:int}") =
   if compare(regs.get(c, 0), cmp, m) then regs.set(r, regs.get(r, 0) + change(op, n))
   else regs
 
-final = input.lines.fold({}, execute)
+states = input.lines.scan({}, execute)
 
-part1 = final.values.max
+part1 = states.last.values.max
+# Registers start at 0, so before any is set the largest value is 0.
+part2 = states.map(m => m.values.max ?? 0).max

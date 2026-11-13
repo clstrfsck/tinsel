@@ -2,23 +2,39 @@ day 2017.23
 
 # Assembly like 2017 day 18: set, sub, mul and jnz, with registers a to h.
 # Part 1: how many times mul runs.
+# Part 2: the value left in h when a starts at 1. That run is far too long
+#         to simulate; read as a program, it counts the numbers from b to
+#         c, in steps of 17, that aren't prime, setting b and c first.
 
 answers
   part1 = 9409
+  part2 = 913
 
 program = input.lines.map(.words)
 
 value(regs, "{n:int}") = n
 value(regs, r) = regs.get(r, 0)
 
-# Runs from instruction pc until the program ends, counting muls.
-muls(pc, regs, count) =
-  if pc not in program.indices then count
-  else match program[pc]
-    ["set", x, y] => muls(pc + 1, regs.set(x, value(regs, y)), count)
-    ["sub", x, y] => muls(pc + 1, regs.set(x, value(regs, x) - value(regs, y)), count)
-    ["mul", x, y] => muls(pc + 1, regs.set(x, value(regs, x) * value(regs, y)), count + 1)
-    ["jnz", x, y] =>
-      muls(pc + (if value(regs, x) != 0 then value(regs, y) else 1), regs, count)
+exec((pc, regs), ["set", x, y]) = (pc + 1, regs.set(x, value(regs, y)))
+exec((pc, regs), ["sub", x, y]) = (pc + 1, regs.set(x, value(regs, x) - value(regs, y)))
+exec((pc, regs), ["mul", x, y]) = (pc + 1, regs.set(x, value(regs, x) * value(regs, y)))
+exec((pc, regs), ["jnz", x, y]) = (pc + (if value(regs, x) != 0 then value(regs, y) else 1), regs)
 
-part1 = muls(0, {}, 0)
+# Runs until the program ends, counting muls.
+muls((pc, regs), count) =
+  if pc not in program.indices then count
+  else muls(exec((pc, regs), program[pc]), count + int(program[pc][0] == "mul"))
+
+part1 = muls((0, {}), 0)
+
+# Runs from the start until instruction `stop`: the registers then.
+run_to(stop, (pc, regs)) = if pc == stop then regs else run_to(stop, exec((pc, regs), program[pc]))
+
+# The main loop starts at `set f 1`; b and c are set by then. The step
+# is in `sub b -17`, the second-to-last instruction.
+regs = run_to(program.index(["set", "f", "1"]), (0, {"a": 1}))
+step = -int(program[-2][2])
+
+prime(n) = n > 1 and all(n % d != 0 for d in 2..isqrt(n))
+
+part2 = [n for k in 0..(regs["c"] - regs["b"]) / step let n = regs["b"] + k * step].count(n => not prime(n))

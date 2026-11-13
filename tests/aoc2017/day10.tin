@@ -3,6 +3,7 @@ day 2017.10
 # The knot hash (see knot.tin): reverse spans of a circle of marks.
 # Part 1: the product of the first two marks after one round, with the
 #         input as the lengths.
+# Part 2: the full knot hash of the input as text.
 
 include "knot.tin"
 
@@ -10,9 +11,23 @@ example "3,4,1,5"
   with size = 5
   part1 = 12
 
+example ""
+  part2 = "a2582a3a0e66e6e86e3812dcb672a272"
+
+example "AoC 2017"
+  part2 = "33efeb34ea91902bb2f59c9920caa6cd"
+
+example "1,2,3"
+  part2 = "3efbe78a8d82f29979031a4aa0b16a9d"
+
+example "1,2,4"
+  part2 = "63960835bcdc130f0b66d7ff4f6a5a8e"
+
 answers
   part1 = 1980
+  part2 = "899124dac21012ebc32e2f4d11eaec55"
 
 size = 256
 
 part1 = knot(input.ints, 1, size).take(2).product
+part2 = knot_hash(input.trim)

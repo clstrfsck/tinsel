@@ -17,6 +17,7 @@ example "91212129"
 
 answers
   part1 = 1341
+  part2 = 1348
 
 digits = input.trim.chars.map(int)
 

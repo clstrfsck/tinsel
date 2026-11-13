@@ -3,6 +3,7 @@ day 2017.5
 # A list of relative jumps. After each jump, the offset just used goes up
 # by one.
 # Part 1: the number of steps until a jump leaves the list.
+# Part 2: the same, but an offset of three or more goes down by one.
 
 example """
 0
@@ -12,14 +13,18 @@ example """
 -3
 """
   part1 = 5
+  part2 = 10
 
 answers
   part1 = 373543
+  part2 = 27502966
 
 offsets = input.lines.map(int)
 
-escape(pc, offs, steps) =
+# `change(offset)` is how much an offset changes after its jump.
+escape(pc, offs, steps, change) =
   if pc not in 0..<offs.len then steps
-  else escape(pc + offs[pc], offs.set(pc, offs[pc] + 1), steps + 1)
+  else escape(pc + offs[pc], offs.set(pc, offs[pc] + change(offs[pc])), steps + 1, change)
 
-part1 = escape(0, offsets, 0)
+part1 = escape(0, offsets, 0, _ => 1)
+part2 = escape(0, offsets, 0, o => if o >= 3 then -1 else 1)

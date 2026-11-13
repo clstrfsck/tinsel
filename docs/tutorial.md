@@ -526,7 +526,7 @@ anything. The editor extension runs it every time you save.
   examples.
 - **[The language specification](../SPEC.md)**: the full definition, for
   when you need the exact rules.
-- **The solutions in `tests/aoc2018` to `tests/aoc2025`**: 187 Advent of
+- **The solutions in `tests/aoc2017` to `tests/aoc2025`**: 212 Advent of
   Code puzzles solved in Tinsel. For more grids and searches, try
   2024 day 16 (`tests/aoc2024/day16.tin`); for more memoization, 2023 day
   12 (`tests/aoc2023/day12.tin`).

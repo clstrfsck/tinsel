@@ -2,6 +2,7 @@ day 2017.12
 
 # Programs joined by two-way pipes: `2 <-> 0, 3, 4`.
 # Part 1: how many programs are in the group with program 0.
+# Part 2: how many groups there are.
 
 example """
 0 <-> 2
@@ -13,10 +14,13 @@ example """
 6 <-> 4, 5
 """
   part1 = 6
+  part2 = 2
 
 answers
   part1 = 130
+  part2 = 189
 
 pipes = {a: bs.ints for "{a:int} <-> {bs}" in input.lines}
 
 part1 = bfs(0, pipes[_]).len
+part2 = components(pipes.keys, pipes[_]).len

@@ -4,13 +4,20 @@ day 2017.16
 # xA/B swaps the programs at positions A and B, and pA/B swaps the
 # programs named A and B.
 # Part 1: the order after one dance.
+# Part 2: the order after a billion dances.
 
 example "s1,x3/4,pe/b"
   with dancers = 5
   part1 = "baedc"
 
+example "s1,x3/4,pe/b"
+  with dancers = 5
+  with dances = 2
+  part2 = "ceadb"
+
 answers
   part1 = "bijankplfgmeodhc"
+  part2 = "bpjahknliomefdgc"
 
 dancers = 16
 
@@ -20,6 +27,14 @@ move(xs, "s{n:int}") = xs.rotate(-n)
 move(xs, "x{a:int}/{b:int}") = xs.set(a, xs[b]).set(b, xs[a])
 move(xs, "p{a:char}/{b:char}") = move(xs, "x{xs.index(a)}/{xs.index(b)}")
 
-dance(xs) = input.trim.split(",").fold(xs, move)
+moves = input.trim.split(",")
+
+dance(xs) = moves.fold(xs, move)
+
+dances = 1_000_000_000
 
 part1 = dance(line).join
+
+# The line repeats after some number of dances, so `iterate` skips the
+# rest of the cycles.
+part2 = iterate(line, dance, times: dances).join

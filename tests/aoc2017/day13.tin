@@ -4,6 +4,7 @@ day 2017.13
 # its range. A packet crosses one layer per picosecond, along the top.
 # Part 1: the sum of depth * range over the layers whose scanner is at the
 #         top as the packet enters.
+# Part 2: the shortest delay before starting that avoids every scanner.
 
 example """
 0: 3
@@ -12,9 +13,11 @@ example """
 6: 4
 """
   part1 = 24
+  part2 = 10
 
 answers
   part1 = 1300
+  part2 = 3870382
 
 layers = input.lines.map(.ints)
 
@@ -22,3 +25,4 @@ layers = input.lines.map(.ints)
 caught(depth, range, delay) = (depth + delay) % (2 * (range - 1)) == 0
 
 part1 = sum(d * r for [d, r] in layers if caught(d, r, 0))
+part2 = (0..).first(t => not layers.any(([d, r]) => caught(d, r, t)))

@@ -3,6 +3,8 @@ day 2017.9
 # A stream of nested {groups} and <garbage>, where ! cancels the next
 # character inside garbage.
 # Part 1: the total score, where each group scores its depth.
+# Part 2: how many characters are inside garbage, not counting the < and
+#         >, cancelled characters, or the ! that cancels them.
 
 example "{}"
   part1 = 1
@@ -28,17 +30,45 @@ example "{{<!!>},{<!!>},{<!!>},{<!!>}}"
 example "{{<a!>},{<a!>},{<a!>},{<ab>}}"
   part1 = 3
 
+example "<>"
+  part2 = 0
+
+example "<random characters>"
+  part2 = 17
+
+example "<<<<>"
+  part2 = 3
+
+example "<{!>}>"
+  part2 = 2
+
+example "<!!>"
+  part2 = 0
+
+example "<!!!>>"
+  part2 = 0
+
+example """
+<{o"i!a,<{i<a>
+"""
+  part2 = 10
+
 answers
   part1 = 15922
+  part2 = 7314
 
-# The state: (depth, score, in garbage, the next character is cancelled).
-read((d, s, g, true), _) = (d, s, g, false)
-read((d, s, true, _), '!') = (d, s, true, true)
-read((d, s, true, _), '>') = (d, s, false, false)
-read((d, s, true, _), _) = (d, s, true, false)
-read((d, s, _, _), '{') = (d + 1, s + d + 1, false, false)
-read((d, s, _, _), '}') = (d - 1, s, false, false)
-read((d, s, _, _), '<') = (d, s, true, false)
+# The state: (depth, score, garbage characters, in garbage, the next
+# character is cancelled).
+read((d, s, n, g, true), _) = (d, s, n, g, false)
+read((d, s, n, true, _), '!') = (d, s, n, true, true)
+read((d, s, n, true, _), '>') = (d, s, n, false, false)
+read((d, s, n, true, _), _) = (d, s, n + 1, true, false)
+read((d, s, n, _, _), '{') = (d + 1, s + d + 1, n, false, false)
+read((d, s, n, _, _), '}') = (d - 1, s, n, false, false)
+read((d, s, n, _, _), '<') = (d, s, n, true, false)
 read(state, _) = state
 
-part1 = input.trim.chars.fold((0, 0, false, false), read).1
+(_, score, garbage, _, _) = input.trim.chars.fold((0, 0, 0, false, false), read)
+
+part1 = score
+part2 = garbage

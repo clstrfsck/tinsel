@@ -4,6 +4,7 @@ day 2017.21
 # (or 3x3, if the size isn't even) and replacing each by the rule that
 # matches it in some rotation or flip.
 # Part 1: how many pixels are on after 5 iterations.
+# Part 2: how many after 18.
 
 example """
 ../.# => ##./#../...
@@ -14,6 +15,7 @@ example """
 
 answers
   part1 = 155
+  part2 = 2449665
 
 iterations = 5
 
@@ -36,6 +38,16 @@ enhance(rows) = [
     k = if rows.len % 2 == 0 then 2 else 3
     m = rows.len / k
 
-on_after(n) = iterate(start, enhance, times: n).map(.count('#')).sum
+# Three iterations take a 3x3 square to 9x9 (by 4x4 and 6x6), and every
+# 3x3 square of that grows on its own from then on: at the sizes in
+# between, the image is split into 2x2 squares that lie inside them. So
+# count each 3x3 square's pixels three iterations at a time, which also
+# meets the same squares again and again (memoized).
+on_after(rows, n) =
+  if n < 3 then iterate(rows, enhance, times: n).map(.count('#')).sum
+  else sum(on_after(square(grown, bx, by, 3).split("/"), n - 3) for by in 0..<3 for bx in 0..<3)
+  where
+    grown = iterate(rows, enhance, times: 3)
 
-part1 = on_after(iterations)
+part1 = on_after(start, iterations)
+part2 = on_after(start, 18)

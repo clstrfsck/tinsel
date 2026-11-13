@@ -3,6 +3,8 @@ day 2017.15
 # Two generators: each value is the last one times a factor, modulo
 # 2147483647. A judge compares the lowest 16 bits of each pair.
 # Part 1: how many of the first 40 million pairs match.
+# Part 2: the same for 5 million pairs, where A only gives multiples of 4
+#         and B only multiples of 8.
 
 example """
 Generator A starts with 65
@@ -11,8 +13,16 @@ Generator B starts with 8921
   with pairs = 5
   part1 = 1
 
+example """
+Generator A starts with 65
+Generator B starts with 8921
+"""
+  with picky_pairs = 1056
+  part2 = 1
+
 answers
   part1 = 609
+  part2 = 253
 
 pairs = 40_000_000
 
@@ -26,3 +36,15 @@ judge(a, b, n, matches) =
   else judge(next_a(a), next_b(b), n - 1, matches + int(a % 65536 == b % 65536))
 
 part1 = judge(next_a(a0), next_b(b0), pairs, 0)
+
+picky_pairs = 5_000_000
+
+# The next value that is a multiple of k.
+picky(next, x, k) = if x % k == 0 then x else picky(next, next(x), k)
+
+judge_picky(a, b, n, matches) =
+  if n == 0 then matches
+  else judge_picky(picky(next_a, next_a(a), 4), picky(next_b, next_b(b), 8), n - 1,
+                   matches + int(a % 65536 == b % 65536))
+
+part2 = judge_picky(picky(next_a, next_a(a0), 4), picky(next_b, next_b(b0), 8), picky_pairs, 0)

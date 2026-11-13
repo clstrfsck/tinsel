@@ -39,10 +39,13 @@ The table was measured again on 2026-11-13, with the same method as
 
 Against the goals in `native-plan.md` section 1:
 
-- **Faster than the tree-walker on every solution:** yes, on all 187 in
-  `TIMINGS.md` apart from 10–20 ms of compiling on the quickest. 2022
-  day 20, level until 2026-11-13 (its time is mostly list slicing in the
-  shared runtime), is now 1.41 s natively against 1.96 s.
+- **Faster than the tree-walker on every solution:** yes, on the 187
+  solutions of 2018 to 2025 in `TIMINGS.md` apart from 10–20 ms of
+  compiling on the quickest. 2022 day 20, level until 2026-11-13 (its
+  time is mostly list slicing in the shared runtime), is now 1.41 s
+  natively against 1.96 s. Of the 2017 solutions added that day, day 14
+  is level (0.50 s on both), for the same reason: its knot hashes are
+  list reversals and joins in the runtime.
 - **Faster than Racket on every solution:** yes, on all 15.
 - **Median speed-up of at least 3×:** 3.0× against today's tree-walker,
   met since the `where` change of 2026-11-13 (2.9× before), and 4.2×

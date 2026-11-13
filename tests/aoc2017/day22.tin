@@ -4,6 +4,9 @@ day 2017.22
 # facing up. Each burst: turn right on an infected node (left on a clean
 # one), flip the node between clean and infected, then step forward.
 # Part 1: how many of 10000 bursts infect a node.
+# Part 2: with four states (clean, weakened, infected, flagged, each
+#         becoming the next), turning left, not at all, right or back on
+#         each: how many of 10 million bursts infect a node.
 
 example """
 ..#
@@ -20,8 +23,17 @@ example """
 """
   part1 = 5587
 
+example """
+..#
+#..
+...
+"""
+  with evolved_bursts = 100
+  part2 = 26
+
 answers
   part1 = 5575
+  part2 = 2511991
 
 bursts = 10000
 
@@ -32,4 +44,26 @@ burst(n, pos, dir, infected, infections) =
   if pos in infected then burst(n - 1, pos + cw(dir), cw(dir), infected.remove(pos), infections)
   else burst(n - 1, pos + ccw(dir), ccw(dir), infected.add(pos), infections + 1)
 
-part1 = burst(bursts, (map.width / 2, map.height / 2), N, map.where('#'), 0)
+middle = (map.width / 2, map.height / 2)
+
+part1 = burst(bursts, middle, N, map.where('#'), 0)
+
+evolved_bursts = 10_000_000
+
+# A node's state: 0 clean (missing from the map), 1 weakened, 2 infected,
+# 3 flagged.
+turn(0, d) = ccw(d)
+turn(1, d) = d
+turn(2, d) = cw(d)
+turn(3, d) = -d
+
+evolve(0, _, _, _, infections) = infections
+evolve(n, pos, dir, nodes, infections) =
+  evolve(n - 1, pos + d, d, if next == 0 then nodes.remove(pos) else nodes.set(pos, next),
+         infections + int(next == 2))
+  where
+    state = nodes.get(pos, 0)
+    d = turn(state, dir)
+    next = (state + 1) % 4
+
+part2 = evolve(evolved_bursts, middle, N, {p: 2 for p in map.where('#')}, 0)

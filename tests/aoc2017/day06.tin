@@ -3,12 +3,15 @@ day 2017.6
 # Memory banks: each cycle empties the fullest bank (the first, on a tie)
 # and deals its blocks out one at a time to the banks after it, wrapping.
 # Part 1: the number of cycles until a configuration repeats.
+# Part 2: the length of the loop that the repeat starts.
 
 example "0 2 7 0"
   part1 = 5
+  part2 = 4
 
 answers
   part1 = 11137
+  part2 = 1037
 
 banks = tuple(input.ints)
 
@@ -25,3 +28,4 @@ redistribute(b) = tuple(
 (start, period, _) = iterate(banks, redistribute).find_cycle
 
 part1 = start + period
+part2 = period
