@@ -17,6 +17,9 @@
           "include": "#comment"
         },
         {
+          "include": "#example-triple"
+        },
+        {
           "include": "#triple-string"
         },
         {
@@ -64,7 +67,34 @@
     "triple-string": {
       "name": "string.quoted.triple.tinsel",
       "begin": "\"\"\"",
-      "end": "\"\"\""
+      "end": "\"\"\"",
+      "patterns": [
+        {
+          "name": "constant.character.escape.tinsel",
+          "match": "\\{\\{|\\}\\}"
+        },
+        {
+          "match": "(\\{)\\s*([A-Za-z_][A-Za-z0-9_]*)\\s*(?:(:)\\s*(int|str|char|word)\\s*)?(\\})",
+          "name": "meta.capture.tinsel",
+          "captures": {
+            "1": {
+              "name": "punctuation.section.interpolation.begin.tinsel"
+            },
+            "2": {
+              "name": "variable.parameter.tinsel"
+            },
+            "3": {
+              "name": "punctuation.separator.tinsel"
+            },
+            "4": {
+              "name": "storage.type.tinsel"
+            },
+            "5": {
+              "name": "punctuation.section.interpolation.end.tinsel"
+            }
+          }
+        }
+      ]
     },
     "string": {
       "name": "string.quoted.double.tinsel",
@@ -223,6 +253,25 @@
     "operator": {
       "name": "keyword.operator.tinsel",
       "match": "=>|\\.\\.<|\\.\\.|\\?\\?|\\*\\*|\\+\\+|<<|>>|\\.==|\\.!=|\\.<=|\\.>=|\\.<|\\.>|==|!=|<=|>=|[-+*/%<>=&|]"
+    },
+    "example-triple": {
+      "comment": "An example's text is data, never a pattern: braces in it are plain.",
+      "begin": "^(example)\\s+(\"\"\")",
+      "beginCaptures": {
+        "1": {
+          "name": "keyword.other.item.tinsel"
+        },
+        "2": {
+          "name": "string.quoted.triple.tinsel"
+        }
+      },
+      "end": "\"\"\"",
+      "endCaptures": {
+        "0": {
+          "name": "string.quoted.triple.tinsel"
+        }
+      },
+      "contentName": "string.quoted.triple.tinsel"
     }
   }
 }

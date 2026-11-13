@@ -5,7 +5,9 @@ Support for Tinsel (`.tin` files), a small language for Advent of Code.
 ## Features
 
 - **Highlighting:** comments, strings with `{...}` interpolation and
-  string-pattern captures such as `{n:int}`, triple-quoted strings, chars,
+  string-pattern captures such as `{n:int}`, triple-quoted strings (with
+  their captures, for multi-line patterns; an `example`'s text stays
+  plain), chars,
   numbers, keywords, top-level items (`day`, `example`, `answers`, `test`,
   `test_error`, `with`, `include`), function definitions, `@memo`/`@nomemo`,
   typed patterns (`n: int`) and operators.

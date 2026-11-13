@@ -35,13 +35,29 @@ answers
 
 [header, ..blueprints] = input.blocks
 
-begin = header.lines[0][-2]
-steps = header.ints[0]
+begin_and_steps("""
+Begin in state {state:char}.
+Perform a diagnostic checksum after {n:int} steps.""") = (state, n)
 
-# (state, value) => (value to write, move, next state)
-rules = {
-  (state, v): (lines[2 + 4 * v].ints[0], if "right" in lines[3 + 4 * v] then 1 else -1, lines[4 + 4 * v][-2])
-  for b in blueprints let lines = b.lines let state = lines[0][-2] for v in 0..1}
+(begin, steps) = begin_and_steps(header)
+
+# For each value under the cursor: (state, value) => (value to write,
+# move, next state).
+rule("""
+In state {state:char}:
+  If the current value is 0:
+    - Write the value {w0:int}.
+    - Move one slot to the {m0}.
+    - Continue with state {n0:char}.
+  If the current value is 1:
+    - Write the value {w1:int}.
+    - Move one slot to the {m1}.
+    - Continue with state {n1:char}.""") = [((state, 0), (w0, direction(m0), n0)), ((state, 1), (w1, direction(m1), n1))]
+
+direction("left") = -1
+direction("right") = 1
+
+rules = {key: action for b in blueprints for (key, action) in rule(b)}
 
 # The tape is the set of positions holding a 1.
 run(0, _, _, ones) = ones.len
