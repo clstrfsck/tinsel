@@ -146,6 +146,9 @@ fn shell_words(line: &str) -> Vec<String> {
             (None, c) => word.get_or_insert_with(String::new).push(c),
         }
     }
+    // A shell would wait for the closing quote; a command with one missing
+    // is a mistake in the tutorial, not something to guess at.
+    assert!(quote.is_none(), "an unclosed {quote:?} quote in `{line}`");
     words.extend(word);
     words
 }
@@ -206,4 +209,10 @@ fn shell_words_handles_quotes() {
         ["tinsel", "eval", "f.tin", "steps(start)"]
     );
     assert_eq!(shell_words("a \"b c\" ''"), ["a", "b c", ""]);
+}
+
+#[test]
+#[should_panic(expected = "an unclosed Some('\"') quote in `tinsel eval \"foo`")]
+fn shell_words_rejects_an_unclosed_quote() {
+    shell_words("tinsel eval \"foo");
 }
