@@ -437,6 +437,33 @@ impl Engine {
     }
 }
 
+/// How long [`with_arguments`] may spend running a part again.
+pub const ARGUMENTS_BUDGET: std::time::Duration = std::time::Duration::from_secs(10);
+
+/// `err`, from evaluating the global `name`, with its stack trace showing
+/// each call's arguments (SPEC 8.3). Programs are deterministic, so
+/// running the same global again on the tree-walker, recording arguments,
+/// fails the same way. If it doesn't fail the same way, or takes longer
+/// than `budget`, `err` is given back as it was.
+pub fn with_arguments(
+    prog: &Program,
+    input: Result<Rc<str>, String>,
+    example: Option<usize>,
+    name: &str,
+    err: Error,
+    budget: std::time::Duration,
+) -> Error {
+    if err.trace.is_empty() {
+        return err;
+    }
+    let mut it = Engine::Tree.interp(prog, input, example);
+    it.capture = Some(crate::eval::Capture::new(budget));
+    match it.global_by_name(name, Span::default()) {
+        Some(Err(again)) if again.msg == err.msg && again.span == err.span => again,
+        _ => err,
+    }
+}
+
 fn eval_check(it: &mut Interp<'_>, check: &Check) -> Result<Value, Error> {
     if it.ir.is_some() {
         return crate::ir::interp::run_check(it, check.span.start, check.span);
@@ -597,6 +624,74 @@ mod tests {
         assert_eq!(json_string(r"C:\x\a.tin"), r#""C:\\x\\a.tin""#);
         assert_eq!(json_string("say \"hi\"\n\ttab"), r#""say \"hi\"\n\ttab""#);
         assert_eq!(json_string("\u{1}é"), "\"\\u0001é\"");
+    }
+
+    /// The error from `part1` on `engine`, run again with arguments.
+    fn traced(src: &str, engine: &Engine, budget: std::time::Duration) -> Vec<String> {
+        let prog = compile(src.to_string()).expect("compiles");
+        let mut it = engine.interp(&prog, Err("no input".into()), None);
+        let err = match it.global_by_name("part1", Span::default()) {
+            Some(Err(e)) => e,
+            other => panic!(
+                "expected an error, got {:?}",
+                other.map(|r| r.map(|v| v.repr()))
+            ),
+        };
+        let err = with_arguments(&prog, Err("no input".into()), None, "part1", err, budget);
+        err.trace.iter().map(|t| t.describe("here")).collect()
+    }
+
+    #[test]
+    fn traces_show_arguments_on_every_engine() {
+        let src = "down(0) = [1][9]\ndown(n) = 1 + down(n - 1)\n\
+                   walk(p, 0) = down(p.0)\nwalk(p, n) = walk(p + (1, 0), n - 1)\n\
+                   part1 = [(0, 0)].map(p => walk(p, 2)).len\n";
+        let prog = compile(src.to_string()).expect("compiles");
+        let engines = [
+            Engine::Tree,
+            Engine::ir(&prog).expect("lowers"),
+            Engine::native(&prog).expect("compiles natively"),
+        ];
+        for engine in &engines {
+            assert_eq!(
+                traced(src, engine, ARGUMENTS_BUDGET),
+                // `walk` and its call of `down` are tail calls, so the
+                // lambda's call starts a chain of 4 of them, ending in
+                // `down(2)`.
+                [
+                    "`down(0)` called here (2 times, the innermost shown)",
+                    "`down(2)` called here",
+                    "`<lambda>((0, 0))` called here, then 4 tail calls",
+                ]
+            );
+        }
+    }
+
+    #[test]
+    fn long_arguments_are_cut_short() {
+        let src = "f(xs, s) = xs[99]\npart1 = f(list(1..30), \"ab\".repeat(50).join)\n";
+        let trace = traced(src, &Engine::Tree, ARGUMENTS_BUDGET);
+        let list = "[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,…";
+        let string = format!("\"{}…", "ab".repeat(29));
+        assert_eq!(trace, [format!("`f({list}, {string})` called here")]);
+        assert_eq!(list.chars().count(), 60);
+    }
+
+    #[test]
+    fn running_again_stops_at_the_budget() {
+        // Thousands of calls before the error: with no time to spare, the
+        // trace comes back without arguments.
+        let src = "count(0) = [1][9]\ncount(n) = 0 + count(n - 1)\npart1 = count(5000)\n";
+        let trace = traced(src, &Engine::Tree, std::time::Duration::ZERO);
+        assert_eq!(
+            trace,
+            ["`count` called here (5000 times)", "`count` called here"]
+        );
+        let trace = traced(src, &Engine::Tree, ARGUMENTS_BUDGET);
+        assert_eq!(
+            trace[0],
+            "`count(0)` called here (5000 times, the innermost shown)"
+        );
     }
 
     /// The trace of the error from evaluating `part1`, as (name, line,

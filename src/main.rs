@@ -19,8 +19,8 @@ use std::process::ExitCode;
 use tinsel::error::{Error, SourceFile, Span, file_at};
 use tinsel::resolve::Program;
 use tinsel::runner::{
-    EVAL_NAME, Engine, Outcome, error_json, file_name, json_string, load, load_with_expr,
-    real_input, run_checks_with, run_examples_with,
+    ARGUMENTS_BUDGET, EVAL_NAME, Engine, Outcome, error_json, file_name, json_string, load,
+    load_with_expr, real_input, run_checks_with, run_examples_with, with_arguments,
 };
 
 const USAGE: &str = "usage:
@@ -216,13 +216,14 @@ fn run(args: &[String]) -> ExitCode {
         return ExitCode::FAILURE;
     }
     let input = real_input(&prog, &file, input_path.as_deref());
-    let mut it = engine.interp(&prog, input, None);
+    let mut it = engine.interp(&prog, input.clone(), None);
     let mut status = ExitCode::SUCCESS;
     for part in ["part1", "part2"] {
         match it.global_by_name(part, Default::default()) {
             None => {}
             Some(Ok(v)) => println!("{part}: {}", v.display()),
             Some(Err(e)) => {
+                let e = with_arguments(&prog, input.clone(), None, part, e, ARGUMENTS_BUDGET);
                 report(&file, Some(&prog.src), &prog.files, &e);
                 status = ExitCode::FAILURE;
             }
@@ -293,6 +294,11 @@ fn eval(args: &[String]) -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
+    // The input, kept for running again to show arguments in a trace.
+    let input = match example {
+        Some(n) => prog.examples.get(n - 1).map(|ex| Ok(ex.text.clone())),
+        None => Some(real_input(&prog, &file, input_path.as_deref())),
+    };
     let mut it = match example {
         Some(n) => match prog.examples.get(n - 1) {
             Some(ex) => engine.interp(&prog, Ok(ex.text.clone()), Some(n - 1)),
@@ -317,6 +323,9 @@ fn eval(args: &[String]) -> ExitCode {
             ExitCode::SUCCESS
         }
         Some(Err(e)) => {
+            let input = input.unwrap_or_else(|| Err("no input".into()));
+            let example = example.map(|n| n - 1);
+            let e = with_arguments(&prog, input, example, EVAL_NAME, e, ARGUMENTS_BUDGET);
             report(&file, Some(&prog.src), &prog.files, &e);
             ExitCode::FAILURE
         }

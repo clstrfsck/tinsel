@@ -140,6 +140,11 @@ fn input(it: &mut Interp<'_>, args: Args) -> Result<Value> {
 /// then the label or the source text of `x`, then `x` cut short.
 fn dbg(it: &mut Interp<'_>, args: Args) -> Result<Value> {
     args.check("dbg", 1, 2, &[])?;
+    // A part run again to record arguments for a stack trace (SPEC 8.3)
+    // has already printed this.
+    if it.capture.is_some() {
+        return Ok(args.pos.into_iter().last().unwrap_or(Value::NONE));
+    }
     let prog = it.prog;
     let at = crate::runner::location(&prog.path, &prog.src, &prog.files, args.span.start);
     let call = prog.src.get(args.span.start..args.span.end).unwrap_or("");
