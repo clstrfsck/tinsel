@@ -377,11 +377,11 @@ cd editors/vscode
 npx @vscode/vsce package --allow-missing-repository --skip-license
 ```
 
-This writes `tinsel-0.4.0.vsix`. Install it from the command line:
+This writes `tinsel-0.4.1.vsix`. Install it from the command line:
 
 ```sh
-code --install-extension tinsel-0.4.0.vsix      # VS Code
-cursor --install-extension tinsel-0.4.0.vsix    # Cursor
+code --install-extension tinsel-0.4.1.vsix      # VS Code
+cursor --install-extension tinsel-0.4.1.vsix    # Cursor
 ```
 
 Or open the Extensions view, click the `...` menu at the top of the view,
