@@ -564,7 +564,8 @@ impl<'p> Interp<'p> {
             .unwrap_or(0);
         let mut chain: Vec<&str> = described[start..].iter().map(String::as_str).collect();
         chain.push(name);
-        Error::new(self.prog.cycle_message(name, &chain), span)
+        let def = self.const_stack.get(start).map(|c| c.span.start);
+        Error::new(self.prog.cycle_message(name, &chain, def), span)
     }
 
     #[inline(never)]

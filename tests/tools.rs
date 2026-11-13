@@ -195,3 +195,21 @@ fn a_where_under_one_match_arm_is_explained() {
         "{err}"
     );
 }
+
+#[test]
+fn an_include_path_keeps_its_braces() {
+    // Not interpolated (SPEC 3), so a lone `{` in the path is plain text.
+    save("lone{brace.tin", "helper = 41\n");
+    let main = save(
+        "includes_brace.tin",
+        "include \"lone{brace.tin\"\n\npart1 = helper + 1\n",
+    );
+    let (ok, out, err) = tinsel(&["run", "--input", "/dev/null", &main]);
+    assert!(ok, "{err}");
+    assert_eq!(out, "part1: 42\n");
+    // A function named `include` is still an ordinary definition.
+    let f = save("include_fn.tin", "include(x) = x + 1\npart1 = include(1)\n");
+    let (ok, out, err) = tinsel(&["run", "--input", "/dev/null", &f]);
+    assert!(ok, "{err}");
+    assert_eq!(out, "part1: 2\n");
+}

@@ -29,6 +29,7 @@ pub mod interp;
 pub mod live;
 pub mod lower;
 pub mod simplify;
+pub mod wheres;
 
 use crate::ast::{BinOp, CmpOp, Name, StrSeg, TypeName};
 use crate::error::Span;
@@ -137,6 +138,7 @@ pub struct Function {
     pub nvars: u32,
 }
 
+#[derive(Clone)]
 pub struct Block {
     pub params: Vec<Var>,
     pub insts: Vec<Inst>,
@@ -146,6 +148,7 @@ pub struct Block {
     pub drops: Vec<Var>,
 }
 
+#[derive(Clone)]
 pub struct Inst {
     /// `None` when the result isn't used.
     pub dst: Option<Var>,

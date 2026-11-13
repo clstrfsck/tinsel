@@ -56,7 +56,7 @@ fn pure(op: &Op) -> bool {
 /// The immediate dominator of each block (block 0 for itself; `None` for
 /// blocks that can't be reached), by the iterative algorithm of Cooper,
 /// Harvey and Kennedy.
-fn dominators(blocks: &[Block]) -> Vec<Option<usize>> {
+pub(crate) fn dominators(blocks: &[Block]) -> Vec<Option<usize>> {
     let n = blocks.len();
     // Reverse postorder from block 0.
     let mut order = Vec::with_capacity(n);

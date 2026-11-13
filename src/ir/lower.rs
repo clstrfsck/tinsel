@@ -180,6 +180,8 @@ pub fn lower(prog: &Program) -> Result<Module> {
         .into_iter()
         .map(|f| f.ok_or_else(|| Error::msg("internal: function not lowered")))
         .collect::<Result<Vec<_>>>()?;
+    let mut funcs = funcs;
+    super::wheres::module(&mut funcs, &l.layouts);
     Ok(Module {
         funcs,
         globals,

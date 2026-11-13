@@ -1,8 +1,10 @@
 # Next steps for the native backend
 
 Written 2026-11-11 at the end of phase 4 (`native-plan.md`, section 12),
-revised the same day after its last round of fixes, and again on
-2026-11-12 after a round of profiling and the radix tree (items 1 and 2). Native code is
+revised the same day after its last round of fixes, on 2026-11-12
+after a round of profiling and the radix tree (items 1 and 2), and on
+2026-11-13 after `where` constants as locals and faster comparisons of
+small values (items 3 and 4), found by converting AoC 2017. Native code is
 the default for `tinsel run` and `tinsel test`. This note records where
 things stand and what could come next, so that another round (if there
 is one) can start from it.
@@ -16,41 +18,43 @@ Racket is from the same table.
 
 | Solution | Plan baseline | Tree-walker | Native | vs tree-walker | Racket |
 |---|---|---|---|---|---|
-| 2019 day 25 | 2.51 s | 1.61 s | 0.40 s | 4.0× | 0.76 s |
-| 2024 day 6 | 1.67 s | 1.13 s | 0.38 s | 3.0× | 0.53 s |
-| 2018 day 24 | 5.72 s | 4.33 s | 1.57 s | 2.8× | 1.91 s |
-| 2020 day 23 | 10.18 s | 7.05 s | 2.30 s | 3.1× | 3.46 s |
-| 2020 day 15 | 8.53 s | 6.14 s | 1.06 s | 5.8× | 3.65 s |
-| 2023 day 23 | 3.32 s | 2.68 s | 1.08 s | 2.5× | 1.57 s |
-| 2018 day 9 | 3.51 s | 2.60 s | 0.44 s | 5.9× | 1.69 s |
-| 2021 day 23 | 3.51 s | 2.99 s | 1.05 s | 2.9× | 1.84 s |
-| 2018 day 11 | 3.44 s | 3.15 s | 0.56 s | 5.6× | 1.93 s |
-| 2019 day 18 | 2.86 s | 2.51 s | 1.43 s | 1.8× | 1.76 s |
-| 2022 day 23 | 5.33 s | 3.91 s | 2.12 s | 1.8× | 3.60 s |
-| 2024 day 22 | 2.96 s | 1.73 s | 0.94 s | 1.8× | 2.31 s |
-| 2018 day 14 | 8.79 s | 6.84 s | 1.77 s | 3.9× | 9.67 s |
-| 2018 day 15 | 10.24 s | 5.65 s | 3.99 s | 1.4× | 11.70 s |
-| 2022 day 20 | 3.03 s | 1.96 s | 1.91 s | 1.0× | 4.74 s |
+| 2019 day 25 | 2.51 s | 1.65 s | 0.36 s | 4.6× | 0.76 s |
+| 2024 day 6 | 1.67 s | 1.15 s | 0.35 s | 3.3× | 0.53 s |
+| 2018 day 24 | 5.72 s | 4.33 s | 1.42 s | 3.0× | 1.91 s |
+| 2020 day 23 | 10.18 s | 7.18 s | 1.08 s | 6.6× | 3.46 s |
+| 2020 day 15 | 8.53 s | 6.31 s | 1.16 s | 5.4× | 3.65 s |
+| 2023 day 23 | 3.32 s | 2.72 s | 1.07 s | 2.5× | 1.57 s |
+| 2018 day 9 | 3.51 s | 2.63 s | 0.45 s | 5.8× | 1.69 s |
+| 2021 day 23 | 3.51 s | 3.05 s | 1.05 s | 2.9× | 1.84 s |
+| 2018 day 11 | 3.44 s | 3.29 s | 0.55 s | 6.0× | 1.93 s |
+| 2019 day 18 | 2.86 s | 2.61 s | 1.47 s | 1.8× | 1.76 s |
+| 2022 day 23 | 5.33 s | 3.98 s | 2.14 s | 1.9× | 3.60 s |
+| 2024 day 22 | 2.96 s | 1.72 s | 0.71 s | 2.4× | 2.31 s |
+| 2018 day 14 | 8.79 s | 6.92 s | 1.29 s | 5.4× | 9.67 s |
+| 2018 day 15 | 10.24 s | 5.70 s | 3.97 s | 1.4× | 11.70 s |
+| 2022 day 20 | 3.03 s | 1.96 s | 1.41 s | 1.4× | 4.74 s |
 
-2022 day 20 on the tree-walker usually takes 1.96 s, but some runs take
-about 1.6 s (`TIMINGS.md` has the best of two, 1.67 s).
+The table was measured again on 2026-11-13, with the same method as
+`TIMINGS.md`.
 
 Against the goals in `native-plan.md` section 1:
 
 - **Faster than the tree-walker on every solution:** yes, on all 187 in
-  `TIMINGS.md` apart from 10–20 ms of compiling on the quickest, and
-  2022 day 20, which is level: its time is list slicing in the shared
-  runtime.
+  `TIMINGS.md` apart from 10–20 ms of compiling on the quickest. 2022
+  day 20, level until 2026-11-13 (its time is mostly list slicing in the
+  shared runtime), is now 1.41 s natively against 1.96 s.
 - **Faster than Racket on every solution:** yes, on all 15.
-- **Median speed-up of at least 3×:** 2.9× against today's tree-walker,
-  3.7× against the plan's. The tree-walker shares every runtime
-  improvement, so runtime work doesn't move this ratio.
+- **Median speed-up of at least 3×:** 3.0× against today's tree-walker,
+  met since the `where` change of 2026-11-13 (2.9× before), and 4.2×
+  against the plan's. The tree-walker shares every runtime improvement,
+  so runtime work doesn't move this ratio; compiler work, such as item
+  3, does.
 - **All of `tests/` passing natively, with the same results and errors:**
   yes, with the leak check on in debug builds.
 
-Over the whole corpus, native code takes 39.03 s against 85.63 s on the
-tree-walker (2.19×); at the end of phase 4 it was 44.52 s against
-92.50 s.
+Over the whole corpus, native code takes 35.46 s against 86.56 s on the
+tree-walker (2.44×); on 2026-11-12 it was 39.03 s against 85.63 s, and
+at the end of phase 4 44.52 s against 92.50 s.
 
 ## Where the time goes now
 
@@ -71,6 +75,11 @@ From the profiles taken during phase 4, updated with those of
   (`dijkstra`'s table of states); half of its time is the solution's own
   `next` function.
 - **List slicing:** most of 2022 day 20.
+- **`where` records:** before 2026-11-13, a function with a `where` block
+  made a record on every call and forced each constant through the
+  runtime: over half of 2020 day 23, and about a third of 2017 day 25.
+  About two thirds of the corpus's `where` blocks are now plain locals
+  (item 3); the rest keep their records (below).
 
 ## Candidates, in order of expected value
 
@@ -91,8 +100,10 @@ The rest of 2018 day 15 and 2022 day 23 was B-tree lookups, which led to
 item 2. 2019 day 18 had no cheap fix.
 
 Profiling the slowest remaining solutions is still the cheapest way to
-find the next fix: now 2018 day 15 (3.99 s), 2020 day 23 (2.30 s), 2022
-day 23 (2.12 s), 2018 day 14 (1.77 s) and 2018 day 24 (1.57 s).
+find the next fix: as of 2026-11-13, 2018 day 15 (3.97 s), 2022 day 23
+(2.14 s), 2019 day 18 (1.47 s), 2018 day 24 (1.42 s) and 2022 day 20
+(1.41 s). Converting a new year of puzzles is another: 2017 found items
+3 and 4.
 
 ### 2. An ordered radix trie for int and position keys (runtime): done
 
@@ -114,7 +125,61 @@ before it: the corpus 41.55 s → 39.24 s (−5.6%); 2020 day 11 −44%, 2021 da
 2024 day 20 −28%, 2023 day 16 −22%, 2018 day 15 −18%, 2022 day 23 −12%;
 nothing slower.
 
-### 3. Loop-invariant hoisting (compiler)
+### 3. `where` constants as plain locals (compiler): done
+
+Done 2026-11-13. Each `where` block was lowered to a record: a cell per
+constant, filled on first use by a thunk that captures the record. That
+is what laziness needs in general, but it costs an allocation, a call
+through the runtime and a state check per use, on every call: about 80
+ns a call, which in 2017 day 25 (12 million calls) was a third of its
+time.
+
+`src/ir/wheres.rs`, a pass after lowering, turns a record into plain
+locals when that can't be told apart: each constant is computed by
+inlining its thunk at its first use, and later uses read the result. It
+applies when nothing but the function and the cells' own thunks use the
+record (no `where` function or lambda captures it), the cells don't
+force each other in a cycle, and each cell has a use that comes before
+all its others on every path and can't run twice for the same record
+(not inside a loop that doesn't make a new one; missing that made 2022
+day 23 take 82 s in the first version). A force inside another cell's
+thunk counts as a use where that thunk is inlined, so cells are handled
+before the cells they use. Laziness is kept exactly: a constant that
+isn't reached still isn't computed, and errors come from the same
+constant, at the same point.
+
+A count over the corpus before starting: 190 `where` records, of which
+75 qualified counting only direct uses and 121 (64%) with uses inside
+other constants; 57 are captured by a function or lambda, and the rest
+have a constant first used in separate branches. Tests:
+`tests/features/where_constants.tin` (12 checks on all engines) and a
+`dbg`-based test that a constant is computed once, even in a loop.
+
+- **Gain:** the native total 38.60 s → 35.46 s with item 4 (−8%); 2020
+  day 23 −55% (2.39 s → 1.08 s), 2018 day 14 −28%, 2024 day 22 −24%, 2022
+  day 20 −21%; nothing slower.
+- **Still open:** records captured by a `where` function or lambda, and
+  constants first used in separate branches (a local per branch would
+  work, computing it at most once on each path).
+
+### 4. Fast comparisons of small values (runtime): done
+
+Done 2026-11-13. A map keyed by `(state, 0)`, with a char in the tuple,
+missed the fast path for pairs of small ints, and each comparison went
+through the general one twice (for the tuple, then the char): about a
+third of 2017 day 25. Now `none`, bools, small ints and chars compare by
+a (type, value) key read from the word's bits, also as tuple elements.
+A unit test checks the order against the general one on 576 pairs of
+mixed values. 0.8% over the corpus, 3–5% for solutions with many tuple
+keys, 9% for 2017 day 25.
+
+The same profile pointed at the radix tree's `remove`, about 3.5 times
+the cost of `insert` there. Three changes (scanning for a node's last
+child only where one can be left, skipping the lookup before a removal,
+and keeping one-child nodes to avoid freeing and rebuilding them as day
+25 toggles cells) made no measurable difference and were reverted.
+
+### 5. Loop-invariant hoisting (compiler)
 
 CSE removes repeats within one pass of a loop body, but not work that is
 the same on every pass, such as `gs[a]` in 2018 day 24's `choose`.
@@ -123,7 +188,7 @@ either a proof that the body runs or the value cached on the first pass.
 
 - **Expected gain:** mainly 2018 day 24; small elsewhere.
 
-### 4. A per-call-site cache of compiled targets (compiler)
+### 6. A per-call-site cache of compiled targets (compiler)
 
 A call through a function value looks up the closure's compiled code in
 the runtime every time (`rt_tail_target`). An inline cache of the last
@@ -131,7 +196,7 @@ closure and its code would skip that.
 
 - **Expected gain:** a few percent on closure-heavy code.
 
-### 5. Library calls without a heap-allocated argument vector (runtime)
+### 7. Library calls without a heap-allocated argument vector (runtime)
 
 Every library call that has no direct entry builds a `Vec` for its
 arguments. A small inline array would avoid the allocation, but touches
@@ -139,7 +204,7 @@ the signature of every library function.
 
 - **Expected gain:** 2–5%, broadly, on both engines.
 
-### 6. Small lists without the final copy (runtime)
+### 8. Small lists without the final copy (runtime)
 
 A comprehension's result is accumulated in a growable vector and then
 copied into a small list's single allocation. Adopting the vector as it
@@ -147,7 +212,7 @@ is would change how lists are stored.
 
 - **Expected gain:** a few percent on comprehension-heavy code.
 
-### 7. Local type inference (compiler; the plan's original first item)
+### 9. Local type inference (compiler; the plan's original first item)
 
 Knowing a variable is always an int would drop tag checks, reference
 counting and error checks around it.

@@ -45,10 +45,12 @@ pub struct Program {
     /// Functions (by `FnDef::id`) already warned about for large memo keys
     /// (SPEC 8.1), so each warning is given once per run.
     pub memo_warned: RefCell<HashSet<usize>>,
-    /// The names of `where` constants that hide a parameter of their
-    /// function, as in `f(pos) = ... where pos = pos + 1`, for a hint when
-    /// one turns out to depend on itself.
-    pub hidden_params: HashSet<Name>,
+    /// The `where` constants that hide a parameter of their function, as
+    /// in `f(pos) = ... where pos = pos + 1`, by where each definition
+    /// starts in the source, for a hint when one turns out to depend on
+    /// itself. By definition rather than by name, so that a cycle in some
+    /// other constant of the same name gets no hint.
+    pub hidden_params: HashSet<usize>,
 }
 
 impl Program {
@@ -57,13 +59,14 @@ impl Program {
     }
 
     /// The error for a constant that depends on itself through `chain`
-    /// (which ends with `name`), the same on every engine.
-    pub fn cycle_message(&self, name: &str, chain: &[&str]) -> String {
+    /// (which ends with `name`), the same on every engine. `def` is where
+    /// the definition of the constant in the cycle starts, if known.
+    pub fn cycle_message(&self, name: &str, chain: &[&str], def: Option<usize>) -> String {
         let mut msg = format!(
             "constant `{name}` depends on itself: {}",
             chain.join(" -> ")
         );
-        if chain.len() == 2 && self.hidden_params.contains(name) {
+        if chain.len() == 2 && def.is_some_and(|d| self.hidden_params.contains(&d)) {
             msg.push_str(&format!(
                 " (this `where` constant hides the parameter `{name}`, so `{name}` in \
                  its own definition means the constant; give it another name)"
@@ -274,7 +277,7 @@ struct Resolver {
     lambda_reach: Vec<(usize, usize)>,
     closed_lambdas: usize,
     /// See `Program::hidden_params`.
-    hidden_params: HashSet<Name>,
+    hidden_params: HashSet<usize>,
 }
 
 impl Resolver {
@@ -407,11 +410,13 @@ impl Resolver {
                 p.clone().bindings_mut(&mut |b| params.push(b.name.clone()));
             }
             for c in &clause.wheres.consts {
-                c.pat.clone().bindings_mut(&mut |b| {
-                    if params.contains(&b.name) {
-                        self.hidden_params.insert(b.name.clone());
-                    }
-                });
+                let mut hides = false;
+                c.pat
+                    .clone()
+                    .bindings_mut(&mut |b| hides |= params.contains(&b.name));
+                if hides {
+                    self.hidden_params.insert(c.span.start);
+                }
             }
             self.push_frame();
             for p in &mut clause.params {

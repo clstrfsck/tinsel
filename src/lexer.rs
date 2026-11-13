@@ -573,11 +573,17 @@ pub fn lex(src: &str, base: usize) -> Result<Vec<Token>, Error> {
             (Some(Token { tok: Tok::Dot, .. }), Some(name)) => Tok::Ident(name.into()),
             _ => tok,
         };
-        // The string after `example`, `test` or `test_error` at the start of
-        // a line is never interpolated, so its braces are plain text
-        // (SPEC 3): read it without looking for `{...}`.
-        let item = matches!(tok, Tok::Example | Tok::Test | Tok::TestError)
-            && (r.start == 0 || src.as_bytes()[r.start - 1] == b'\n');
+        // The string after `example`, `test`, `test_error` or `include` at
+        // the start of a line is never interpolated, so its braces are
+        // plain text (SPEC 3): read it without looking for `{...}`.
+        // (`include` is a name, not a keyword; a function of that name is
+        // followed by `(`, not a string, so it isn't affected.)
+        let item_word = match &tok {
+            Tok::Example | Tok::Test | Tok::TestError => true,
+            Tok::Ident(n) => &**n == "include",
+            _ => false,
+        };
+        let item = item_word && (r.start == 0 || src.as_bytes()[r.start - 1] == b'\n');
         out.push(Token { tok, span });
         if item && let Some(tok) = plain_string_after(&mut lexer, base)? {
             out.push(tok);
