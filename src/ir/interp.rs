@@ -650,12 +650,12 @@ fn run_loop(
                 // at the last tail call, then the call that started the
                 // chain with the number of tail calls that followed.
                 if traced(f) {
-                    e.push_trace(&f.name, span, 0);
+                    e.push_trace(&f.name, span, 0, None);
                 }
                 if tail_calls > 0
                     && let Some((name, start)) = first
                 {
-                    e.push_trace(name, start, tail_calls);
+                    e.push_trace(name, start, tail_calls, None);
                 }
                 return Err(e);
             }

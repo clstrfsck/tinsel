@@ -295,9 +295,9 @@ extern "C" fn rt_trace(
     let start = cx.span_of(start);
     let first = &native.module.funcs[first as usize].name;
     if let Some(e) = &mut cx.pending {
-        e.push_trace(name, span, 0);
+        e.push_trace(name, span, 0, None);
         if count > 0 {
-            e.push_trace(first, start, count as usize);
+            e.push_trace(first, start, count as usize, None);
         }
     }
 }

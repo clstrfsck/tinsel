@@ -713,6 +713,26 @@ entries). Repeated identical calls are shown once, with a count. Tail calls
 reuse their caller's place in the trace, so a chain of them appears as the
 call that started it, with the number of tail calls that followed.
 
+When `tinsel run` or `tinsel eval` reports an error, each call in the trace
+shows the arguments it was given, cut short as `dbg` shows values (9.6) and
+to at most 60 chars each. The calls are labelled where they were made:
+
+```
+ 3 │ walk(p, d) = step(p, d)
+   │                   ╰── `step((2, 0), (1, 0))` called here
+   ⋮
+ 8 │ part1 = step((0, 0), (1, 0))
+   │                   ╰── `step((0, 0), (1, 0))` called here, then 4 tail calls
+```
+
+A run doesn't keep arguments, so to find them the failing part is run
+again on the tree-walker, recording them; programs are deterministic, so it
+fails the same way. Output from `dbg` isn't repeated. If running it again
+takes more than 10 seconds, the trace is shown without arguments. For a
+call shown once with a count, the arguments are the innermost call's. The
+calls between the first and the last of a chain of tail calls aren't kept,
+so their arguments aren't shown.
+
 ---
 
 ## 9. Standard library

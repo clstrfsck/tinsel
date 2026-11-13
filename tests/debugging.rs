@@ -235,3 +235,29 @@ fn eval_keeps_the_layout_of_multi_line_expressions() {
     assert!(r.2.contains("unknown name `nope`"), "{r:?}");
     assert!(r.2.contains("<expression>:3:8"), "{r:?}");
 }
+
+#[test]
+fn errors_show_arguments_and_dbg_prints_once() {
+    let src = "step(p, d) = if dbg(\"at\", p).0 > 1 then [p][9] else step(p + d, d)\n\
+               part1 = step((0, 0), (1, 0))\n";
+    let path = save("args.tin", src);
+    let p = path.to_str().unwrap();
+    for e in ENGINES {
+        let (ok, _, err) = tinsel(&["run", e, p]);
+        assert!(!ok);
+        assert!(err.contains("index 9 is out of range"), "{e}: {err}");
+        assert!(
+            err.contains("`step((0, 0), (1, 0))` called here, then 2 tail calls"),
+            "{e}: {err}"
+        );
+        // The part is run again to find the arguments, but `dbg` prints
+        // only the first time.
+        assert_eq!(err.matches(": at: ").count(), 3, "{e}: {err}");
+        let (ok, _, err) = tinsel(&["eval", p, "step((5, 5), (0, 1))", e]);
+        assert!(!ok);
+        assert!(
+            err.contains("`step((5, 5), (0, 1))` called here"),
+            "{e}: {err}"
+        );
+    }
+}

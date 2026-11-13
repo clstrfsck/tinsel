@@ -69,15 +69,30 @@ pub struct TraceEntry {
     /// reuse the caller's place on the stack, so they aren't listed
     /// individually.
     pub tail_calls: usize,
+    /// The call's arguments, shown briefly, when they were recorded (SPEC
+    /// 8.3): only the tree-walker records them, and only when asked. For a
+    /// repeated call, the innermost call's.
+    pub args: Option<Vec<String>>,
 }
 
 impl TraceEntry {
     /// e.g. "`down` called here (30 times)" or "`step` called at
     /// day1.tin:3:7, then 3 tail calls", where `at` is "here" or a location.
+    /// With arguments, "`step((7, 0), 3)` called here".
     pub fn describe(&self, at: &str) -> String {
-        let mut s = format!("`{}` called {at}", self.name);
+        let call = match &self.args {
+            Some(args) => format!("{}({})", self.name, args.join(", ")),
+            None => self.name.clone(),
+        };
+        let mut s = format!("`{call}` called {at}");
         if self.repeats > 1 {
-            s.push_str(&format!(" ({} times)", self.repeats));
+            // Only the innermost of the repeated calls' arguments are kept.
+            let shown = if self.args.is_some() {
+                ", the innermost shown"
+            } else {
+                ""
+            };
+            s.push_str(&format!(" ({} times{shown})", self.repeats));
         }
         match self.tail_calls {
             0 => {}
@@ -131,7 +146,13 @@ impl Error {
         self
     }
 
-    pub fn push_trace(&mut self, name: &str, span: Span, tail_calls: usize) {
+    pub fn push_trace(
+        &mut self,
+        name: &str,
+        span: Span,
+        tail_calls: usize,
+        args: Option<Vec<String>>,
+    ) {
         if let Some(last) = self.trace.last_mut()
             && last.name == name
             && last.span == span
@@ -144,6 +165,7 @@ impl Error {
                 span,
                 repeats: 1,
                 tail_calls,
+                args,
             });
         }
     }

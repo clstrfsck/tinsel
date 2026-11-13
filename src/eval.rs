@@ -374,6 +374,42 @@ pub struct Interp<'p> {
     /// Set when the program runs on the IR interpreter instead
     /// (`crate::ir::interp`).
     pub ir: Option<Box<crate::ir::interp::Runtime>>,
+    /// Set to record calls' arguments in stack traces (SPEC 8.3).
+    pub capture: Option<Capture>,
+}
+
+/// Recording arguments for stack traces: done by running a failing part
+/// again (`runner::with_arguments`), so it stops at a deadline rather than
+/// keep someone waiting for detail they can do without.
+pub struct Capture {
+    deadline: std::time::Instant,
+    calls: u32,
+}
+
+impl Capture {
+    pub fn new(budget: std::time::Duration) -> Capture {
+        Capture {
+            deadline: std::time::Instant::now() + budget,
+            calls: 0,
+        }
+    }
+}
+
+/// The error that stops a run recording arguments at its deadline.
+pub const CAPTURE_TIMEOUT: &str = "internal: recording arguments took too long";
+
+/// How an argument is shown in a stack trace: briefly, as `dbg` shows
+/// values, and at most this many chars.
+const TRACE_ARG_CHARS: usize = 60;
+
+fn trace_arg(v: &Value) -> String {
+    let text = v.repr_brief();
+    // Where char TRACE_ARG_CHARS - 1 starts, if more follow it.
+    let mut chars = text.char_indices();
+    match chars.nth(TRACE_ARG_CHARS - 1) {
+        Some((i, _)) if chars.next().is_some() => format!("{}…", &text[..i]),
+        _ => text,
+    }
 }
 
 /// A memo key holding more values than this gets a warning (SPEC 8.1).
@@ -438,6 +474,7 @@ impl<'p> Interp<'p> {
             globals,
             input,
             input_missing: false,
+            capture: None,
             const_stack: Vec::new(),
             builtin_values: vec![None; BUILTINS.len()],
             frame_pool: Vec::new(),
@@ -1233,6 +1270,19 @@ impl<'p> Interp<'p> {
 
     // --- Calls ------------------------------------------------------------------
 
+    /// While recording arguments, stops at the deadline. The clock is read
+    /// every 1024 calls.
+    #[cold]
+    fn check_capture_deadline(&mut self, span: Span) -> Result<()> {
+        if let Some(c) = &mut self.capture {
+            c.calls = c.calls.wrapping_add(1);
+            if c.calls.is_multiple_of(1024) && std::time::Instant::now() > c.deadline {
+                return Err(Error::new(CAPTURE_TIMEOUT, span));
+            }
+        }
+        Ok(())
+    }
+
     pub fn call(&mut self, f: &Value, args: Vec<Value>, span: Span) -> Result<Value> {
         self.call_named(f.clone(), args, Vec::new(), span)
     }
@@ -1255,14 +1305,22 @@ impl<'p> Interp<'p> {
         // The same check as `stacker::maybe_grow`, but without its closure
         // plumbing on the common path, which cost ~600 bytes per call.
         stacker::maybe_grow(STACK_RED_ZONE, STACK_GROW, || {
-            self.call_loop(f, args, named, span)
+            if self.capture.is_some() {
+                self.call_loop::<true>(f, args, named, span)
+            } else {
+                self.call_loop::<false>(f, args, named, span)
+            }
         })
     }
 
     /// The trampoline. Only this loop and `eval_tail` stay on the native
     /// stack while a function body runs; everything else about a call
     /// happens in `prepare_call`, whose frame is gone by then.
-    fn call_loop(
+    ///
+    /// `CAPTURE` is whether arguments are recorded for stack traces
+    /// (`Interp::capture`); it is a constant so that ordinary calls carry
+    /// none of that work.
+    fn call_loop<const CAPTURE: bool>(
         &mut self,
         mut f: Value,
         mut args: Vec<Value>,
@@ -1283,9 +1341,21 @@ impl<'p> Interp<'p> {
         let start = span;
         let mut first: Option<Option<Rc<FnDef>>> = None;
         let mut tail_calls = 0;
+        // With `capture` on: the arguments of this call, and of the call
+        // that started the chain, as shown in a trace.
+        let mut shown: Option<Vec<String>> = None;
+        let mut first_shown: Option<Vec<String>> = None;
         loop {
-            let prepared = self.prepare_call(f, args, named, span, &mut pending);
-            let prepared = prepared.map_err(|e| chain_entry(e, &first, start, tail_calls))?;
+            if CAPTURE {
+                self.check_capture_deadline(span)?;
+                shown = Some(args.iter().map(trace_arg).collect());
+                if tail_calls == 0 {
+                    first_shown.clone_from(&shown);
+                }
+            }
+            let prepared = self.prepare_call(f, args, named, span, &mut pending, shown.as_deref());
+            let prepared =
+                prepared.map_err(|e| chain_entry(e, &first, start, tail_calls, &first_shown))?;
             let (func, body, frame) = match prepared {
                 Prepared::Done(v) => {
                     if let Some(p) = previous {
@@ -1311,8 +1381,8 @@ impl<'p> Interp<'p> {
             let flow = match result {
                 Ok(flow) => flow,
                 Err(e) => {
-                    let e = with_trace(e, &func, span);
-                    return Err(chain_entry(e, &first, start, tail_calls));
+                    let e = with_trace(e, &func, span, shown.as_deref());
+                    return Err(chain_entry(e, &first, start, tail_calls, &first_shown));
                 }
             };
             drop(func);
@@ -1348,6 +1418,7 @@ impl<'p> Interp<'p> {
         named: NamedArgs,
         span: Span,
         pending: &mut Vec<(Rc<Memo>, Vec<Value>)>,
+        shown: Option<&[String]>,
     ) -> Result<Prepared> {
         let func = match f.view() {
             V::Func(rc) => rc,
@@ -1413,7 +1484,7 @@ impl<'p> Interp<'p> {
                 }
                 let (clause, frame) = self
                     .choose_clause(def, env, &mut args, span)
-                    .map_err(|e| with_trace(e, func, span))?;
+                    .map_err(|e| with_trace(e, func, span, shown))?;
                 self.recycle_args(args);
                 Ok(Prepared::Run(func.clone(), Some(clause), frame))
             }
@@ -2005,14 +2076,15 @@ enum Prepared {
     Run(Rc<Func>, Option<usize>, Rc<Frame>),
 }
 
-/// Adds a stack-trace entry for a failed call.
+/// Adds a stack-trace entry for a failed call, with its arguments if they
+/// were recorded.
 #[cold]
-fn with_trace(mut e: Error, func: &Func, span: Span) -> Error {
+fn with_trace(mut e: Error, func: &Func, span: Span, shown: Option<&[String]>) -> Error {
     let name = match func {
         Func::User { def, .. } => def.name.to_string(),
         _ => "<lambda>".to_string(),
     };
-    e.push_trace(&name, span, 0);
+    e.push_trace(&name, span, 0, shown.map(<[String]>::to_vec));
     e
 }
 
@@ -2024,12 +2096,13 @@ fn chain_entry(
     first: &Option<Option<Rc<FnDef>>>,
     start: Span,
     tail_calls: usize,
+    shown: &Option<Vec<String>>,
 ) -> Error {
     if tail_calls > 0
         && let Some(def) = first
     {
         let name = def.as_ref().map_or("<lambda>", |d| &*d.name);
-        e.push_trace(name, start, tail_calls);
+        e.push_trace(name, start, tail_calls, shown.clone());
     }
     e
 }
