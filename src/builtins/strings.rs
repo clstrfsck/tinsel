@@ -263,15 +263,39 @@ fn chr(_: &mut Interp<'_>, args: Args) -> Result<Value> {
 
 /// `md5(s)`: the MD5 digest of a string's UTF-8 bytes, as 32 lowercase hex
 /// digits (SPEC 9.1).
+/// `md5(s)`, or with `times: n`, the digest taken n times, each of the
+/// hex digits of the one before (2016 day 14's "key stretching"). The
+/// rounds hash a 32-byte buffer, with no string per round.
 fn md5(_: &mut Interp<'_>, args: Args) -> Result<Value> {
-    args.check("md5", 1, 1, &[])?;
+    args.check("md5", 1, 1, &["times"])?;
     let s = str_arg(&args, 0, "md5")?;
-    const HEX: &[u8; 16] = b"0123456789abcdef";
-    let digest = ::md5::compute(s.as_bytes());
-    let mut hex = String::with_capacity(32);
-    for b in digest.0 {
-        hex.push(char::from(HEX[usize::from(b >> 4)]));
-        hex.push(char::from(HEX[usize::from(b & 15)]));
+    let times = match args.named("times").map(Value::view) {
+        None => 1,
+        // A bigint is too many rounds ever to finish, like `u64::MAX`.
+        Some(V::Int(n)) if n.signum() >= 0 && !n.is_inf() => {
+            n.as_i64().map_or(u64::MAX, |n| n as u64)
+        }
+        Some(V::Int(n)) => {
+            return Err(args.err(format!("`md5` needs `times` to be 0 or more, found {n}")));
+        }
+        Some(other) => return Err(type_err(&args, "md5", "an int for `times`", other)),
+    };
+    if times == 0 {
+        return Ok(args.pos[0].clone());
     }
-    Ok(Value::string(hex))
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut digest = ::md5::compute(s.as_bytes());
+    let mut hex = [0u8; 32];
+    for round in 1..=times {
+        for (i, b) in digest.0.iter().enumerate() {
+            hex[2 * i] = HEX[usize::from(b >> 4)];
+            hex[2 * i + 1] = HEX[usize::from(b & 15)];
+        }
+        if round < times {
+            digest = ::md5::compute(hex);
+        }
+    }
+    Ok(Value::string(
+        hex.iter().map(|&b| char::from(b)).collect::<String>(),
+    ))
 }

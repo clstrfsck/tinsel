@@ -215,8 +215,11 @@ errors), and interpolation of edge values in `basics.tin`.
 Left over: day 5 is now 40% the MD5 compression itself (the crate's) and
 about a quarter the lazy `map` and `filter` (each item passes through the
 tree-walker's iterator, which calls the compiled lambdas); day 25 still
-compares opcode strings (about a fifth), and its solution collects 40
-outputs for every candidate rather than stopping at the first wrong one.
+compares opcode strings (about a fifth). Its solution now stops at the
+first wrong output, and proves alternation by finding a repeated state.
+Day 14 hashes each index 2,017 times: `md5(s, times: n)` (added
+2026-11-14) does those rounds without a string or a call per round, which
+took it from 7.68 s to 5.50 s; what is left is nearly all MD5 itself.
 
 ### 6. Loop-invariant hoisting (compiler)
 
