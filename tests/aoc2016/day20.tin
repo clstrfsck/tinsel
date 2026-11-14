@@ -1,0 +1,27 @@
+day 2016.20
+
+# Ranges of blocked addresses, from 0 to 4294967295.
+# Part 1: the lowest address not blocked.
+# Part 2: how many addresses are not blocked.
+
+example """
+5-8
+0-2
+4-7
+"""
+  with highest = 9
+  part1 = 3
+  part2 = 2
+
+answers
+  part1 = 31053880
+  part2 = 117
+
+highest = 4294967295
+
+blocked = rangeset([lo..hi for [lo, hi] in input.lines.map(_.split("-").map(int))])
+
+allowed = rangeset([0..highest]) - blocked
+
+part1 = allowed.first
+part2 = allowed.len

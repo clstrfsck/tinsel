@@ -828,6 +828,7 @@ Functions are listed in method form, `x.f(args)`, which is the same as
 | `int(s)`, `int(s, base)` | Parse an int (a sign and surrounding whitespace are allowed). With a base from 2 to 36, letters stand for 10 and up, in either case: `int("ff", 16) == 255`. `s` can also be a single char in a base: `int('f', 16) == 15`. `int(c)` parses a digit char, and `int(b)` converts a bool to 0 or 1. |
 | `str(x)`, `str(n, base)`, `str(n, base, width)` | Display form. With a base from 2 to 36, formats an int using lowercase letters: `str(255, 16) == "ff"`, `str(-5, 2) == "-101"`. With a width, pads with zeros (after any sign) to at least that many digits: `str(5, 2, 8) == "00000101"`. A result past the size limit (8.2) is an error. |
 | `ord(c)`, `chr(n)` | A `char`'s Unicode code point as an `int`, and the `char` for a code point: `ord('a') == 97`. `chr` of an invalid code point is an error. |
+| `md5(s)` | The MD5 digest of the string's UTF-8 bytes, as 32 lowercase hex digits: `md5("abc") == "900150983cd24fb0d6963f7d28e17f72"`. |
 | `c.is_digit`, `c.is_lower`, `c.is_upper` | Whether a char is an ASCII digit, lowercase letter or uppercase letter. On a `str`, whether it is non-empty and every char is: `"2024".is_digit`, `not "".is_digit`. |
 
 ### 9.2 Collections
@@ -837,7 +838,7 @@ their keys) and generators, unless stated otherwise. Functions that return
 sequences return a **list**, unless a `tuple`, `set` or `map` result makes
 more sense.
 
-`map`, `filter`, `enumerate`, `zip`, `drop` and `drop_while` read a
+`map`, `filter`, `enumerate`, `zip`, `scan`, `drop` and `drop_while` read a
 generator or an infinite range lazily: given one, they return a **generator**, computing each element only
 when it is read. (`zip` does this when any argument is a generator, or when
 none of its arguments ends.) So `iterate(x, f).enumerate.first(...)` and
@@ -860,7 +861,7 @@ lists.
 | `drop(n)`, `drop_while(f)` | The elements after the first `n`, or after the leading elements for which `f` is true. Like `map` and `filter`, they give a list for a finite collection, and stay lazy on a generator or an infinite range: `iterate(1, _ * 2).drop(3).take(2) == [8, 16]`. |
 | `r.bisect(f)` | For a range `r` only: the first int in `r` for which `f` is true, found by binary search, or `none` if there is none. `f` must be false up to some point and true from then on. It calls `f` O(log n) times, and on an infinite range `a..` it searches upwards by doubling: `(0..).bisect(n => n * n >= 50) == 8`. |
 | `fold(init, f)` | `f(acc, x)` |
-| `scan(init, f)` | Includes `init`, so the result has `len + 1` elements |
+| `scan(init, f)` | Includes `init`, so the result has `len + 1` elements. Lazy on a generator or an infinite range, so `(1..).scan(0, (a, x) => a + x).take(4) == [0, 1, 3, 6]` |
 | `enumerate`, `zip(a, b, ...)` | Give tuples |
 | `pairs` | Neighbouring pairs as tuples: `[1,2,3]` → `[(1,2),(2,3)]` |
 | `windows(n)`, `chunks(n)` | Give lists. The last chunk may be shorter. |

@@ -1,0 +1,40 @@
+day 2016.14
+
+# Keys from the MD5 hashes of the salt (the input) followed by 0, 1, 2,
+# ...: an index is a key when its hash has a character three times in a
+# row (the first such), and one of the next 1000 hashes has that character
+# five times in a row.
+# Part 1: the index of the 64th key.
+# Part 2: the same, with each hash stretched: hashed 2016 more times, as
+#         lowercase hex.
+#
+# The puzzle's part 2 example ("abc" gives 22551) needs 46 million hashes,
+# so it isn't checked here (it was in Python).
+
+example "abc"
+  part1 = 22728
+
+answers
+  part1 = 23890
+  part2 = 22696
+
+salt = input.trim
+
+# The hash for index i, hashed `extra` more times. Each is wanted by up to
+# a thousand later checks: computed once.
+@memo
+hash(i, extra) = stretch(md5("{salt}{i}"), extra)
+
+stretch(h, n) = if n == 0 then h else stretch(md5(h), n - 1)
+
+triple(h) = h.chars.windows(3).first(([a, b, c]) => a == b and b == c)
+
+key(i, extra) = match triple(hash(i, extra))
+  none => false
+  [c, _, _] => (i + 1..i + 1000).any(j => hash(j, extra).index(str(c).repeat(5)) != none)
+
+# The index of the 64th key.
+last_key(extra) = (0..).filter(i => key(i, extra)).drop(63).first
+
+part1 = last_key(0)
+part2 = last_key(2016)

@@ -64,6 +64,7 @@ test_error "inf - inf is undefined"  = inf - inf
 # --- Strings ----------------------------------------------------------------
 test "concat"                        = "ab" ++ "cd" == "abcd"
 test "interpolation"                 = "x={1 + 2}" == "x=3"
+test "interpolating ints, chars and collections" = "{0}|{-7}|{1234567890}|{-9223372036854775807 - 1}|{2 ** 70}|{-inf}|{'x'}|{[1, "a"]}" == "0|-7|1234567890|-9223372036854775808|1180591620717411303424|-inf|x|[1, \"a\"]"
 test "escaped braces"                = "{{x}}" == "{{" ++ "x" ++ "}}"
 test "strings nested in interpolation" = "<{["a", "b"].join(",")}>" == "<a,b>"
 test "indexing gives chars"          = ("hello"[0], "hello"[-1]) == ('h', 'o')
@@ -142,6 +143,9 @@ test_error "bit length of a negative" = (-1).bits
 test "one bits"                      = (0.ones, 1.ones, 11.ones, 255.ones, (2 ** 100).ones, (2 ** 100 - 1).ones) == (0, 1, 3, 8, 1, 100)
 test_error "one bits of a negative"  = (-1).ones
 test_error "one bits of inf"         = inf.ones
+test "md5, RFC 1321's test vectors"  = [md5(s) for s in ["", "a", "abc", "message digest", "abcdefghijklmnopqrstuvwxyz", "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789", "1234567890".repeat(8)]] == ["d41d8cd98f00b204e9800998ecf8427e", "0cc175b9c0f1b6a831c399e269772661", "900150983cd24fb0d6963f7d28e17f72", "f96b697d7cb7938d525a2f31aaf161d0", "c3fcd3d76192e4007dfb496cca67e13b", "d174ab98d277d9f5a5611c2c9f419d9f", "57edf4a22be3c955ac49da2e2107b67a"]
+test "md5 of non-ASCII text uses its UTF-8 bytes" = md5("é") == "66ddcd97cfdeabb2f6fb8a999b4bc76f"
+test_error "md5 of an int"           = md5(5)
 test "a char in a base"              = (int('f', 16), int('F', 16), int('7', 8), int('z', 36)) == (15, 15, 7, 35)
 test_error "a char not in the base"  = int('8', 8)
 test "digits"                        = (1234.digits, 0.digits, 7.digits, digits(5, 2), digits(255, 16), digits(0, 2), (2 ** 70).digits.len, (10 ** 20).digits.sum) == ([1, 2, 3, 4], [0], [7], [1, 0, 1], [15, 15], [0], 22, 1)

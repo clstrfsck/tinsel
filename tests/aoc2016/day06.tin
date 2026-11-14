@@ -1,0 +1,35 @@
+day 2016.6
+
+# The same message, repeated with noise.
+# Part 1: the message made of each column's most common character.
+# Part 2: the message made of each column's least common character.
+
+example """
+eedadn
+drvtee
+eandsr
+raavrd
+atevrs
+tsrnev
+sdttsa
+rasrtv
+nssdts
+ntnada
+svetve
+tesnvt
+vntsnd
+vrdear
+dvrsen
+enarar
+"""
+  part1 = "easter"
+  part2 = "advent"
+
+answers
+  part1 = "xhnqpqql"
+  part2 = "brhailro"
+
+columns = input.lines.transpose
+
+part1 = columns.map(c => c.chars.counts.items.max_by(.1).0).join
+part2 = columns.map(c => c.chars.counts.items.min_by(.1).0).join

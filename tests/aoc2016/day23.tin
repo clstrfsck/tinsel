@@ -1,0 +1,31 @@
+day 2016.23
+
+# Assembunny with tgl, which changes the instruction it points at (see
+# assembunny.tin).
+# Part 1: the value in a at the end, when a starts at 7.
+
+include "assembunny.tin"
+
+example """
+cpy 2 a
+tgl a
+tgl a
+tgl a
+cpy 1 a
+dec a
+dec a
+"""
+  part1 = 3
+
+answers
+  part1 = 11736
+  part2 = 479008296
+
+program = assemble(input)
+
+part1 = registers(program, [7, 0, 0, 0])[0]
+
+# With 12, the program multiplies its way to 12! plus a constant: about
+# 479 million incs one at a time, but a few hundred steps with the
+# shortcuts in assembunny.tin.
+part2 = registers(program, [12, 0, 0, 0])[0]

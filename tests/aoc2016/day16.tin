@@ -1,0 +1,37 @@
+day 2016.16
+
+# Fill a disk with a dragon curve grown from the input: a becomes a, 0,
+# then a reversed with 0 and 1 swapped. The checksum of what fits: each
+# pair becomes 1 if its two characters match, else 0, until it has odd
+# length.
+# Part 1: the checksum for a disk of 272.
+# Part 2: the checksum for a disk of 35651584.
+
+example "10000"
+  with disk = 20
+  part1 = "01100"
+
+answers
+  part1 = "10010010110011010"
+  part2 = "01010100101011100"
+
+disk = 272
+
+grow(a) = a ++ "0" ++ a.reverse.replace("0", "x").replace("1", "0").replace("x", "1")
+
+# Halving until the length is odd turns each block of 2^k characters
+# (the largest power of two dividing the length) into one: 1 when the
+# block has an even number of zeros. (Two characters give 1 when they
+# have 0 or 2 zeros; two halves give 1 when their numbers of zeros are
+# both even or both odd.) So the checksum needs only a count per block,
+# not the halvings, which matters for a disk of 35 million.
+checksum(s) = (0..<s.len / block).map(i => if s[i * block..<(i + 1) * block].count('0') % 2 == 0 then '1' else '0').join
+  where
+    block = s.len & -s.len
+
+test "checksum" = checksum("110010110100") == "100"
+
+fill(size) = checksum(iterate(input.trim, grow).first(_.len >= size)[..<size])
+
+part1 = fill(disk)
+part2 = fill(35651584)

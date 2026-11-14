@@ -91,6 +91,8 @@ const MIDDLE: usize = 40;
 const SLICE: usize = 41;
 const ITER_INIT: usize = 42;
 const SEQ_GET: usize = 43;
+const EQ: usize = 44;
+const IN_INDICES: usize = 45;
 
 /// A site's `inst` for a terminator.
 const TERM: u32 = u32::MAX;
@@ -1347,6 +1349,11 @@ impl Gen<'_> {
                 ];
                 self.borrowing(CMP, &pre, &[*a, *b], &[], held, true)
             }
+            Op::InIndices(x, coll, not) => {
+                let pre = [self.cx(), self.site_for(bi, ii, inst)];
+                let not = self.iconst(u64::from(*not));
+                self.borrowing(IN_INDICES, &pre, &[*x, *coll], &[not], held, true)
+            }
             Op::Tuple(xs) => {
                 let vals: Vec<Cv> = xs.iter().map(|&u| self.owned(u)).collect();
                 let addr = self.argv(&vals);
@@ -1716,6 +1723,13 @@ impl Gen<'_> {
                     self.release(v);
                 }
                 r
+            }
+            Op::EqConst(u, c) => {
+                // A heap constant: the pool keeps it alive for as long as
+                // the code, and equality can't fail.
+                self.pool.push(c.clone());
+                let k = self.iconst(c.raw_bits());
+                self.borrowing(EQ, &[], &[*u], &[k], held, false)
             }
             _ => self.generic(bi, ii, inst, held),
         }

@@ -160,6 +160,17 @@ chr(ord('a') + 2) == 'c'
 chr(-1) # error
 ```
 
+### s.md5 → str
+The MD5 digest of the string's UTF-8 bytes, as 32 lowercase hex digits,
+as several puzzles use it.
+
+```tinsel
+md5("") == "d41d8cd98f00b204e9800998ecf8427e"
+"abc".md5 == "900150983cd24fb0d6963f7d28e17f72"
+"abcdef609043".md5.starts_with("00000")
+md5(1) # error
+```
+
 ### c.is_digit → bool
 Whether a char is an ASCII digit. On a `str`, whether it is non-empty and
 every char is a digit.
@@ -456,10 +467,13 @@ for each element in turn.
 
 ### xs.scan(init, f) → list
 Every intermediate value of `fold`, starting with `init`, so the result
-has one more element than `xs`.
+has one more element than `xs`. On a generator or an infinite range, the
+result is a lazy generator, so a running state can be read until it is
+good enough.
 
 ```tinsel
 [1, 2, 3].scan(0, (acc, x) => acc + x) == [0, 1, 3, 6]
+(1..).scan(0, (acc, x) => acc + x).first(_ > 20) == 21
 ```
 
 ### xs.enumerate → list

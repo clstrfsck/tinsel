@@ -23,6 +23,7 @@ pub const BUILTINS: &[Builtin] = &[
     fixed("is_digit", 1, is_digit),
     fixed("is_lower", 1, is_lower),
     fixed("is_upper", 1, is_upper),
+    func("md5", md5),
 ];
 
 pub fn str_arg<'a>(args: &'a Args, i: usize, fname: &str) -> Result<&'a str> {
@@ -258,4 +259,19 @@ fn chr(_: &mut Interp<'_>, args: Args) -> Result<Value> {
         .and_then(char::from_u32)
         .map(Value::char)
         .ok_or_else(|| args.err(format!("`chr` needs a valid Unicode code point, found {n}")))
+}
+
+/// `md5(s)`: the MD5 digest of a string's UTF-8 bytes, as 32 lowercase hex
+/// digits (SPEC 9.1).
+fn md5(_: &mut Interp<'_>, args: Args) -> Result<Value> {
+    args.check("md5", 1, 1, &[])?;
+    let s = str_arg(&args, 0, "md5")?;
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let digest = ::md5::compute(s.as_bytes());
+    let mut hex = String::with_capacity(32);
+    for b in digest.0 {
+        hex.push(char::from(HEX[usize::from(b >> 4)]));
+        hex.push(char::from(HEX[usize::from(b & 15)]));
+    }
+    Ok(Value::string(hex))
 }

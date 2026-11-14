@@ -1,0 +1,35 @@
+day 2016.4
+
+# Rooms: an encrypted name, a sector ID and a checksum, as in
+# `aaaaa-bbb-z-y-x-123[abxyz]`. A room is real when the checksum is its
+# name's five most common letters, ties in alphabetical order.
+# Part 1: the sum of the real rooms' sector IDs.
+# Part 2: the sector ID of the room where North Pole objects are stored,
+#         once each name is decrypted by shifting its letters forward by
+#         the sector ID.
+
+example """
+aaaaa-bbb-z-y-x-123[abxyz]
+a-b-c-d-e-f-g-h-987[abcde]
+not-a-real-room-404[oarel]
+totally-real-room-200[decoy]
+"""
+  part1 = 1514
+
+answers
+  part1 = 173787
+  part2 = 548
+
+rooms = [(name, id, check) for "{name}-{id:int}[{check}]" in input.lines]
+
+checksum(name) = name.chars.filter(_ != '-').counts.items.sort_by(((c, n)) => (-n, c)).take(5).map(.0).join
+
+real = rooms.filter((name, _, check) => checksum(name) == check)
+
+part1 = real.map(.1).sum
+
+decrypt(name, id) = name.chars.map(c => if c == '-' then ' ' else chr((ord(c) - ord('a') + id) % 26 + ord('a'))).join
+
+test "decrypt" = decrypt("qzmt-zixmtkozy-ivhz", 343) == "very encrypted name"
+
+part2 = real.first(((name, id, _)) => "northpole" in decrypt(name, id)).1

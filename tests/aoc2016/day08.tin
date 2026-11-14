@@ -1,0 +1,38 @@
+day 2016.8
+include "../lib/ocr.tin"
+
+# A screen of pixels, 50 by 6, all off. `rect AxB` turns on the A by B
+# rectangle at the top left; `rotate row y=A by B` and `rotate column x=A
+# by B` move a row right or a column down, wrapping around.
+# Part 1: how many pixels are on at the end.
+# Part 2: the capital letters the screen shows.
+
+example """
+rect 3x2
+rotate column x=1 by 1
+rotate row y=0 by 4
+rotate column x=1 by 1
+"""
+  with width = 7
+  with height = 3
+  part1 = 6
+
+answers
+  part1 = 119
+  part2 = "ZFHFSFOGPO"
+
+width = 50
+height = 6
+
+# The screen is the set of pixels that are on.
+apply(lit, "rect {a:int}x{b:int}") = lit | {(x, y) for x in 0..<a for y in 0..<b}
+apply(lit, "rotate row y={r:int} by {n:int}") = {if y == r then ((x + n) % width, y) else (x, y) for (x, y) in lit}
+apply(lit, "rotate column x={c:int} by {n:int}") = {if x == c then (x, (y + n) % height) else (x, y) for (x, y) in lit}
+
+screen = input.lines.fold(set(), apply)
+
+part1 = screen.len
+
+rows = [(0..<width).map(x => if (x, y) in screen then '#' else '.').join for y in 0..<height]
+
+part2 = ocr(rows)

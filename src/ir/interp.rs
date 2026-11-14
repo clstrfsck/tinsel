@@ -1028,6 +1028,11 @@ pub(crate) fn exec(
             let b = next()?;
             Value::bool(it.compare_op(*o, &a, &b).map_err(at)?)
         }
+        Op::InIndices(_, _, not) => {
+            let x = next()?;
+            let coll = next()?;
+            Value::bool(in_indices(it, &x, &coll, span)? != *not)
+        }
         Op::Neg(_) => negate(&next()?).map_err(at)?,
         Op::Not(_) => match next()?.view() {
             V::Bool(b) => Value::bool(!b),
@@ -1097,7 +1102,7 @@ pub(crate) fn exec(
             for p in parts {
                 match p {
                     FmtPart::Lit(l) => s.push_str(l),
-                    FmtPart::Val(_) => s.push_str(&next()?.display()),
+                    FmtPart::Val(_) => next()?.write_display(&mut s),
                 }
             }
             Value::from_str_rc(s.into())
@@ -1224,4 +1229,31 @@ pub(crate) fn exec(
             Value::generator(Generator::flat_map(i, f, span))
         }
     })
+}
+
+/// `x in coll.indices` ([`Op::InIndices`]): for a list or tuple, a bounds
+/// check; otherwise the library's `indices` and `in` themselves, so the
+/// result and any error are theirs.
+pub(crate) fn in_indices(it: &mut Interp<'_>, x: &Value, coll: &Value, span: Span) -> Result<bool> {
+    let len = match coll.view() {
+        V::List(items) => Some(items.len()),
+        V::Tuple(items) => Some(items.len()),
+        _ => None,
+    };
+    if let Some(len) = len {
+        return Ok(matches!(x.as_small(), Some(i) if usize::try_from(i).is_ok_and(|i| i < len)));
+    }
+    let id =
+        crate::builtins::lookup("indices").ok_or_else(|| Error::new("internal: indices", span))?;
+    let r = (BUILTINS[id].f)(
+        it,
+        Args {
+            pos: vec![coll.clone()],
+            named: Vec::new(),
+            span,
+        },
+    )
+    .map_err(|e| e.at(span))?;
+    it.compare_op(CmpOp::In, x, &r)
+        .map_err(|m| Error::new(m, span))
 }

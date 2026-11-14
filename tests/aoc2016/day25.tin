@@ -1,0 +1,45 @@
+day 2016.25
+
+# Not from the puzzle: a program that, with a = 1, ends; with a = 2,
+# sends -1 first; and with a = 3, sends 0, 1, 0, 1, ... for ever.
+example """
+cpy a b
+dec b
+jnz b 2
+jnz 1 9
+dec b
+dec b
+out b
+inc b
+out b
+dec b
+jnz 1 -4
+"""
+  part1 = 3
+
+answers
+  part1 = 196
+
+# Assembunny with out, which sends a value (see assembunny.tin).
+# Part 1: the lowest positive value of a that makes the program send 0,
+#         1, 0, 1, ... for ever.
+
+include "assembunny.tin"
+
+program = assemble(input)
+
+# Runs the program, checking each value sent against the bit expected
+# next. Once it is back in a state it was in after an earlier out (the
+# same pc, program and registers, expecting the same bit), it will repeat
+# what it did since, so it sends 0, 1, 0, 1, ... for ever. A program that
+# ends doesn't.
+alternates(pc, prog, regs, bit, seen) =
+  if (pc, prog, regs, bit) in seen then true
+  else match run(pc, prog, regs)
+    ("out", v, pc2, prog2, regs2) =>
+      if v == bit then alternates(pc2, prog2, regs2, 1 - bit, seen | {(pc, prog, regs, bit)}) else false
+    ("end", _) => false
+
+clock(a) = alternates(0, program, [a, 0, 0, 0], 0, set())
+
+part1 = (1..).first(clock)
