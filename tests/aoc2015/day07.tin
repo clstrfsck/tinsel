@@ -1,0 +1,45 @@
+day 2015.7
+
+# A circuit of 16-bit wires: each gets a signal from a number, another
+# wire, or a gate (AND, OR, LSHIFT, RSHIFT, NOT) of wires and numbers.
+# Part 1: the signal on wire a.
+# Part 2: the signal on wire a, when wire b is given part 1's answer.
+
+example """
+123 -> x
+456 -> y
+x AND y -> d
+x OR y -> e
+x LSHIFT 2 -> f
+y RSHIFT 2 -> g
+NOT x -> h
+NOT y -> i"""
+  with wanted = "h"
+  part1 = 65412
+
+answers
+  part1 = 46065
+  part2 = 14134
+
+wanted = "a"
+
+# What drives each wire.
+wires = {w: e for "{e} -> {w}" in input.lines}
+
+# The signal on wire w, worked out from what drives it. `signal` is
+# recursive, so it is memoized: each wire is worked out once. It is local
+# to one call, so a different wiring starts afresh.
+signal_on(wiring, w) = signal(w)
+  where
+    signal(w) = output(wiring[w])
+    value("{n:int}") = n
+    value(x) = signal(x)
+    output("NOT {a}") = ~value(a) & 65535
+    output("{a} AND {b}") = value(a) & value(b)
+    output("{a} OR {b}") = value(a) | value(b)
+    output("{a} LSHIFT {n:int}") = (value(a) << n) & 65535
+    output("{a} RSHIFT {n:int}") = value(a) >> n
+    output(e) = value(e)
+
+part1 = signal_on(wires, wanted)
+part2 = signal_on(wires.set("b", str(part1)), wanted)

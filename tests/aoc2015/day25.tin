@@ -1,0 +1,24 @@
+day 2015.25
+
+# Codes written on an infinite sheet, diagonal by diagonal: the first is
+# 20151125, and each next one is the last times 252533, mod 33554393.
+# Part 1: the code at the row and column in the input.
+
+example "Enter the code at row 4, column 2."
+  part1 = 32_451_966
+
+example "Enter the code at row 6, column 6."
+  part1 = 27_995_004
+
+answers
+  part1 = 8_997_277
+
+[row, column] = input.ints
+
+# Codes before (row, column): the whole diagonals before its own, then
+# those above it on its own diagonal.
+before(r, c) = d * (d - 1) / 2 + c - 1
+  where
+    d = r + c - 1
+
+part1 = 20151125 * modpow(252533, before(row, column), 33554393) % 33554393

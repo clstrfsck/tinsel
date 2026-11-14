@@ -1,0 +1,37 @@
+day 2015.14
+
+# Reindeer fly at a speed for some seconds, then must rest for some
+# seconds, over and over.
+# Part 1: how far the winner has flown after 2503 seconds.
+# Part 2: the winner's points, where each second gives a point to every
+#         reindeer then in the lead.
+
+example """
+Comet can fly 14 km/s for 10 seconds, but then must rest for 127 seconds.
+Dancer can fly 16 km/s for 11 seconds, but then must rest for 162 seconds."""
+  with time = 1000
+  part1 = 1120
+  part2 = 689
+
+answers
+  part1 = 2696
+  part2 = 1084
+
+time = 2503
+
+reindeer = [(speed, fly, rest) for "{_} can fly {speed:int} km/s for {fly:int} seconds, but then must rest for {rest:int} seconds." in input.lines]
+
+# Whole fly-and-rest cycles, then whatever flying the rest of the time
+# allows.
+distance((speed, fly, rest), t) = speed * (cycles * fly + min(left, fly))
+  where
+    (cycles, left) = divmod(t, fly + rest)
+
+part1 = reindeer.map(distance(_, time)).max
+
+# Each second's leaders.
+leaders(t) = [r for r in reindeer if distance(r, t) == lead]
+  where
+    lead = reindeer.map(distance(_, t)).max
+
+part2 = [r for t in 1..time for r in leaders(t)].counts.values.max

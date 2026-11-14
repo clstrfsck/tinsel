@@ -1,0 +1,47 @@
+day 2015.18
+
+# A grid of lights playing the game of life: a light that is on stays on
+# with 2 or 3 neighbours on (of eight); one that is off turns on with
+# exactly 3. Lights beyond the edge count as off.
+# Part 1: how many lights are on after 100 steps.
+# Part 2: the same, when the four corner lights are stuck on.
+
+example """
+.#.#.#
+...##.
+#....#
+..#...
+#.#..#
+####.."""
+  with steps = 4
+  part1 = 4
+
+example """
+.#.#.#
+...##.
+#....#
+..#...
+#.#..#
+####.."""
+  with steps = 5
+  part2 = 17
+
+answers
+  part1 = 814
+  part2 = 924
+
+steps = 100
+
+grid = input.grid
+
+# One step, with the lights that are on as a set.
+step(on) = {p for (p, n) in lit.counts.items if grid.get(p) != none and (n == 3 or (n == 2 and p in on))}
+  where
+    # Each light, once for every neighbour of it that is on.
+    lit = [q for p in on for q in nbrs8(p)]
+
+part1 = iterate(grid.where('#'), step, times: steps).len
+
+corners = {(x, y) for x in [0, grid.width - 1] for y in [0, grid.height - 1]}
+
+part2 = iterate(grid.where('#') | corners, on => step(on) | corners, times: steps).len

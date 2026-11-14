@@ -1,0 +1,38 @@
+day 2015.20
+
+# Elf n delivers 10n presents to every nth house.
+# Part 1: the first house to get at least the number of presents in the
+#         input.
+# Part 2: the same, when each elf stops after 50 houses and delivers 11n
+#         presents to each.
+
+example "70"
+  part1 = 4
+
+example "130"
+  part1 = 8
+
+answers
+  part1 = 665_280
+  part2 = 705_600
+
+target = int(input.trim)
+
+# The presents for every house up to `limit`, elf by elf (a sieve),
+# updating one list in place: each elf gives `each` times its number to
+# at most `stops` houses (none for no limit).
+deliver(houses, elf, h, limit, each, stops) =
+  if elf > limit then houses
+  else if h > limit or (stops != none and h > elf * stops) then deliver(houses, elf + 1, elf + 1, limit, each, stops)
+  else deliver(houses.set(h, houses[h] + each * elf), elf, h + elf, limit, each, stops)
+
+# A sieve up to any limit gets every house up to it right (no elf past a
+# house visits it), so try limits from 1024, doubling, until some house
+# gets enough. House target / each gets enough from its own elf, so no
+# limit past that is needed.
+first_house(each, stops) = (0..).map(k => upto(min(1024 * 2 ** k, target / each))).first(_ != none)
+  where
+    upto(limit) = deliver([0].repeat(limit + 1), 1, 1, limit, each, stops).index(_ >= target)
+
+part1 = first_house(10, none)
+part2 = first_house(11, 50)

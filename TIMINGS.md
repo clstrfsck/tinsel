@@ -1,6 +1,6 @@
 # Solution timings
 
-How long each solution in `tests/aocYYYY/` (2016 to 2025) takes to solve
+How long each solution in `tests/aocYYYY/` (2015 to 2025) takes to solve
 both parts for the real input, with `tinsel run --no-examples`: compiled to
 machine code (the default since 2026-11-11, `reference/native-plan.md`) and
 on the tree-walking interpreter (`--tree`). The examples are left out because
@@ -22,9 +22,10 @@ Apple M3 Max, measured on 2026-11-14, and includes compiling the program
 | 2018 | 25 | 11.43 s | 29.73 s | day 15, 4.01 s |
 | 2017 | 25 | 10.14 s | 55.15 s | day 25, 2.12 s |
 | 2016 | 25 | 14.85 s | 18.50 s | day 5, 7.34 s |
-| **All** | **237** | **62.40 s** | **164.44 s** | |
+| 2015 | 25 | 5.00 s | 16.85 s | day 11, 1.22 s |
+| **All** | **262** | **67.40 s** | **181.29 s** | |
 
-219 of the 237 solutions finish in under a second natively, and 202 on the tree-walker.
+243 of the 262 solutions finish in under a second natively, and 222 on the tree-walker.
 
 The interpreter speedups of 2026-11-08 (reused call frames and argument
 vectors, parameters bound without copying, and fast paths for small-int
@@ -157,6 +158,13 @@ which hashes `n` times without a string per round, took 2016 day 14 from
 7.68 s to 5.50 s natively, and from 11.12 s to 6.20 s on the tree-walker.
 Day 5 now finds both passwords in one pass over the hashes (25 million,
 not 32 million), which took it from 9.10 s to 7.34 s natively.
+
+The 2015 solutions (`tests/aoc2015/`) were added on 2026-11-14 too, the
+third practice run. One found a library bug: `xs.last` copied the whole
+list to take its last element, so 2015 day 10's look-and-say, a `fold`
+that checks `out.last` on every digit, took 131 s; `last` now reads
+lists, tuples and strings directly, and day 10 takes 0.86 s for both
+parts.
 
 ## 2025
 
@@ -482,20 +490,68 @@ The slow ones:
 
 The slow ones:
 
-- **Day 5** computes 32 million MD5 hashes: 7 million for part 1, and 25
-  million for part 2, which starts again from index 0.
+- **Day 5** computes 25 million MD5 hashes, finding both passwords in
+  one pass.
 - **Day 14** computes 48 million: part 2 hashes each of about 23,700
   indices 2,017 times. On both MD5 days the time is mostly the hashing
   itself, about 100 ns a hash, which both engines share; Python takes
   15 s and 25 s.
 - **Day 25** runs the program for each value of `a` from 1 to 196,
-  stopping at its first wrong output.
+  stopping at its first wrong output, or when it is back in a state it
+  was in after an earlier output (so it alternates for ever).
 - **Day 11** searches the states of 7 pairs of generators and chips for
   part 2, with the pairs sorted so that which element is which doesn't
   count.
 - **Day 16** fills a disk of 35.6 million characters with string
   replacements and counts its zeros, all in the runtime both engines
   share, so it runs no faster natively.
+
+## 2015
+
+| Day | Puzzle | Native | Tree-walker |
+|---:|---|---:|---:|
+| 1 | [Not Quite Lisp](tests/aoc2015/day01.tin) | 0.00 s | 0.00 s |
+| 2 | [I Was Told There Would Be No Math](tests/aoc2015/day02.tin) | 0.00 s | 0.00 s |
+| 3 | [Perfectly Spherical Houses in a Vacuum](tests/aoc2015/day03.tin) | 0.00 s | 0.00 s |
+| 4 | [The Ideal Stocking Stuffer](tests/aoc2015/day04.tin) | 0.34 s | 0.37 s |
+| 5 | [Doesn't He Have Intern-Elves For This?](tests/aoc2015/day05.tin) | 0.01 s | 0.00 s |
+| 6 | [Probably a Fire Hazard](tests/aoc2015/day06.tin) | 0.45 s | 2.63 s |
+| 7 | [Some Assembly Required](tests/aoc2015/day07.tin) | 0.00 s | 0.00 s |
+| 8 | [Matchsticks](tests/aoc2015/day08.tin) | 0.00 s | 0.00 s |
+| 9 | [All in a Single Night](tests/aoc2015/day09.tin) | 0.06 s | 0.08 s |
+| 10 | [Elves Look, Elves Say](tests/aoc2015/day10.tin) | 0.86 s | 2.38 s |
+| 11 | [Corporate Policy](tests/aoc2015/day11.tin) | 1.22 s | 1.80 s |
+| 12 | [JSAbacusFramework.io](tests/aoc2015/day12.tin) | 0.06 s | 0.06 s |
+| 13 | [Knights of the Dinner Table](tests/aoc2015/day13.tin) | 0.15 s | 0.19 s |
+| 14 | [Reindeer Olympics](tests/aoc2015/day14.tin) | 0.01 s | 0.01 s |
+| 15 | [Science for Hungry People](tests/aoc2015/day15.tin) | 0.74 s | 1.24 s |
+| 16 | [Aunt Sue](tests/aoc2015/day16.tin) | 0.00 s | 0.00 s |
+| 17 | [No Such Thing as Too Much](tests/aoc2015/day17.tin) | 0.01 s | 0.01 s |
+| 18 | [Like a GIF For Your Yard](tests/aoc2015/day18.tin) | 0.24 s | 0.32 s |
+| 19 | [Medicine for Rudolph](tests/aoc2015/day19.tin) | 0.01 s | 0.00 s |
+| 20 | [Infinite Elves and Infinite Houses](tests/aoc2015/day20.tin) | 0.72 s | 7.63 s |
+| 21 | [RPG Simulator 20XX](tests/aoc2015/day21.tin) | 0.01 s | 0.00 s |
+| 22 | [Wizard Simulator 20XX](tests/aoc2015/day22.tin) | 0.02 s | 0.03 s |
+| 23 | [Opening the Turing Lock](tests/aoc2015/day23.tin) | 0.00 s | 0.00 s |
+| 24 | [It Hangs in the Balance](tests/aoc2015/day24.tin) | 0.09 s | 0.10 s |
+| 25 | [Let It Snow](tests/aoc2015/day25.tin) | 0.00 s | 0.00 s |
+
+The slow ones:
+
+- **Day 11** steps through about 740,000 passwords for both parts
+  (skipping any with i, o or l), checking each for a straight and two
+  pairs.
+- **Day 10** grows the look-and-say sequence to 3.6 million digits over
+  50 steps.
+- **Day 20** sieves the houses' presents up to a limit that doubles
+  until a house has enough, a million houses for each part: 28 million
+  updates for part 1 and 9 million for part 2, where each elf stops
+  after 50 houses. The tree-walker is ten times slower.
+- **Day 15** scores all 176,851 ways to split 100 teaspoons between four
+  ingredients.
+- **Day 6** applies 300 rectangles of instructions to a grid of lights,
+  working on the blocks between the rectangles' edges (442 by 444) rather
+  than on a million lights: 4 million updates for each part.
 
 ## Measuring again
 

@@ -1,0 +1,22 @@
+day 2015.4
+
+# AdventCoin mining: a secret key followed by a number, hashed with MD5.
+# Part 1: the lowest positive number whose hash starts with five zeros.
+# Part 2: the same, with six zeros.
+
+example "abcdef"
+  part1 = 609043
+
+example "pqrstuv"
+  part1 = 1048970
+
+answers
+  part1 = 254575
+  part2 = 1_038_736
+
+key = input.trim
+
+mine(zeros) = (1..).first(n => md5("{key}{n}").starts_with(zeros))
+
+part1 = mine("00000")
+part2 = mine("000000")

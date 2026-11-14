@@ -1,6 +1,6 @@
-# Reference solutions and answers (2016 to 2024)
+# Reference solutions and answers (2015 to 2024)
 
-Where the expected answers in `tests/aoc2016/` to `tests/aoc2024/` come
+Where the expected answers in `tests/aoc2015/` to `tests/aoc2024/` come
 from. For 2025, see [`2025/README.md`](2025/README.md): the user's own
 published solutions, in several languages.
 
@@ -145,3 +145,32 @@ tests. Several answers rest on reasoning as well as computation:
   all eight cases.
 - **Day 11:** states treat elements as interchangeable; the Python check
   searched with every element named.
+
+## 2015
+
+Converted on 2026-11-14, the third practice run, also with puzzles new
+to this account. As for 2016, every answer, both parts, was checked
+against separately written Python scripts (not kept), then submitted;
+all 49 were accepted. The `example` blocks hold the puzzles' worked
+examples. Day 16 has none; day 21's example fight and day 22's two
+example fights are `test`s instead, since they are fights rather than
+inputs; and day 19's part 2 example is left out, as explained below.
+Some answers rest on reasoning:
+
+- **Day 19, part 2:** every rule turns one atom into two, or into
+  `X Rn X Ar` with any number of `Y X` before the `Ar`, so every way to
+  build the molecule from `e` takes the same number of steps, worked out
+  by counting atoms. The solution checks that every rule has one of
+  those shapes, and is an error otherwise. The puzzle's example has
+  rules such as `e => H` that don't fit, so it isn't checked. The Python
+  check reduced the molecule back to `e` with random replacements, 20
+  times, always in 212 steps.
+- **Day 24:** the first group is checked by searching for a full split of
+  the other packages into the remaining groups (two, then three); the
+  weights are all different. The Python check did the same search
+  independently.
+- **Day 6:** both parts work on blocks between the rectangles' edges, not
+  on single lights; the Python check used the full million lights.
+- **Day 20:** the sieve runs to a limit that doubles from 1024, since a
+  sieve to any limit is exact for the houses up to it; the Python check
+  sieved to the input divided by 10 (or 11).

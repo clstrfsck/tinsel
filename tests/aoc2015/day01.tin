@@ -1,0 +1,41 @@
+day 2015.1
+
+# Brackets move Santa between floors: `(` up one, `)` down one, from
+# floor 0.
+# Part 1: the floor he ends on.
+# Part 2: the position (from 1) of the move that first takes him to
+#         floor -1.
+
+example "(())"
+  part1 = 0
+
+example "(()(()("
+  part1 = 3
+
+example "))((((("
+  part1 = 3
+
+example "))("
+  part1 = -1
+
+example ")())())"
+  part1 = -3
+
+example ")"
+  part2 = 1
+
+example "()())"
+  part2 = 5
+
+answers
+  part1 = 138
+  part2 = 1771
+
+moves = input.trim.chars
+
+part1 = moves.count('(') - moves.count(')')
+
+# The floor after each move, from the start (position 0).
+floors = moves.scan(0, (f, c) => if c == '(' then f + 1 else f - 1)
+
+part2 = floors.index(-1)

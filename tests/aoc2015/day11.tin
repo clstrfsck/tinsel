@@ -1,0 +1,38 @@
+day 2015.11
+
+# Santa's next password: count upwards like a number in letters (xx, xy,
+# xz, ya, ...) until a valid one: with a straight of three letters (abc,
+# bcd, ...), no i, o or l, and two different pairs (aa, bb, ...).
+# Part 1: the next valid password.
+# Part 2: the next valid password after that.
+
+example "abcdefgh"
+  part1 = "abcdffaa"
+
+example "ghijklmn"
+  part1 = "ghjaabcc"
+
+answers
+  part1 = "cqjxxyzz"
+  part2 = "cqkaabcc"
+
+# The next password in order, as a list of letters.
+bump(cs) =
+  if cs.last == 'z' then bump(cs.take(cs.len - 1)) ++ ['a']
+  else cs.set(cs.len - 1, chr(ord(cs.last) + 1))
+
+# Skips every password with an i, o or l: past the first one, all the
+# letters become a.
+skip(cs) = match cs.index(c => c in "iol")
+  none => cs
+  i => cs.take(i) ++ [chr(ord(cs[i]) + 1)] ++ ['a'].repeat(cs.len - i - 1)
+
+next(cs) = skip(bump(cs))
+
+valid(cs) = cs.windows(3).any(([a, b, c]) => ord(b) == ord(a) + 1 and ord(c) == ord(b) + 1)
+  and set(a for [a, b] in cs.windows(2) if a == b).len >= 2
+
+after(password) = iterate(next(password.chars), next).first(valid).join
+
+part1 = after(input.trim)
+part2 = after(part1)

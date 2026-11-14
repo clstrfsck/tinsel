@@ -1,0 +1,31 @@
+day 2015.2
+
+# Presents are boxes, given as LxWxH.
+# Part 1: the wrapping paper needed: each box's surface area, plus the
+#         area of its smallest side.
+# Part 2: the ribbon needed: the smallest perimeter of a side, plus the
+#         volume.
+
+example "2x3x4"
+  part1 = 58
+  part2 = 34
+
+example "1x1x10"
+  part1 = 43
+  part2 = 14
+
+answers
+  part1 = 1598415
+  part2 = 3_812_909
+
+boxes = [(l, w, h) for "{l:int}x{w:int}x{h:int}" in input.lines]
+
+paper((l, w, h)) = 2 * sides.sum + sides.min
+  where
+    sides = [l * w, w * h, h * l]
+
+part1 = boxes.map(paper).sum
+
+ribbon((l, w, h)) = 2 * ([l, w, h].sort.take(2).sum) + l * w * h
+
+part2 = boxes.map(ribbon).sum

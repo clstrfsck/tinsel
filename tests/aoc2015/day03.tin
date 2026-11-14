@@ -1,0 +1,38 @@
+day 2015.3
+
+# Santa follows arrows (^ v < >) on an infinite grid of houses,
+# delivering a present at each house he reaches, starting with the first.
+# Part 1: how many houses get at least one present.
+# Part 2: the same, when Santa and Robo-Santa take turns with the arrows.
+
+example ">"
+  part1 = 2
+
+example "^v"
+  part2 = 3
+
+example "^>v<"
+  part1 = 4
+  part2 = 3
+
+example "^v^v^v^v^v"
+  part1 = 2
+  part2 = 11
+
+answers
+  part1 = 2081
+  part2 = 2341
+
+step = {'^': N, 'v': S, '<': W, '>': E}
+
+# Every house visited, in order, from the start.
+houses(arrows) = arrows.scan((0, 0), (p, c) => p + step[c])
+
+arrows = input.trim.chars
+
+part1 = set(houses(arrows)).len
+
+# Santa takes the even arrows, Robo-Santa the odd ones.
+turns(k) = [c for (i, c) in arrows.enumerate if i % 2 == k]
+
+part2 = (set(houses(turns(0))) | set(houses(turns(1)))).len

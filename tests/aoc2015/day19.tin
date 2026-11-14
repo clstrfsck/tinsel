@@ -1,0 +1,61 @@
+day 2015.19
+
+# Replacements for parts of a molecule (H => HO), then the molecule.
+# Part 1: how many different molecules one replacement can make.
+# Part 2: the fewest replacements that make the molecule from e.
+#
+# The puzzle's part 2 example has rules such as e => H, with one atom on
+# the right, which the counting below doesn't cover (the real inputs have
+# none), so it isn't checked here; its answers are 3 and 6.
+
+example """
+H => HO
+H => OH
+O => HH
+
+HOH"""
+  part1 = 4
+
+example """
+H => HO
+H => OH
+O => HH
+
+HOHOHO"""
+  part1 = 7
+
+answers
+  part1 = 535
+  part2 = 212
+
+[rules, molecule] = input.blocks
+replacements = [(a, b) for "{a} => {b}" in rules.lines]
+start = molecule.trim
+
+# Each molecule from replacing one occurrence of a with b.
+replaced(s, (a, b)) = [s[..<i] ++ b ++ s[i + a.len..] for i in s.indices if s[i..].starts_with(a)]
+
+part1 = set(m for r in replacements for m in replaced(start, r)).len
+
+# The atoms of a molecule: an upper-case letter and any lower-case one
+# after it (or e, the electron).
+atoms(s) = [if i + 1 < s.len and s[i + 1].is_lower then s[i..<i + 2] else s[i..<i + 1] for i in s.indices if not s[i].is_lower or s[i] == 'e']
+
+# Every rule turns one atom into two (X X), or into X Rn X Ar with any
+# number of Y X before the Ar; Rn, Y and Ar appear nowhere else. Then
+# every way to build the molecule takes the same number of steps: each
+# adds one atom, plus one for every Rn and Ar it makes and two for every
+# Y.
+shaped(rule) = rule.0 not in special and (pair or bracketed)
+  where
+    a = atoms(rule.1)
+    pair = a.len == 2 and not a.any(_ in special)
+    bracketed = a.len >= 4 and a[1] == "Rn" and a.last == "Ar"
+      and a.indices.all(i => i in [1, a.len - 1] or (if i % 2 == 0 then a[i] not in special else a[i] == "Y"))
+
+special = ["Rn", "Y", "Ar"]
+
+part2 = match replacements.all(shaped)
+  true => molecule_atoms.len - molecule_atoms.count("Rn") - molecule_atoms.count("Ar") - 2 * molecule_atoms.count("Y") - 1
+  where
+    molecule_atoms = atoms(start)

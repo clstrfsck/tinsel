@@ -1,0 +1,34 @@
+day 2015.21
+
+# An RPG fight against a boss: buy one weapon, at most one armour and at
+# most two rings, then trade blows (damage less armour, at least 1) until
+# someone is at 0 hit points; you go first, with 100 hit points.
+# Part 1: the least gold that still wins.
+# Part 2: the most gold that still loses.
+
+answers
+  part1 = 91
+  part2 = 158
+
+# (cost, damage, armour)
+weapons = [(8, 4, 0), (10, 5, 0), (25, 6, 0), (40, 7, 0), (74, 8, 0)]
+armour = [(13, 0, 1), (31, 0, 2), (53, 0, 3), (75, 0, 4), (102, 0, 5)]
+rings = [(25, 1, 0), (50, 2, 0), (100, 3, 0), (20, 0, 1), (40, 0, 2), (80, 0, 3)]
+
+boss = tuple(input.ints)
+
+# Every allowed set of items, as their total (cost, damage, armour).
+kits = [w + a + rs.sum for w in weapons for a in [(0, 0, 0)] ++ armour
+        for rs in [[(0, 0, 0)]] ++ rings.combos(1).map(list) ++ rings.combos(2).map(list)]
+
+# Whether (hit points, damage, armour) beats the boss: it takes no more of
+# your turns to kill the boss than the boss's turns to kill you.
+wins((hp, damage, armour), (boss_hp, boss_damage, boss_armour)) =
+  turns(boss_hp, damage - boss_armour) <= turns(hp, boss_damage - armour)
+
+turns(hp, hit) = (hp + max(hit, 1) - 1) / max(hit, 1)
+
+test "the puzzle's example fight" = wins((8, 5, 5), (12, 7, 2))
+
+part1 = kits.filter(((_, d, a)) => wins((100, d, a), boss)).map(.0).min
+part2 = kits.filter(((_, d, a)) => not wins((100, d, a), boss)).map(.0).max
