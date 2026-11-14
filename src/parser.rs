@@ -359,11 +359,22 @@ impl Parser {
                     annotation,
                 })
             }
-            (Tok::Ident(_), Tok::Assign) | (Tok::LParen, _) | (Tok::LBracket, _) => {
+            (Tok::Ident(_), Tok::Assign)
+            | (Tok::LParen | Tok::LBracket | Tok::Str(_) | Tok::TripleStr(_), _) => {
                 if annotation.is_some() {
                     return Err(Error::new("annotations apply only to functions", start));
                 }
                 let pat = self.pattern()?;
+                // Constants are lazy: one that binds no names is never
+                // computed, so its pattern would never be checked.
+                let mut binds = false;
+                pat.bindings(&mut |_| binds = true);
+                if !binds {
+                    return Err(Error::new(
+                        "this pattern binds no names, so nothing would ever check it",
+                        pat.span,
+                    ));
+                }
                 self.expect(&Tok::Assign, "in definition")?;
                 let body = self.rhs()?;
                 let wheres = self.definition_wheres(&body)?;

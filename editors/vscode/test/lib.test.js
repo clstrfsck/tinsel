@@ -111,8 +111,11 @@ function problems(matcherName, outputText) {
   return found;
 }
 
-const binary = ['release', 'debug']
-  .map((b) => path.join(root, 'target', b, process.platform === 'win32' ? 'tinsel.exe' : 'tinsel'))
+const binary = (process.env.TINSEL_BIN
+  ? [process.env.TINSEL_BIN]
+  : ['release', 'debug']
+    .map((b) => path.join('target', b, process.platform === 'win32' ? 'tinsel.exe' : 'tinsel')))
+  .map((p) => path.resolve(root, p))
   .find((p) => fs.existsSync(p));
 
 /** Runs the CLI, which may fail; gives stdout and stderr together. */
@@ -216,8 +219,23 @@ test('tinsel check --json gives errors with ranges', { skip: !binary && 'no tins
 test('every check tinsel test --json reports is one findChecks finds', { skip: !binary && 'no tinsel build' }, () => {
   // The Test Explorer matches results to its items by file and line, so
   // both must agree on where each check is, what kind it is and its name.
-  const dirs = ['tests/features', 'tests/aoc2025', 'tests/aoc2018'].map((d) => path.join(root, d));
-  const results = lib.parseJsonLines(cli(['test', '--json', ...dirs]));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tinsel-checks-'));
+  fs.writeFileSync(path.join(dir, 'defs.tin'), 'answer = 3\n');
+  const fixture = path.join(dir, 'checks.tin');
+  fs.writeFileSync(fixture, [
+    'day 2099.1',
+    'include "defs.tin"',
+    'test "plain" = answer == 3',
+    'test_error "error" = [][0]',
+    'example "example input"',
+    '  part1 = 3',
+    'answers',
+    '  part1 = 3',
+    'part1 = answer',
+    '',
+  ].join('\n'));
+  const targets = [path.join(root, 'tests/features'), fixture];
+  const results = lib.parseJsonLines(cli(['test', '--json', ...targets]));
   const summary = results.pop();
   assert.ok('passed' in summary, 'ends with a summary');
   assert.strictEqual(summary.failed, 0);

@@ -12,8 +12,14 @@
 //! on the IR interpreter (`tinsel::ir`) and natively (`tinsel::native`) as
 //! well. `TIN_ENGINE=ir` runs every file on the IR interpreter only,
 //! `TIN_ENGINE=native` natively only, and `TIN_ENGINE=tree` on the
-//! tree-walker only.
+//! tree-walker only. Runs use up to 12 worker threads, limited by available
+//! parallelism; `TIN_JOBS=N` overrides that, and `TIN_JOBS=1` keeps serial
+//! output for debugging.
 
+mod support;
+
+use std::fmt::Write as _;
+use std::num::NonZeroUsize;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -33,14 +39,164 @@ fn collect(dir: &Path, out: &mut Vec<PathBuf>) {
     }
 }
 
+#[derive(Clone)]
+struct Run {
+    file: PathBuf,
+    which: &'static str,
+}
+
+#[derive(Default)]
+struct Report {
+    output: String,
+    passed: usize,
+    failed: usize,
+    skipped: usize,
+}
+
+fn shown_path(root: &Path, run: &Run) -> PathBuf {
+    let rel = run.file.strip_prefix(root).unwrap_or(&run.file);
+    if run.which == "tree" {
+        rel.to_path_buf()
+    } else {
+        PathBuf::from(format!("[{}] {}", run.which, rel.display()))
+    }
+}
+
+/// Loads, compiles and executes one file on one engine. Everything that
+/// contains `Rc` stays on this worker thread and is dropped before return.
+fn run_inner(root: &Path, run: &Run, verbose: bool) -> Report {
+    let rel = shown_path(root, run);
+    let rel = rel.as_path();
+    let mut report = Report::default();
+    let program = match load(&run.file) {
+        Ok(p) => p,
+        Err(e) => {
+            let _ = writeln!(
+                report.output,
+                "FAIL {}: does not compile\n      {}",
+                rel.display(),
+                format_error(rel, e.src.as_deref(), &e.files, &e.err)
+            );
+            report.failed += 1;
+            return report;
+        }
+    };
+    let engine = match run.which {
+        "ir" => Engine::ir(&program),
+        "native" => Engine::native(&program),
+        _ => Ok(Engine::Tree),
+    };
+    let engine = match engine {
+        Ok(e) => e,
+        Err(e) => {
+            let _ = writeln!(
+                report.output,
+                "FAIL {}: does not compile: {}",
+                rel.display(),
+                e.msg
+            );
+            report.failed += 1;
+            return report;
+        }
+    };
+    let results = run_checks_with(&program, &run.file, &engine);
+    for r in results {
+        let loc = format!("{}:{}", rel.display(), r.line);
+        match r.outcome {
+            Outcome::Pass => {
+                report.passed += 1;
+                if verbose {
+                    let _ = writeln!(report.output, "pass {loc} {} {:?}", r.kind, r.name);
+                }
+            }
+            Outcome::Fail(msg) => {
+                report.failed += 1;
+                let _ = writeln!(
+                    report.output,
+                    "FAIL {loc} {} {:?}\n      {msg}",
+                    r.kind, r.name
+                );
+            }
+            Outcome::Skip(why) => {
+                report.skipped += 1;
+                let _ = writeln!(report.output, "skip {loc} {} ({why})", r.kind);
+            }
+        }
+    }
+    report
+}
+
+/// Contains a whole run's panics and checks its thread-local live word count
+/// after unwinding has dropped the program and engine.
+fn run_one(root: &Path, run: &Run, verbose: bool, show_tree_leaks: bool) -> Report {
+    let live_before = tinsel::value::word::live::words();
+    let mut report = match catch_unwind(AssertUnwindSafe(|| run_inner(root, run, verbose))) {
+        Ok(report) => report,
+        Err(_) => {
+            let mut report = Report {
+                failed: 1,
+                ..Report::default()
+            };
+            let _ = writeln!(
+                report.output,
+                "FAIL {}: the interpreter panicked",
+                shown_path(root, run).display()
+            );
+            report
+        }
+    };
+    let leaked = tinsel::value::word::live::words() - live_before;
+    if leaked != 0 && run.which != "tree" {
+        report.failed += 1;
+        report.output.insert_str(
+            0,
+            &format!(
+                "FAIL {}: {leaked} heap values leaked (or freed twice)\n",
+                shown_path(root, run).display()
+            ),
+        );
+    } else if leaked != 0 && show_tree_leaks {
+        report.output.insert_str(
+            0,
+            &format!(
+                "leak {}: {leaked} heap values\n",
+                shown_path(root, run).display()
+            ),
+        );
+    }
+    report
+}
+
+fn job_count() -> Result<usize, String> {
+    match std::env::var("TIN_JOBS") {
+        Ok(s) => s
+            .parse::<NonZeroUsize>()
+            .map(NonZeroUsize::get)
+            .map_err(|_| format!("TIN_JOBS must be a positive integer, found `{s}`")),
+        Err(std::env::VarError::NotPresent) => Ok(std::thread::available_parallelism()
+            .map(NonZeroUsize::get)
+            .unwrap_or(1)
+            .min(12)),
+        Err(std::env::VarError::NotUnicode(_)) => Err("TIN_JOBS must be a positive integer".into()),
+    }
+}
+
 fn main() -> ExitCode {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let filters: Vec<String> = std::env::args()
         .skip(1)
         .filter(|a| !a.starts_with('-'))
         .collect();
     let verbose = std::env::var_os("TIN_VERBOSE").is_some();
+    let show_tree_leaks = std::env::var_os("TIN_LEAKS").is_some();
     let engine = std::env::var("TIN_ENGINE").unwrap_or_default();
+    let jobs = match job_count() {
+        Ok(n) => n,
+        Err(e) => {
+            eprintln!("error: {e}");
+            return ExitCode::FAILURE;
+        }
+    };
 
     let mut files = Vec::new();
     collect(&root.join("tests"), &mut files);
@@ -53,99 +209,46 @@ fn main() -> ExitCode {
     });
 
     // (file, engine: "tree", "ir" or "native")
-    let mut runs: Vec<(&PathBuf, &str)> = Vec::new();
+    let mut runs = Vec::new();
     for file in &files {
         let feature = file.starts_with(root.join("tests").join("features"));
         let all = engine.is_empty() && feature;
         for e in ["tree", "ir", "native"] {
             if engine == e || all || (engine.is_empty() && e == "tree") {
-                runs.push((file, e));
+                runs.push(Run {
+                    file: file.clone(),
+                    which: e,
+                });
             }
         }
     }
 
     let (mut passed, mut failed, mut skipped) = (0, 0, 0);
-    for &(file, which) in &runs {
-        let rel = file.strip_prefix(root).unwrap_or(file);
-        let rel = if which == "tree" {
-            rel.to_path_buf()
-        } else {
-            PathBuf::from(format!("[{which}] {}", rel.display()))
-        };
-        let rel = rel.as_path();
-        let live_before = tinsel::value::word::live::words();
-        let program = match load(file) {
-            Ok(p) => p,
-            Err(e) => {
-                println!(
-                    "FAIL {}: does not compile\n      {}",
-                    rel.display(),
-                    format_error(rel, e.src.as_deref(), &e.files, &e.err)
-                );
-                failed += 1;
-                continue;
-            }
-        };
-        let engine = match which {
-            "ir" => Engine::ir(&program),
-            "native" => Engine::native(&program),
-            _ => Ok(Engine::Tree),
-        };
-        let engine = match engine {
-            Ok(e) => e,
-            Err(e) => {
-                println!("FAIL {}: does not compile: {}", rel.display(), e.msg);
-                failed += 1;
-                continue;
-            }
-        };
-        let results = match catch_unwind(AssertUnwindSafe(|| {
-            run_checks_with(&program, file, &engine)
-        })) {
-            Ok(r) => r,
+    let reports = support::parallel::map(runs.len(), jobs, |i| {
+        run_one(&root, &runs[i], verbose, show_tree_leaks)
+    });
+    for (run, report) in runs.iter().zip(reports) {
+        let report = match report {
+            Ok(report) => report,
             Err(_) => {
-                println!("FAIL {}: the interpreter panicked", rel.display());
-                failed += 1;
-                continue;
+                let mut report = Report {
+                    failed: 1,
+                    ..Report::default()
+                };
+                let _ = writeln!(
+                    report.output,
+                    "FAIL {}: the worker panicked",
+                    shown_path(&root, run).display()
+                );
+                report
             }
         };
-        drop(engine);
-        drop(program);
-        // Debug builds count live heap values. The IR engines must free
-        // everything; the tree-walker has a known exception (lambdas that
-        // escape a frame whose own `where` constants refer back to it), so
-        // its leaks are only shown with `TIN_LEAKS=1`.
-        let leaked = tinsel::value::word::live::words() - live_before;
-        if leaked != 0 && which != "tree" {
-            println!(
-                "FAIL {}: {leaked} heap values leaked (or freed twice)",
-                rel.display()
-            );
-            failed += 1;
-        } else if leaked != 0 && std::env::var_os("TIN_LEAKS").is_some() {
-            println!("leak {}: {leaked} heap values", rel.display());
-        }
-        for r in results {
-            let loc = format!("{}:{}", rel.display(), r.line);
-            match r.outcome {
-                Outcome::Pass => {
-                    passed += 1;
-                    if verbose {
-                        println!("pass {loc} {} {:?}", r.kind, r.name);
-                    }
-                }
-                Outcome::Fail(msg) => {
-                    failed += 1;
-                    println!("FAIL {loc} {} {:?}\n      {msg}", r.kind, r.name);
-                }
-                Outcome::Skip(why) => {
-                    skipped += 1;
-                    println!("skip {loc} {} ({why})", r.kind);
-                }
-            }
-        }
+        print!("{}", report.output);
+        passed += report.passed;
+        failed += report.failed;
+        skipped += report.skipped;
     }
-    let on = |e: &str| runs.iter().filter(|r| r.1 == e).count();
+    let on = |e: &str| runs.iter().filter(|r| r.which == e).count();
     println!(
         "\n{} files ({} on the tree-walker, {} on the IR interpreter, {} native): \
          {passed} passed, {failed} failed, {skipped} skipped",

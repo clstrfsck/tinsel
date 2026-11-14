@@ -47,9 +47,7 @@ decompressed(s, i, n, inner) =
   else decompressed(s, end + 1 + span, n + times * inner(s[end + 1..<end + 1 + span]), inner)
   where
     end = i + s[i..].index(")")
-    (span, times) = marker(s[i + 1..<end])
-
-marker("{span:int}x{times:int}") = (span, times)
+    "{span:int}x{times:int}" = s[i + 1..<end]
 
 part1 = decompressed(text, 0, 0, .len)
 

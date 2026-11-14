@@ -232,6 +232,17 @@ test "parsing a line" = parse("Rudolph is 7 years old") == ("Rudolph", 7)
 test "patterns filter" = [n for "x={n:int}" in ["x=1", "y=2", "x=3"]] == [1, 3]
 ```
 
+A string pattern can also be the left-hand side of a constant, at the top
+level or in a `where` block:
+
+```tinsel
+present_volume(size) = l * w * h
+  where
+    "{l:int}x{w:int}x{h:int}" = size
+
+test "a pattern as a constant" = present_volume("2x3x4") == 24
+```
+
 For a record that takes several lines, write the pattern in triple
 quotes, laid out like the text. Each line of the pattern matches one line
 of the text, so a missing or extra line means no match.
