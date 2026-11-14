@@ -46,7 +46,9 @@ Against the goals in `native-plan.md` section 1:
   time is mostly list slicing in the shared runtime), is now 1.41 s
   natively against 1.96 s. Of the 2017 solutions added that day, day 14
   is level (0.50 s on both), for the same reason: its knot hashes are
-  list reversals and joins in the runtime.
+  list reversals and joins in the runtime. So is 2016 day 16 (0.29 s
+  against 0.27 s on 2026-11-14), whose time is string replacements and
+  counts.
 - **Faster than Racket on every solution:** yes, on all 15.
 - **Median speed-up of at least 3×:** 3.0× against today's tree-walker,
   met since the `where` change of 2026-11-13 (2.9× before), and 4.2×

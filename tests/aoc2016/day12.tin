@@ -2,6 +2,7 @@ day 2016.12
 
 # Assembunny: cpy, inc, dec and jnz, with registers a to d starting at 0.
 # Part 1: the value in a when the program ends.
+# Part 2: the same, with register c starting at 1.
 
 include "assembunny.tin"
 
@@ -17,7 +18,9 @@ dec a
 
 answers
   part1 = 318083
+  part2 = 9227737
 
 program = assemble(input)
 
 part1 = registers(program, [0, 0, 0, 0])[0]
+part2 = registers(program, [0, 0, 1, 0])[0]

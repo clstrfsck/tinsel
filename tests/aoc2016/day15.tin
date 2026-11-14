@@ -4,6 +4,8 @@ day 2016.15
 # time t reaches disc k at time t + k, and passes if the disc is then at
 # position 0.
 # Part 1: the first time to press the button.
+# Part 2: the same, with another disc below the others: 11 positions,
+#         starting at 0.
 
 example """
 Disc #1 has 5 positions; at time=0, it is at position 4.
@@ -13,8 +15,12 @@ Disc #2 has 2 positions; at time=0, it is at position 1.
 
 answers
   part1 = 16824
+  part2 = 3543984
 
 discs = [(k, n, p) for "Disc #{k:int} has {n:int} positions; at time=0, it is at position {p:int}." in input.lines]
 
 # Disc k passes when p + t + k is a multiple of n: t = -(p + k) mod n.
-part1 = crt([((-(p + k)) % n, n) for (k, n, p) in discs]).0
+first_time(ds) = crt([((-(p + k)) % n, n) for (k, n, p) in ds]).0
+
+part1 = first_time(discs)
+part2 = first_time(discs ++ [(discs.len + 1, 11, 0)])

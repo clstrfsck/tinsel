@@ -4,6 +4,7 @@ day 2016.18
 # when exactly one of the two tiles beside it in the row above is (the
 # trap rules come down to that); off the ends counts as safe.
 # Part 1: the safe tiles in 40 rows.
+# Part 2: the safe tiles in 400000 rows.
 
 example ".^^.^.^^^^"
   with rows = 10
@@ -11,6 +12,7 @@ example ".^^.^.^^^^"
 
 answers
   part1 = 1926
+  part2 = 19986699
 
 rows = 40
 
@@ -26,3 +28,4 @@ next(r) = ((r << 1) xor (r >> 1)) & (2 ** width - 1)
 safe(n) = iterate(start, next).take(n).map(r => width - r.ones).sum
 
 part1 = safe(rows)
+part2 = safe(400000)

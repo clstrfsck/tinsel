@@ -3,6 +3,7 @@ day 2016.10
 # Bots pass microchips: each, once it holds two, gives its low and high
 # chip to other bots or to output bins. Some chips start in bots.
 # Part 1: the bot that compares chips 61 and 17.
+# Part 2: the product of the chips in outputs 0, 1 and 2.
 
 example """
 value 5 goes to bot 2
@@ -14,9 +15,11 @@ value 2 goes to bot 2
 """
   with wanted = {2, 5}
   part1 = 2
+  part2 = 30
 
 answers
   part1 = 73
+  part2 = 3965
 
 wanted = {17, 61}
 
@@ -37,3 +40,4 @@ passed(b, "high") = holds(("bot", b)).max
 bots = set(b for (_, b, _) in passes)
 
 part1 = bots.first(b => set(holds(("bot", b))) == wanted)
+part2 = [holds(("output", o)).first for o in 0..2].product

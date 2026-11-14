@@ -18,24 +18,57 @@ toggled((_, x, y)) = ("jnz", x, y)
 
 toggle(prog, t) = if t in prog.indices then prog.set(t, toggled(prog[t])) else prog
 
-# Runs from instruction pc until the program ends, or until it has sent
-# `limit` values with out: the registers then, and the values sent. An
+# Loops that add or multiply with inc and dec, done in one step: how many
+# instructions they take and the registers after, or none. `inc a, dec b,
+# jnz b -2` (inc and dec either way round) adds b to a and leaves b 0;
+# `cpy x c, inc a, dec c, jnz c -2, dec d, jnz d -5` adds x * d to a and
+# leaves c and d 0. Each applies only when its counters start positive and
+# the registers are distinct, so the result is what running the loop would
+# give. They read the program as it is now, so tgl is respected.
+shortcut([("cpy", x, (true, c)), ("inc", (true, a)), ("dec", (true, c2)), ("jnz", (true, c3), (false, -2)), ("dec", (true, d)), ("jnz", (true, d2), (false, -5)), ..], regs)
+  when c == c2 and c == c3 and d == d2 and {a, c, d}.len == 3 and x not in [(true, a), (true, c), (true, d)]
+       and value(regs, x) > 0 and regs[d] > 0
+  = (6, regs.set(a, regs[a] + value(regs, x) * regs[d]).set(c, 0).set(d, 0))
+shortcut([("inc", (true, a)), ("dec", (true, b)), ("jnz", (true, b2), (false, -2)), ..], regs)
+  when b == b2 and a != b and regs[b] > 0
+  = (3, regs.set(a, regs[a] + regs[b]).set(b, 0))
+shortcut([("dec", (true, b)), ("inc", (true, a)), ("jnz", (true, b2), (false, -2)), ..], regs)
+  when b == b2 and a != b and regs[b] > 0
+  = (3, regs.set(a, regs[a] + regs[b]).set(b, 0))
+shortcut(_, _) = none
+
+# Runs from instruction pc until the program ends, or until `more(sent)`
+# is false after an out: the registers then, and the values sent. An
 # instruction that tgl has made meaningless (such as cpy into a number) is
 # skipped.
-run(pc, prog, regs, sent, limit) =
-  if pc not in prog.indices or sent.len >= limit then (regs, sent)
-  else match prog[pc]
-    ("cpy", x, (true, r)) => run(pc + 1, prog, regs.set(r, value(regs, x)), sent, limit)
-    ("inc", (true, r)) => run(pc + 1, prog, regs.set(r, regs[r] + 1), sent, limit)
-    ("dec", (true, r)) => run(pc + 1, prog, regs.set(r, regs[r] - 1), sent, limit)
-    ("jnz", x, y) => run(pc + (if value(regs, x) != 0 then value(regs, y) else 1), prog, regs, sent, limit)
-    ("tgl", x) => run(pc + 1, toggle(prog, pc + value(regs, x)), regs, sent, limit)
-    ("out", x) => run(pc + 1, prog, regs, sent ++ [value(regs, x)], limit)
-    _ => run(pc + 1, prog, regs, sent, limit)
+run(pc, prog, regs, sent, more) =
+  if pc not in prog.indices then (regs, sent)
+  else match shortcut(prog[pc..<pc + 6], regs)
+    (n, after) => run(pc + n, prog, after, sent, more)
+    none => step(pc, prog, regs, sent, more)
+
+# One instruction.
+step(pc, prog, regs, sent, more) =
+  match prog[pc]
+    ("cpy", x, (true, r)) => run(pc + 1, prog, regs.set(r, value(regs, x)), sent, more)
+    ("inc", (true, r)) => run(pc + 1, prog, regs.set(r, regs[r] + 1), sent, more)
+    ("dec", (true, r)) => run(pc + 1, prog, regs.set(r, regs[r] - 1), sent, more)
+    ("jnz", x, y) => run(pc + (if value(regs, x) != 0 then value(regs, y) else 1), prog, regs, sent, more)
+    ("tgl", x) => run(pc + 1, toggle(prog, pc + value(regs, x)), regs, sent, more)
+    ("out", x) => sending(pc, prog, regs, sent ++ [value(regs, x)], more)
+    _ => run(pc + 1, prog, regs, sent, more)
+
+sending(pc, prog, regs, sent, more) = if more(sent) then run(pc + 1, prog, regs, sent, more) else (regs, sent)
 
 # The registers when a program, started with `regs`, ends.
-registers(prog, regs) = run(0, prog, regs, [], inf).0
+registers(prog, regs) = run(0, prog, regs, [], _ => true).0
 
 test "registers start as given" = registers(assemble("inc a\ndec b"), [5, 5, 0, 0]) == [6, 4, 0, 0]
 test "tgl changes the instruction it points at" = registers(assemble("tgl 1\ninc a"), [0, 0, 0, 0]) == [-1, 0, 0, 0]
-test "out stops at the limit" = run(0, assemble("out a\njnz 1 -1"), [7, 0, 0, 0], [], 3).1 == [7, 7, 7]
+test "an add loop" = registers(assemble("inc a\ndec b\njnz b -2"), [1, 5, 0, 0]) == [6, 0, 0, 0]
+test "an add loop, dec first" = registers(assemble("dec d\ninc c\njnz d -2"), [0, 0, 1, 5]) == [0, 0, 6, 0]
+test "a multiply loop" = registers(assemble("cpy b c\ninc a\ndec c\njnz c -2\ndec d\njnz d -5"), [1, 4, 0, 3]) == [13, 4, 0, 0]
+test "a multiply by a constant" = registers(assemble("cpy 7 c\ninc a\ndec c\njnz c -2\ndec d\njnz d -5"), [0, 0, 0, 3]) == [21, 0, 0, 0]
+# Copying a itself: not a multiply, but each pass doubles a.
+test "a loop that copies its own target" = registers(assemble("cpy a c\ninc a\ndec c\njnz c -2\ndec d\njnz d -5"), [2, 0, 0, 3]) == [16, 0, 0, 0]
+test "out stops when told" = run(0, assemble("out a\njnz 1 -1"), [7, 0, 0, 0], [], _.len < 3).1 == [7, 7, 7]

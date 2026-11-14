@@ -1,6 +1,6 @@
-# Reference solutions and answers (2017 to 2024)
+# Reference solutions and answers (2016 to 2024)
 
-Where the expected answers in `tests/aoc2017/` to `tests/aoc2024/` come
+Where the expected answers in `tests/aoc2016/` to `tests/aoc2024/` come
 from. For 2025, see [`2025/README.md`](2025/README.md): the user's own
 published solutions, in several languages.
 
@@ -111,3 +111,37 @@ its tests. Two answers rest on reasoning as well as computation:
 - **Day 20, part 2:** collisions are simulated for 1000 ticks, after
   which every particle is moving away from the rest for good; the Python
   check simulated 2000.
+
+## 2016
+
+Converted on 2026-11-14, the second practice run before December, again
+with the puzzles new to this account. Every answer, both parts, was first
+checked against separately written Python scripts that are not kept in
+the repository, then submitted; all 49 were accepted by the site. The
+`example` blocks hold the puzzles' own worked examples, except two part 2
+examples that cost as much as tens of millions of MD5 hashes (days 5 and
+14); their expected values are noted in comments, checked in Python.
+
+The assembunny interpreter is shared through `include`:
+`tests/aoc2016/assembunny.tin`, used by days 12, 23 and 25, with its own
+tests. Several answers rest on reasoning as well as computation:
+
+- **Day 23, part 2 (and days 12 and 25):** run one step at a time, the
+  program would take about 479 million steps with `a` set to 12. The
+  interpreter does add loops (`inc a, dec b, jnz b -2`) and the multiply
+  loop around them in one step, only when the loop's counters start
+  positive and its registers are distinct. The Python check ran the
+  program step by step for `a` from 6 to 9 and got the same results,
+  each `a!` plus 6696, which gives the part 2 answer for 12.
+- **Day 19:** both parts use closed forms (the Josephus problem, and a
+  version based on powers of 3 when the elf across the circle is taken).
+  The Python check simulated the circles, for small sizes and the input.
+- **Day 16, part 2:** a checksum character is 1 when its block of the
+  disk has an even number of zeros, so the checksum is one count per
+  block; the Python check built the 35-million-character disk and halved
+  it as the puzzle describes.
+- **Day 18:** each row is an integer, and a tile is a trap when its left
+  and right neighbours differ, which matches the puzzle's four rules in
+  all eight cases.
+- **Day 11:** states treat elements as interchangeable; the Python check
+  searched with every element named.

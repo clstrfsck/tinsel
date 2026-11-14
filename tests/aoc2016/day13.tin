@@ -3,6 +3,7 @@ day 2016.13
 # A maze over x, y >= 0: (x, y) is open when x*x + 3*x + 2*x*y + y + y*y
 # plus the favourite number (the input) has an even number of 1 bits.
 # Part 1: the fewest steps from (1, 1) to (31, 39).
+# Part 2: how many places can be reached in at most 50 steps.
 
 example "10"
   with target = (7, 4)
@@ -10,6 +11,7 @@ example "10"
 
 answers
   part1 = 82
+  part2 = 138
 
 favourite = int(input.trim)
 target = (31, 39)
@@ -19,3 +21,8 @@ open((x, y)) = x >= 0 and y >= 0 and (x * x + 3 * x + 2 * x * y + y + y * y + fa
 steps(p) = nbrs4(p).filter(open)
 
 part1 = bfs((1, 1), steps, goal: target).0
+
+# The maze never ends, so search only as far as 50 steps could reach.
+near(p) = steps(p).filter(q => manhattan(q, (1, 1)) <= 50)
+
+part2 = bfs((1, 1), near).values.count(_ <= 50)

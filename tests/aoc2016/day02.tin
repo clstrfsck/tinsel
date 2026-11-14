@@ -4,6 +4,7 @@ day 2016.2
 # from 5 and from wherever the last line ended. A move off the keypad is
 # ignored.
 # Part 1: the buttons pressed, on a 3x3 keypad.
+# Part 2: the buttons pressed, on a diamond-shaped keypad from 1 to D.
 
 example """
 ULL
@@ -12,11 +13,21 @@ LURDL
 UUUUD
 """
   part1 = "1985"
+  part2 = "5DB3"
 
 answers
   part1 = "99332"
+  part2 = "DD483"
 
 square = "123\n456\n789".grid
+
+diamond = """
+  1
+ 234
+56789
+ ABC
+  D
+""".lines.map(l => (l ++ "    ")[..<5]).join("\n").grid
 
 step = {'U': N, 'D': S, 'L': W, 'R': E}
 
@@ -26,3 +37,4 @@ code(keypad) = input.lines.scan(keypad.find('5'), (p, line) => line.chars.fold(p
     move(p, c) = if keypad.get(p + step[c]) in [none, ' '] then p else p + step[c]
 
 part1 = code(square)
+part2 = code(diamond)

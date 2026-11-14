@@ -4,6 +4,8 @@ day 2016.11
 # one or two of them a floor at a time. A chip on the same floor as
 # another element's generator is fried unless its own generator is there.
 # Part 1: the fewest steps to bring everything to the top floor.
+# Part 2: the same, with two more elements' generators and chips on the
+#         first floor.
 
 example """
 The first floor contains a hydrogen-compatible microchip and a lithium-compatible microchip.
@@ -15,6 +17,7 @@ The fourth floor contains nothing relevant.
 
 answers
   part1 = 47
+  part2 = 71
 
 # Each item: (element, "generator" or "microchip") => floor.
 items = {(e.split("-")[0], kind): floor
@@ -44,3 +47,7 @@ moves((floor, pairs)) = [
 done((floor, pairs)) = floor == 3 and pairs.all(_ == (3, 3))
 
 part1 = bfs(start, moves, goal: done).0
+
+more = (0, (start.1 ++ [(0, 0), (0, 0)]).sort)
+
+part2 = bfs(more, moves, goal: done).0

@@ -3,6 +3,7 @@ day 2016.21
 # A scrambler: swaps, rotations, reversals and moves applied in turn to a
 # password's letters.
 # Part 1: abcdefgh scrambled.
+# Part 2: the password that scrambles to fbgdceah.
 
 example """
 swap position 4 with position 0
@@ -19,6 +20,7 @@ rotate based on position of letter d
 
 answers
   part1 = "dgfaehcb"
+  part2 = "fdhgacbe"
 
 password = "abcdefgh"
 
@@ -37,3 +39,19 @@ op(xs, "move position {a:int} to position {b:int}") = rest[..<b] ++ [xs[a]] ++ r
 scramble(s) = input.lines.fold(s.chars, op).join
 
 part1 = scramble(password)
+
+# Each operation undone. Swaps and reversals undo themselves. A rotation
+# based on a letter is undone by finding the rotation it must have come
+# from (for eight letters there is only one).
+undo(xs, "rotate left {n:int} step{_}") = xs.rotate(-n)
+undo(xs, "rotate right {n:int} step{_}") = xs.rotate(n)
+undo(xs, "move position {a:int} to position {b:int}") = op(xs, "move position {b} to position {a}")
+undo(xs, line) =
+  if line.starts_with("rotate based") then xs.indices.map(xs.rotate(_)).first(ys => op(ys, line) == xs)
+  else op(xs, line)
+
+unscramble(s) = input.lines.reverse.fold(s.chars, undo).join
+
+scrambled = "fbgdceah"
+
+part2 = unscramble(scrambled)

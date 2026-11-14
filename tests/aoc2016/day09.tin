@@ -4,6 +4,8 @@ day 2016.9
 # and the characters it repeats aren't read for markers. Whitespace is
 # ignored.
 # Part 1: the length of the decompressed text.
+# Part 2: the length when markers in the repeated text are decompressed
+#         too.
 
 example "ADVENT"
   part1 = 6
@@ -13,6 +15,7 @@ example "A(1x5)BC"
 
 example "(3x3)XYZ"
   part1 = 9
+  part2 = 9
 
 example "A(2x2)BCD(2x2)EFG"
   part1 = 11
@@ -22,9 +25,17 @@ example "(6x1)(1x3)A"
 
 example "X(8x2)(3x3)ABCY"
   part1 = 18
+  part2 = 20
+
+example "(27x12)(20x12)(13x14)(7x10)(1x12)A"
+  part2 = 241920
+
+example "(25x3)(3x3)ABC(2x3)XY(5x2)PQRSTX(18x9)(3x2)TWO(5x7)SEVEN"
+  part2 = 445
 
 answers
   part1 = 152851
+  part2 = 11797310782
 
 text = input.words.join
 
@@ -41,3 +52,8 @@ decompressed(s, i, n, inner) =
 marker("{span:int}x{times:int}") = (span, times)
 
 part1 = decompressed(text, 0, 0, .len)
+
+# Version two: the repeated text is itself decompressed.
+full(s) = decompressed(s, 0, 0, full)
+
+part2 = full(text)

@@ -3,11 +3,41 @@ day 2016.22
 # A grid of storage nodes, each with a size, used and available space.
 # Part 1: how many pairs (A, B) of different nodes are viable: A isn't
 #         empty and its data would fit in B's available space.
+# Part 2: the fewest moves (each moves a node's data into a neighbour) to
+#         bring the data at the top right to the top left.
+
+example """
+Filesystem            Size  Used  Avail  Use%
+/dev/grid/node-x0-y0   10T    8T     2T   80%
+/dev/grid/node-x0-y1   11T    6T     5T   54%
+/dev/grid/node-x0-y2   32T   28T     4T   87%
+/dev/grid/node-x1-y0    9T    7T     2T   77%
+/dev/grid/node-x1-y1    8T    0T     8T    0%
+/dev/grid/node-x1-y2   11T    7T     4T   63%
+/dev/grid/node-x2-y0   10T    6T     4T   60%
+/dev/grid/node-x2-y1    9T    8T     1T   88%
+/dev/grid/node-x2-y2    9T    6T     3T   66%
+"""
+  part2 = 7
 
 answers
   part1 = 892
+  part2 = 227
 
 # Each node: [x, y, size, used, avail, use%].
 nodes = [l.ints for l in input.lines if l.starts_with("/dev/grid")]
 
 part1 = [(a, b) for a in nodes if a[3] > 0 for b in nodes if a != b and a[3] <= b[4]].len
+
+# As in the puzzle's example, one node is empty, a few hold more than it
+# could ever take (walls), and the data of every other node fits in it:
+# so each move slides a neighbour's data into the empty node.
+empty = nodes.first(_[3] == 0)
+cells = set((n[0], n[1]) for n in nodes if n[3] <= empty[2])
+
+# A state: (the empty node, the node holding the goal data).
+slide((e, g)) = [(q, if q == g then e else g) for q in nbrs4(e) if q in cells]
+
+start = ((empty[0], empty[1]), (nodes.map(_[0]).max, 0))
+
+part2 = bfs(start, slide, goal: _.1 == (0, 0)).0

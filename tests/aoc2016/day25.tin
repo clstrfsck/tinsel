@@ -11,7 +11,10 @@ include "assembunny.tin"
 
 program = assemble(input)
 
-# The program loops for ever, so look at the first few dozen values.
-clock(a) = run(0, program, [a, 0, 0, 0], [], 40).1 == [i % 2 for i in 0..<40]
+# The program loops for ever, so look at the first few dozen values,
+# stopping at the first that is wrong.
+alternating(sent) = sent.last == (sent.len - 1) % 2 and sent.len < 40
+
+clock(a) = run(0, program, [a, 0, 0, 0], [], alternating).1 == [i % 2 for i in 0..<40]
 
 part1 = (1..).first(clock)

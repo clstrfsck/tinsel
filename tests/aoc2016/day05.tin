@@ -3,12 +3,18 @@ day 2016.5
 # A password from MD5 hashes of the door ID followed by 0, 1, 2, ...: each
 # hash starting with five zeros gives the next character, its sixth.
 # Part 1: the eight-character password.
+# Part 2: the password, with each hash's sixth digit giving the position
+#         (0 to 7) and its seventh the character.
+#
+# The puzzle's part 2 example ("abc" gives "05ace8e3") needs 13.7 million
+# hashes, so it isn't checked here (it was in Python).
 
 example "abc"
   part1 = "18f47a30"
 
 answers
   part1 = "f97c354d"
+  part2 = "863dde27"
 
 door = input.trim
 
@@ -16,3 +22,19 @@ door = input.trim
 interesting = (0..).map(i => md5("{door}{i}")).filter(_.starts_with("00000"))
 
 part1 = interesting.take(8).map(_[5]).join
+
+# The first index from i on whose hash starts with five zeros, and the
+# hash.
+following(i) = (i..).map(j => (j, md5("{door}{j}"))).first(((_, h)) => h.starts_with("00000"))
+
+# The password filled in from the interesting hashes from index i on: the
+# sixth digit is a position, the seventh the character to put there, and
+# only the first for each position counts.
+password(i, pw) =
+  if pw.len == 8 then pw.values.join
+  else password(j + 1, if place < 8 and place not in pw then pw.set(place, h[6]) else pw)
+  where
+    (j, h) = following(i)
+    place = int(h[5], 16)
+
+part2 = password(0, {})

@@ -19,7 +19,13 @@ dec a
 
 answers
   part1 = 11736
+  part2 = 479008296
 
 program = assemble(input)
 
 part1 = registers(program, [7, 0, 0, 0])[0]
+
+# With 12, the program multiplies its way to 12! plus a constant: about
+# 479 million incs one at a time, but a few hundred steps with the
+# shortcuts in assembunny.tin.
+part2 = registers(program, [12, 0, 0, 0])[0]

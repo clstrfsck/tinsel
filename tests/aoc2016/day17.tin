@@ -4,18 +4,24 @@ day 2016.17
 # open depends on the MD5 hash of the passcode and the path so far: the
 # first four hex digits are up, down, left and right, open if b to f.
 # Part 1: the shortest path to the vault.
+# Part 2: the length of the longest path to the vault (a path ends when
+#         it reaches it).
 
 example "ihgpwlah"
   part1 = "DDRRRD"
+  part2 = 370
 
 example "kglvqrro"
   part1 = "DDUDRLRRUDRD"
+  part2 = 492
 
 example "ulqzkmiv"
   part1 = "DRURDRUDDLLDLUURRDULRLDUUDDDRR"
+  part2 = 830
 
 answers
   part1 = "DUDRDLRRRD"
+  part2 = 502
 
 passcode = input.trim
 
@@ -31,3 +37,6 @@ moves((room, path)) =
         if next.0 in 0..3 and next.1 in 0..3]
 
 part1 = bfs(((0, 0), ""), moves, goal: _.0 == (3, 3)).1.last.1
+
+# Every path ends, as doors close, so the whole search is finite.
+part2 = bfs(((0, 0), ""), moves).keys.filter(_.0 == (3, 3)).map(_.1.len).max

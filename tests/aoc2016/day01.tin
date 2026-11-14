@@ -3,6 +3,7 @@ day 2016.1
 # Directions on a city grid: turn left or right, then walk n blocks,
 # starting facing north.
 # Part 1: how many blocks away the end is.
+# Part 2: how many blocks away the first block visited twice is.
 
 example "R2, L3"
   part1 = 5
@@ -13,8 +14,12 @@ example "R2, R2, R2"
 example "R5, L5, R5, R3"
   part1 = 12
 
+example "R8, R4, R4, R8"
+  part2 = 4
+
 answers
   part1 = 246
+  part2 = 124
 
 steps = input.trim.split(", ")
 
@@ -22,4 +27,11 @@ walk((pos, dir), "{turn:char}{n:int}") = (pos + d * n, d)
   where
     d = if turn == 'R' then cw(dir) else ccw(dir)
 
-part1 = manhattan(steps.fold(((0, 0), N), walk).0, (0, 0))
+stops = steps.scan(((0, 0), N), walk)
+
+part1 = manhattan(stops.last.0, (0, 0))
+
+# Every block walked through, in order, from the start.
+path = [(0, 0)] ++ [a + d * i for [(a, _), (b, d)] in stops.windows(2) for i in 1..manhattan(a, b)]
+
+part2 = manhattan(path.find_cycle.2.last, (0, 0))
