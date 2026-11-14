@@ -451,19 +451,13 @@ impl Resolver {
         slot
     }
 
-    /// Declares a pattern's bindings, each a definition of kind `what`.
+    /// Declares a pattern's bindings, each a definition of kind `what`,
+    /// giving each its slot in the same pass.
     fn declare_pattern(&mut self, p: &mut Pattern, what: &'static str) {
-        let mut binds = Vec::new();
-        p.bindings_mut(&mut |b| binds.push((b.name.clone(), b.span)));
-        let slots: Vec<usize> = binds
-            .iter()
-            .map(|(name, span)| {
-                let def = self.define(name, what, *span);
-                self.declare(name, None, def)
-            })
-            .collect();
-        let mut slots = slots.into_iter();
-        p.bindings_mut(&mut |b| b.slot = slots.next().unwrap_or(0));
+        p.bindings_mut(&mut |b| {
+            let def = self.define(&b.name, what, b.span);
+            b.slot = self.declare(&b.name, None, def);
+        });
     }
 
     /// Finds a local or global binding: its resolved form, the function id

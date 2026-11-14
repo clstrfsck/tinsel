@@ -15,7 +15,7 @@
 //! interpreter, the native compiler's checking engine (`tinsel::ir`).
 
 use ariadne::{Color, Config, Label, Report, ReportKind};
-use std::io::IsTerminal;
+use std::io::{IsTerminal, Read};
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use tinsel::error::{Error, SourceFile, Span, file_at};
@@ -405,7 +405,7 @@ fn symbols(args: &[String]) -> ExitCode {
     // editor's unsaved changes; includes are still read from their files.
     let loaded = if stdin {
         let mut text = String::new();
-        if let Err(e) = std::io::Read::read_to_string(&mut std::io::stdin(), &mut text) {
+        if let Err(e) = std::io::stdin().read_to_string(&mut text) {
             eprintln!("Error: cannot read standard input: {e}");
             return ExitCode::FAILURE;
         }
