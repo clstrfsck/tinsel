@@ -57,6 +57,30 @@ fn larger_keys_are_not_cached() {
     assert_eq!(runs("large.tin", "", 255), [2, 2, 2]);
 }
 
+/// The same with a string of `n` characters in place of the list: with
+/// the string itself and the int, its arguments hold `n + 2` values.
+fn runs_str(name: &str, n: usize) -> Vec<usize> {
+    let src = format!(
+        "f(s, 0) = dbg(\"ran\", s.len)\nf(s, k) = f(s, k - 1) + 0\n\n\
+         part1 = [f(\"é\".repeat({n}), 1), f(\"é\".repeat({n}), 1)]\n"
+    );
+    ENGINES
+        .iter()
+        .map(|engine| {
+            let (out, err) = run(name, &src, engine);
+            assert_eq!(out.trim(), format!("part1: [{n}, {n}]"), "{engine}");
+            err.matches("ran").count()
+        })
+        .collect()
+}
+
+#[test]
+fn strings_count_by_character() {
+    // Characters, not bytes: each `é` is two bytes in UTF-8.
+    assert_eq!(runs_str("short_str.tin", 254), [1, 1, 1]);
+    assert_eq!(runs_str("long_str.tin", 255), [2, 2, 2]);
+}
+
 #[test]
 fn at_memo_caches_large_keys() {
     assert_eq!(runs("forced.tin", "@memo", 2000), [1, 1, 1]);
