@@ -11,10 +11,17 @@ include "assembunny.tin"
 
 program = assemble(input)
 
-# The program loops for ever, so look at the first few dozen values,
-# stopping at the first that is wrong.
-alternating(sent) = sent.last == (sent.len - 1) % 2 and sent.len < 40
+# Runs the program, checking each value sent against the bit expected
+# next. Once it is back in a state it was in after an earlier out (the
+# same pc, program and registers, expecting the same bit), it will repeat
+# what it did since, so it sends 0, 1, 0, 1, ... for ever. A program that
+# ends doesn't.
+alternates(pc, prog, regs, bit, seen) =
+  if (pc, prog, regs, bit) in seen then true
+  else match run(pc, prog, regs)
+    ("out", v, pc2, prog2, regs2) => v == bit and alternates(pc2, prog2, regs2, 1 - bit, seen | {(pc, prog, regs, bit)})
+    ("end", _) => false
 
-clock(a) = run(0, program, [a, 0, 0, 0], [], alternating).1 == [i % 2 for i in 0..<40]
+clock(a) = alternates(0, program, [a, 0, 0, 0], 0, set())
 
 part1 = (1..).first(clock)

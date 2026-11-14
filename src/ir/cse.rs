@@ -6,7 +6,9 @@
 //! value depends on nothing but their operands take part ([`pure`]):
 //! calls don't (a call may return a generator, and each call gives a new,
 //! single-pass one), closures don't (they compare by identity), and neither
-//! do iterators and accumulators (they change). An earlier instruction is
+//! do iterators and accumulators (they change). Nor do `in`, `not in` and
+//! `in .indices`: their right operand may be a generator, which they read
+//! up, so a second one must report the second read. An earlier instruction is
 //! reused only where it *dominates* the repeat, so it has certainly run,
 //! and run without an error, by then: errors happen exactly where they did.
 //!
@@ -14,6 +16,7 @@
 //! surviving variables.
 
 use super::{Block, Function, Op, Var};
+use crate::ast::CmpOp;
 use std::collections::HashMap;
 
 /// Whether `op` can be reused: its value depends only on its operands.
@@ -26,7 +29,10 @@ fn pure(op: &Op) -> bool {
             | Op::RecVal(..)
             | Op::Force(..)
             | Op::Bin(..)
-            | Op::Cmp(..)
+            | Op::Cmp(
+                CmpOp::Eq | CmpOp::Ne | CmpOp::Lt | CmpOp::Le | CmpOp::Gt | CmpOp::Ge,
+                ..
+            )
             | Op::Neg(_)
             | Op::Not(_)
             | Op::BitNot(_)
@@ -39,7 +45,6 @@ fn pure(op: &Op) -> bool {
             | Op::Map(_)
             | Op::Format(_)
             | Op::Index(..)
-            | Op::InIndices(..)
             | Op::IndexInt(..)
             | Op::Slice { .. }
             | Op::Range { .. }

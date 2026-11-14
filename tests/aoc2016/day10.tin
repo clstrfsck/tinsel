@@ -31,11 +31,16 @@ passes = [p for "bot {b:int} gives low to {lt:word} {l:int} and high to {ht:word
 
 # The chips that end up with a bot or an output: those it starts with,
 # and those passed to it. No simulation is needed: what a bot passes on
-# depends only on what it holds.
+# depends only on what it holds. That relies on each bot receiving
+# exactly two chips, so that it passes chips on once, which is true of
+# the puzzle's inputs; `chips` is an error for a bot that doesn't.
 holds(who) = [v for (w, v) in starts if w == who] ++ [passed(b, side) for (w, b, side) in passes if w == who]
 
-passed(b, "low") = holds(("bot", b)).min
-passed(b, "high") = holds(("bot", b)).max
+chips(b) = match holds(("bot", b))
+  [x, y] => (min(x, y), max(x, y))
+
+passed(b, "low") = chips(b).0
+passed(b, "high") = chips(b).1
 
 bots = set(b for (_, b, _) in passes)
 

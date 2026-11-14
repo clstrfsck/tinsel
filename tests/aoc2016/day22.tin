@@ -18,11 +18,16 @@ Filesystem            Size  Used  Avail  Use%
 /dev/grid/node-x2-y1    9T    8T     1T   88%
 /dev/grid/node-x2-y2    9T    6T     3T   66%
 """
+  part1 = 7
   part2 = 7
 
 answers
   part1 = 892
   part2 = 227
+
+# Part 1 of the example isn't in the puzzle; 7 is worked out by hand:
+# only the empty node has room for more than 5T, every other node except
+# x0-y2 fits in it, and every non-empty node holds at least 6T.
 
 # Each node: [x, y, size, used, avail, use%].
 nodes = [l.ints for l in input.lines if l.starts_with("/dev/grid")]

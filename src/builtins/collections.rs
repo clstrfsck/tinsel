@@ -305,7 +305,8 @@ fn len(it: &mut Interp<'_>, args: Args) -> Result<Value> {
 }
 
 /// Generators and infinite ranges are read lazily: `map`, `filter`,
-/// `enumerate` and `zip` over them give generators (SPEC 9.2).
+/// `enumerate`, `zip`, `scan`, `drop` and `drop_while` over them give
+/// generators (SPEC 9.2).
 fn lazy(v: &Value) -> bool {
     match v.view() {
         V::Gen(_) => true,
