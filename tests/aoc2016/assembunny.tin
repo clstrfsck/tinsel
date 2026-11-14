@@ -1,0 +1,41 @@
+# Assembunny (2016 days 12, 23 and 25): registers a to d, and cpy, inc,
+# dec and jnz, with tgl (day 23) and out (day 25).
+
+# An operand: a register (by index) or a number.
+operand("{n:int}") = (false, n)
+operand(r) = (true, ord(r[0]) - ord('a'))
+
+assemble(text) = text.lines.map(.words).map(ws => tuple([ws[0]] ++ ws[1..].map(operand)))
+
+value(regs, (true, r)) = regs[r]
+value(regs, (false, n)) = n
+
+# What tgl turns an instruction into.
+toggled(("inc", x)) = ("dec", x)
+toggled((_, x)) = ("inc", x)
+toggled(("jnz", x, y)) = ("cpy", x, y)
+toggled((_, x, y)) = ("jnz", x, y)
+
+toggle(prog, t) = if t in prog.indices then prog.set(t, toggled(prog[t])) else prog
+
+# Runs from instruction pc until the program ends, or until it has sent
+# `limit` values with out: the registers then, and the values sent. An
+# instruction that tgl has made meaningless (such as cpy into a number) is
+# skipped.
+run(pc, prog, regs, sent, limit) =
+  if pc not in prog.indices or sent.len >= limit then (regs, sent)
+  else match prog[pc]
+    ("cpy", x, (true, r)) => run(pc + 1, prog, regs.set(r, value(regs, x)), sent, limit)
+    ("inc", (true, r)) => run(pc + 1, prog, regs.set(r, regs[r] + 1), sent, limit)
+    ("dec", (true, r)) => run(pc + 1, prog, regs.set(r, regs[r] - 1), sent, limit)
+    ("jnz", x, y) => run(pc + (if value(regs, x) != 0 then value(regs, y) else 1), prog, regs, sent, limit)
+    ("tgl", x) => run(pc + 1, toggle(prog, pc + value(regs, x)), regs, sent, limit)
+    ("out", x) => run(pc + 1, prog, regs, sent ++ [value(regs, x)], limit)
+    _ => run(pc + 1, prog, regs, sent, limit)
+
+# The registers when a program, started with `regs`, ends.
+registers(prog, regs) = run(0, prog, regs, [], inf).0
+
+test "registers start as given" = registers(assemble("inc a\ndec b"), [5, 5, 0, 0]) == [6, 4, 0, 0]
+test "tgl changes the instruction it points at" = registers(assemble("tgl 1\ninc a"), [0, 0, 0, 0]) == [-1, 0, 0, 0]
+test "out stops at the limit" = run(0, assemble("out a\njnz 1 -1"), [7, 0, 0, 0], [], 3).1 == [7, 7, 7]

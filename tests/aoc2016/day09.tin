@@ -1,0 +1,43 @@
+day 2016.9
+
+# Compressed text: a marker (AxB) repeats the next A characters B times,
+# and the characters it repeats aren't read for markers. Whitespace is
+# ignored.
+# Part 1: the length of the decompressed text.
+
+example "ADVENT"
+  part1 = 6
+
+example "A(1x5)BC"
+  part1 = 7
+
+example "(3x3)XYZ"
+  part1 = 9
+
+example "A(2x2)BCD(2x2)EFG"
+  part1 = 11
+
+example "(6x1)(1x3)A"
+  part1 = 6
+
+example "X(8x2)(3x3)ABCY"
+  part1 = 18
+
+answers
+  part1 = 152851
+
+text = input.words.join
+
+# The decompressed length of s from position i, adding to n. `inner`
+# gives the length of the text a marker repeats.
+decompressed(s, i, n, inner) =
+  if i >= s.len then n
+  else if s[i] != '(' then decompressed(s, i + 1, n + 1, inner)
+  else decompressed(s, end + 1 + span, n + times * inner(s[end + 1..<end + 1 + span]), inner)
+  where
+    end = i + s[i..].index(")")
+    (span, times) = marker(s[i + 1..<end])
+
+marker("{span:int}x{times:int}") = (span, times)
+
+part1 = decompressed(text, 0, 0, .len)

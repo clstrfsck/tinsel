@@ -4,7 +4,8 @@ Written 2026-11-11 at the end of phase 4 (`native-plan.md`, section 12),
 revised the same day after its last round of fixes, on 2026-11-12
 after a round of profiling and the radix tree (items 1 and 2), and on
 2026-11-13 after `where` constants as locals and faster comparisons of
-small values (items 3 and 4), found by converting AoC 2017. Native code is
+small values (items 3 and 4), found by converting AoC 2017, and on
+2026-11-14 after profiling two slow 2016 solutions (item 5). Native code is
 the default for `tinsel run` and `tinsel test`. This note records where
 things stand and what could come next, so that another round (if there
 is one) can start from it.
@@ -106,7 +107,7 @@ Profiling the slowest remaining solutions is still the cheapest way to
 find the next fix: as of 2026-11-13, 2018 day 15 (3.97 s), 2022 day 23
 (2.14 s), 2019 day 18 (1.47 s), 2018 day 24 (1.42 s) and 2022 day 20
 (1.41 s). Converting a new year of puzzles is another: 2017 found items
-3 and 4.
+3 and 4, and 2016 item 5.
 
 ### 2. An ordered radix trie for int and position keys (runtime): done
 
@@ -182,7 +183,40 @@ child only where one can be left, skipping the lookup before a removal,
 and keeping one-child nodes to avoid freeing and rebuilding them as day
 25 toggles cells) made no measurable difference and were reverted.
 
-### 5. Loop-invariant hoisting (compiler)
+### 5. Faster `in xs.indices`, string constants and interpolation: done
+
+Done 2026-11-14, from profiling 2016 day 5 (MD5 hashes of `"{door}{i}"`)
+and day 25 (an assembunny interpreter), which took 3.44 s and 2.45 s
+natively. Four fixes:
+
+- **`x in xs.indices`:** an interpreter's `pc not in program.indices`
+  built a range on every step only to test it: half of day 25. `simplify`
+  now fuses a call to `indices` with an `in` or `not in` right after it,
+  when nothing else uses the range, into `Op::InIndices`: a bounds check
+  for a list or tuple, and the library's `indices` and `in` themselves
+  otherwise, so results and errors are unchanged. IR only; the
+  tree-walker still builds the range.
+- **Matching against a string constant:** `EqConst` with a heap constant
+  (as in `("cpy", x, y) => ...`) fell back to the IR interpreter through
+  `rt_op`, 43 million times in day 25. It is now a direct call, `rt_eq`.
+- **String interpolation:** each value was rendered into a string of its
+  own and copied; `Value::write_display` appends it, with small ints
+  written without `fmt`. Both engines.
+- **`md5`'s hex digits:** `format!("{:x}")` on the digest took more time
+  than the hashing (40% of day 5); the digits are now written directly.
+
+Day 25 1.22 s (−50%), day 5 about 2.1 s (−35%), and 2016 day 12, another
+assembunny program, 0.47 s → 0.06 s; nothing slower. Tests: `in indices`
+and `not in indices` in `tests/features/collections.tin` (including two
+errors), and interpolation of edge values in `basics.tin`.
+
+Left over: day 5 is now 40% the MD5 compression itself (the crate's) and
+about a quarter the lazy `map` and `filter` (each item passes through the
+tree-walker's iterator, which calls the compiled lambdas); day 25 still
+compares opcode strings (about a fifth), and its solution collects 40
+outputs for every candidate rather than stopping at the first wrong one.
+
+### 6. Loop-invariant hoisting (compiler)
 
 CSE removes repeats within one pass of a loop body, but not work that is
 the same on every pass, such as `gs[a]` in 2018 day 24's `choose`.
@@ -191,7 +225,7 @@ either a proof that the body runs or the value cached on the first pass.
 
 - **Expected gain:** mainly 2018 day 24; small elsewhere.
 
-### 6. A per-call-site cache of compiled targets (compiler)
+### 7. A per-call-site cache of compiled targets (compiler)
 
 A call through a function value looks up the closure's compiled code in
 the runtime every time (`rt_tail_target`). An inline cache of the last
@@ -199,7 +233,7 @@ closure and its code would skip that.
 
 - **Expected gain:** a few percent on closure-heavy code.
 
-### 7. Library calls without a heap-allocated argument vector (runtime)
+### 8. Library calls without a heap-allocated argument vector (runtime)
 
 Every library call that has no direct entry builds a `Vec` for its
 arguments. A small inline array would avoid the allocation, but touches
@@ -207,7 +241,7 @@ the signature of every library function.
 
 - **Expected gain:** 2–5%, broadly, on both engines.
 
-### 8. Small lists without the final copy (runtime)
+### 9. Small lists without the final copy (runtime)
 
 A comprehension's result is accumulated in a growable vector and then
 copied into a small list's single allocation. Adopting the vector as it
@@ -215,7 +249,7 @@ is would change how lists are stored.
 
 - **Expected gain:** a few percent on comprehension-heavy code.
 
-### 9. Local type inference (compiler; the plan's original first item)
+### 10. Local type inference (compiler; the plan's original first item)
 
 Knowing a variable is always an int would drop tag checks, reference
 counting and error checks around it.

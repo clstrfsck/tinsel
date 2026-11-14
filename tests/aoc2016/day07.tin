@@ -1,0 +1,29 @@
+day 2016.7
+
+# Addresses with [hypernet] parts in brackets. An ABBA is four characters
+# xyyx with x and y different.
+# Part 1: how many addresses have an ABBA outside brackets and none inside.
+
+example """
+abba[mnop]qrst
+abcd[bddb]xyyx
+aaaa[qwer]tyui
+ioxxoj[asdfgh]zxcvbn
+"""
+  part1 = 2
+
+answers
+  part1 = 115
+
+# The parts outside brackets, and the parts inside.
+parts(ip) = (pieces.indices.filter(_ % 2 == 0).map(pieces[_]), pieces.indices.filter(_ % 2 == 1).map(pieces[_]))
+  where
+    pieces = ip.replace('[', ']').split(']')
+
+abba(s) = s.chars.windows(4).any(([a, b, c, d]) => a == d and b == c and a != b)
+
+tls(ip) = outside.any(abba) and not inside.any(abba)
+  where
+    (outside, inside) = parts(ip)
+
+part1 = input.lines.count(tls)

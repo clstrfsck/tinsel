@@ -1,0 +1,27 @@
+day 2016.14
+
+# Keys from the MD5 hashes of the salt (the input) followed by 0, 1, 2,
+# ...: an index is a key when its hash has a character three times in a
+# row (the first such), and one of the next 1000 hashes has that character
+# five times in a row.
+# Part 1: the index of the 64th key.
+
+example "abc"
+  part1 = 22728
+
+answers
+  part1 = 23890
+
+salt = input.trim
+
+# Each hash is wanted by up to a thousand later checks: computed once.
+@memo
+hash(i) = md5("{salt}{i}")
+
+triple(h) = h.chars.windows(3).first(([a, b, c]) => a == b and b == c)
+
+key(i) = match triple(hash(i))
+  none => false
+  [c, _, _] => (i + 1..i + 1000).any(j => hash(j).index(str(c).repeat(5)) != none)
+
+part1 = (0..).filter(key).drop(63).first

@@ -1,0 +1,13 @@
+day 2016.22
+
+# A grid of storage nodes, each with a size, used and available space.
+# Part 1: how many pairs (A, B) of different nodes are viable: A isn't
+#         empty and its data would fit in B's available space.
+
+answers
+  part1 = 892
+
+# Each node: [x, y, size, used, avail, use%].
+nodes = [l.ints for l in input.lines if l.starts_with("/dev/grid")]
+
+part1 = [(a, b) for a in nodes if a[3] > 0 for b in nodes if a != b and a[3] <= b[4]].len

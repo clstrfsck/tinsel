@@ -986,6 +986,30 @@ extern "C" fn rt_seq_get(seq: u64, i: u64) -> u64 {
     .into_raw()
 }
 
+/// `x in coll.indices`, or `not in` if `not` is 1 (`x` and `coll`
+/// borrowed).
+extern "C" fn rt_in_indices(cx: &mut Ctx<'_, '_>, site: u64, x: u64, coll: u64, not: u64) -> u64 {
+    // SAFETY: compiled code owns `x` and `coll` for the duration of the call.
+    let x = unsafe { borrow(x) };
+    // SAFETY: as above, for `coll`.
+    let coll = unsafe { borrow(coll) };
+    let span = cx.site(site).span;
+    match crate::ir::interp::in_indices(cx.interp(), &x, &coll, span) {
+        Ok(r) => Value::bool(r != (not != 0)).into_raw(),
+        Err(e) => cx.fail(e),
+    }
+}
+
+/// Whether `a` equals `b` (both borrowed): `EqConst` against a heap
+/// constant, such as a string.
+extern "C" fn rt_eq(a: u64, b: u64) -> u64 {
+    // SAFETY: compiled code owns `a` for the duration of the call.
+    let a = unsafe { borrow(a) };
+    // SAFETY: the code's constant pool keeps `b` alive.
+    let b = unsafe { borrow(b) };
+    Value::bool(*a == *b).into_raw()
+}
+
 /// Debug builds only: adjusts the live heap word count by `d` (as an `i64`)
 /// for references compiled code counted inline.
 extern "C" fn rt_live(d: u64) {
@@ -1040,6 +1064,8 @@ pub(super) fn symbols() -> Vec<(&'static str, *const u8, usize, bool)> {
         ("rt_slice", rt_slice as *const u8, 6, true),
         ("rt_iter_init", rt_iter_init as *const u8, 5, true),
         ("rt_seq_get", rt_seq_get as *const u8, 2, true),
+        ("rt_eq", rt_eq as *const u8, 2, true),
+        ("rt_in_indices", rt_in_indices as *const u8, 5, true),
     ]
 }
 

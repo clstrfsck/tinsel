@@ -1,0 +1,46 @@
+day 2016.11
+
+# Generators and microchips on four floors, and an elevator that carries
+# one or two of them a floor at a time. A chip on the same floor as
+# another element's generator is fried unless its own generator is there.
+# Part 1: the fewest steps to bring everything to the top floor.
+
+example """
+The first floor contains a hydrogen-compatible microchip and a lithium-compatible microchip.
+The second floor contains a hydrogen generator.
+The third floor contains a lithium generator.
+The fourth floor contains nothing relevant.
+"""
+  part1 = 11
+
+answers
+  part1 = 47
+
+# Each item: (element, "generator" or "microchip") => floor.
+items = {(e.split("-")[0], kind): floor
+         for (floor, line) in input.lines.enumerate
+         let ws = line.replace(",", "").replace(".", "").words
+         for (i, kind) in ws.enumerate if kind in ["generator", "microchip"]
+         let e = ws[i - 1]}
+
+elements = set(items.keys.map(.0))
+
+# A state: the elevator's floor, and each element's (generator floor,
+# chip floor), sorted, since which element is which doesn't matter.
+start = (0, elements.map(e => (items[(e, "generator")], items[(e, "microchip")])).sort)
+
+# No chip shares a floor with another generator without its own.
+safe(pairs) = all(g == c or not pairs.any(p => p.0 == c) for (g, c) in pairs)
+
+moves((floor, pairs)) = [
+  (to, moved)
+  for to in [floor - 1, floor + 1] if 0 <= to <= 3
+  for picked in (things.combos(2) ++ things.map(t => (t,)))
+  let moved = picked.fold(pairs, (ps, (i, k)) => ps.set(i, ps[i].set(k, to))).sort
+  if safe(moved)]
+  where
+    things = [(i, k) for (i, p) in pairs.enumerate for k in [0, 1] if p[k] == floor]
+
+done((floor, pairs)) = floor == 3 and pairs.all(_ == (3, 3))
+
+part1 = bfs(start, moves, goal: done).0

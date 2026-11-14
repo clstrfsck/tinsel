@@ -1,0 +1,33 @@
+day 2016.17
+
+# A 4x4 grid of rooms from (0, 0) to the vault at (3, 3). Which doors are
+# open depends on the MD5 hash of the passcode and the path so far: the
+# first four hex digits are up, down, left and right, open if b to f.
+# Part 1: the shortest path to the vault.
+
+example "ihgpwlah"
+  part1 = "DDRRRD"
+
+example "kglvqrro"
+  part1 = "DDUDRLRRUDRD"
+
+example "ulqzkmiv"
+  part1 = "DRURDRUDDLLDLUURRDULRLDUUDDDRR"
+
+answers
+  part1 = "DUDRDLRRRD"
+
+passcode = input.trim
+
+doors = [('U', N), ('D', S), ('L', W), ('R', E)]
+
+# A state: (room, path so far).
+moves((room, path)) =
+  if room == (3, 3) then []
+  else [(next, path ++ str(name))
+        for ((name, d), h) in zip(doors, md5(passcode ++ path).chars)
+        if h in "bcdef"
+        let next = room + d
+        if next.0 in 0..3 and next.1 in 0..3]
+
+part1 = bfs(((0, 0), ""), moves, goal: _.0 == (3, 3)).1.last.1

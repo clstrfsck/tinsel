@@ -828,6 +828,7 @@ Functions are listed in method form, `x.f(args)`, which is the same as
 | `int(s)`, `int(s, base)` | Parse an int (a sign and surrounding whitespace are allowed). With a base from 2 to 36, letters stand for 10 and up, in either case: `int("ff", 16) == 255`. `s` can also be a single char in a base: `int('f', 16) == 15`. `int(c)` parses a digit char, and `int(b)` converts a bool to 0 or 1. |
 | `str(x)`, `str(n, base)`, `str(n, base, width)` | Display form. With a base from 2 to 36, formats an int using lowercase letters: `str(255, 16) == "ff"`, `str(-5, 2) == "-101"`. With a width, pads with zeros (after any sign) to at least that many digits: `str(5, 2, 8) == "00000101"`. A result past the size limit (8.2) is an error. |
 | `ord(c)`, `chr(n)` | A `char`'s Unicode code point as an `int`, and the `char` for a code point: `ord('a') == 97`. `chr` of an invalid code point is an error. |
+| `md5(s)` | The MD5 digest of the string's UTF-8 bytes, as 32 lowercase hex digits: `md5("abc") == "900150983cd24fb0d6963f7d28e17f72"`. |
 | `c.is_digit`, `c.is_lower`, `c.is_upper` | Whether a char is an ASCII digit, lowercase letter or uppercase letter. On a `str`, whether it is non-empty and every char is: `"2024".is_digit`, `not "".is_digit`. |
 
 ### 9.2 Collections

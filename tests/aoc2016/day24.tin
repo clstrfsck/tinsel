@@ -1,0 +1,32 @@
+day 2016.24
+
+# A map of ducts with numbered places. The robot starts at 0.
+# Part 1: the fewest steps to visit every numbered place.
+
+example """
+###########
+#0.1.....2#
+#.#######.#
+#4.......3#
+###########
+"""
+  part1 = 14
+
+answers
+  part1 = 518
+
+ducts = input.grid
+
+places = {int(ducts[p]): p for p in ducts.where(_.is_digit)}
+
+steps(p) = ducts.nbrs4(p).filter(q => ducts[q] != '#')
+
+# The distance between every two places.
+apart = {(a, b): bfs(places[a], steps)[places[b]] for a in places.keys for b in places.keys}
+
+# Every order of visiting the places after 0.
+routes = list(places.keys.filter(_ != 0)).perms
+
+length(route) = ([0] ++ list(route)).pairs.map(apart[_]).sum
+
+part1 = routes.map(length).min

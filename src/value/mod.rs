@@ -794,6 +794,34 @@ impl Value {
         }
     }
 
+    /// Appends [`display`](Self::display) to `out`, as string
+    /// interpolation does, without a string of its own.
+    pub fn write_display(&self, out: &mut String) {
+        match self.view() {
+            V::Str(s) => out.push_str(s),
+            V::Char(c) => out.push(c),
+            V::Int(Int::Small(n)) => {
+                // Digits from the right; 20 is enough for any i64.
+                let mut buf = [0u8; 20];
+                let mut i = buf.len();
+                let mut m = n.unsigned_abs();
+                loop {
+                    i -= 1;
+                    buf[i] = b'0' + (m % 10) as u8;
+                    m /= 10;
+                    if m == 0 {
+                        break;
+                    }
+                }
+                if n < 0 {
+                    out.push('-');
+                }
+                out.extend(buf[i..].iter().map(|&d| char::from(d)));
+            }
+            _ => self.write_repr(out, usize::MAX),
+        }
+    }
+
     /// Form used inside collections: strings and chars are quoted.
     pub fn repr(&self) -> String {
         let mut s = String::new();

@@ -143,6 +143,15 @@ test "perms"                    = [1, 2, 3].perms == [(1, 2, 3), (1, 3, 2), (2, 
 test "count a value"            = "a,b,,c".count(',') == 3
 test "index"                    = ([5, 6, 7].index(6), "ab.S..".index('S'), [1].index(9)) == (1, 3, none)
 test "indices"                  = list("abc".indices) == [0, 1, 2]
+
+# `x in xs.indices` is compiled as a bounds check (src/ir/simplify.rs):
+# the same results and errors as building the range.
+in_bounds(x, xs) = x in xs.indices
+out_of_bounds(x, xs) = x not in xs.indices
+test "in indices" = ([in_bounds(i, [5, 6, 7]) for i in [-1, 0, 2, 3, 2 ** 70, -inf]], in_bounds(1, (1, 2)), in_bounds('a', [1]), in_bounds(0, []), in_bounds(2, "abc"), in_bounds(3, "abc"), in_bounds(1, {7, 8})) == ([false, true, true, false, false, false], true, false, false, true, false, true)
+test "not in indices" = (out_of_bounds(3, [1, 2, 3]), out_of_bounds(1, [1, 2]), out_of_bounds(-1, "x")) == (true, false, true)
+test_error "indices of an int, in `in`" = in_bounds(0, 5)
+test_error "indices of a grid, in `in`" = in_bounds(0, "ab\ncd".grid)
 test "tally"                    = [("a", 2), ("b", 1), ("a", 3)].tally == {"a": 5, "b": 1}
 test "counts and tally keys are in order" = ([(1, -2), (2 ** 70, 0), (-1, 5), (1, -2)].counts.keys, [(10, 1), (-3, 2), (10, 4)].tally, [].counts.len) == ([(-1, 5), (1, -2), (2 ** 70, 0)], {-3: 2, 10: 5}, 0)
 test_error "counts can't mix key types" = [1, "a", 1].counts

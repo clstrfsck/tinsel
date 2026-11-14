@@ -1,0 +1,28 @@
+day 2016.2
+
+# A keypad, and a line of moves (U, D, L, R) for each button, starting
+# from 5 and from wherever the last line ended. A move off the keypad is
+# ignored.
+# Part 1: the buttons pressed, on a 3x3 keypad.
+
+example """
+ULL
+RRDDD
+LURDL
+UUUUD
+"""
+  part1 = "1985"
+
+answers
+  part1 = "99332"
+
+square = "123\n456\n789".grid
+
+step = {'U': N, 'D': S, 'L': W, 'R': E}
+
+# The code on `keypad`, where a space isn't a button.
+code(keypad) = input.lines.scan(keypad.find('5'), (p, line) => line.chars.fold(p, move)).drop(1).map(keypad[_]).join
+  where
+    move(p, c) = if keypad.get(p + step[c]) in [none, ' '] then p else p + step[c]
+
+part1 = code(square)

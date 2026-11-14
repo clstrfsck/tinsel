@@ -1,0 +1,24 @@
+day 2016.16
+
+# Fill a disk with a dragon curve grown from the input: a becomes a, 0,
+# then a reversed with 0 and 1 swapped. The checksum of what fits: each
+# pair becomes 1 if its two characters match, else 0, until it has odd
+# length.
+# Part 1: the checksum for a disk of 272.
+
+example "10000"
+  with disk = 20
+  part1 = "01100"
+
+answers
+  part1 = "10010010110011010"
+
+disk = 272
+
+grow(a) = a ++ "0" ++ a.reverse.chars.map(c => if c == '0' then '1' else '0').join
+
+checksum(s) = if s.len % 2 == 1 then s else checksum(s.chars.chunks(2).map(([a, b]) => if a == b then '1' else '0').join)
+
+fill(size) = checksum(iterate(input.trim, grow).first(_.len >= size)[..<size])
+
+part1 = fill(disk)

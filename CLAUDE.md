@@ -55,6 +55,7 @@ input/YYYY/           puzzle inputs: gitignored, never commit them or copy them 
   - `stacker` for deep recursion;
   - `mimalloc` as the global allocator (set in `src/value/word.rs`);
   - `ariadne` for error reports;
+  - `md5` for the library's `md5` (SPEC 9.1);
   - the Cranelift crates (`cranelift-codegen`, `-frontend`, `-module`,
     `-jit`, `-native`) for the native compiler (`reference/native-plan.md`).
   

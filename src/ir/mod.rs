@@ -222,6 +222,10 @@ pub enum Op {
     Bin(BinOp, Use, Use),
     /// A comparison, giving a bool.
     Cmp(CmpOp, Use, Use),
+    /// `x in coll.indices` (`x not in coll.indices` if the flag is set),
+    /// without building the range: made by `simplify` from the call and
+    /// the comparison, with the call's span for its errors.
+    InIndices(Use, Use, bool),
     Neg(Use),
     Not(Use),
     BitNot(Use),
@@ -406,7 +410,11 @@ impl Op {
                 args.iter_mut().for_each(&mut *f);
                 named.iter_mut().for_each(|(_, u)| f(u));
             }
-            Op::Bin(_, a, b) | Op::Cmp(_, a, b) | Op::Index(a, b) | Op::AccPush(a, b) => {
+            Op::Bin(_, a, b)
+            | Op::Cmp(_, a, b)
+            | Op::InIndices(a, b, _)
+            | Op::Index(a, b)
+            | Op::AccPush(a, b) => {
                 f(a);
                 f(b);
             }
@@ -496,7 +504,11 @@ impl Op {
                 args.iter().for_each(|u| f(*u));
                 named.iter().for_each(|(_, u)| f(*u));
             }
-            Op::Bin(_, a, b) | Op::Cmp(_, a, b) | Op::Index(a, b) | Op::AccPush(a, b) => {
+            Op::Bin(_, a, b)
+            | Op::Cmp(_, a, b)
+            | Op::InIndices(a, b, _)
+            | Op::Index(a, b)
+            | Op::AccPush(a, b) => {
                 f(*a);
                 f(*b);
             }
@@ -681,6 +693,9 @@ impl fmt::Display for Op {
             }
             Op::Bin(op, a, b) => write!(f, "{a} {} {b}", op.symbol()),
             Op::Cmp(op, a, b) => write!(f, "{a} {} {b}", op.symbol()),
+            Op::InIndices(a, b, not) => {
+                write!(f, "{a} {}in {b}.indices", if *not { "not " } else { "" })
+            }
             Op::Neg(u) => write!(f, "-{u}"),
             Op::Not(u) => write!(f, "not {u}"),
             Op::BitNot(u) => write!(f, "~{u}"),

@@ -1,0 +1,18 @@
+day 2016.5
+
+# A password from MD5 hashes of the door ID followed by 0, 1, 2, ...: each
+# hash starting with five zeros gives the next character, its sixth.
+# Part 1: the eight-character password.
+
+example "abc"
+  part1 = "18f47a30"
+
+answers
+  part1 = "f97c354d"
+
+door = input.trim
+
+# The hashes that start with five zeros, in order.
+interesting = (0..).map(i => md5("{door}{i}")).filter(_.starts_with("00000"))
+
+part1 = interesting.take(8).map(_[5]).join

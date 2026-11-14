@@ -950,7 +950,7 @@ impl<'p> Interp<'p> {
                 for p in parts {
                     match p {
                         InterpPart::Lit(l) => s.push_str(l),
-                        InterpPart::Expr(x) => s.push_str(&self.eval(x, frame)?.display()),
+                        InterpPart::Expr(x) => self.eval(x, frame)?.write_display(&mut s),
                     }
                 }
                 Ok(Value::from_str_rc(s.into()))

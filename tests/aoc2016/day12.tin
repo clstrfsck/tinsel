@@ -1,0 +1,23 @@
+day 2016.12
+
+# Assembunny: cpy, inc, dec and jnz, with registers a to d starting at 0.
+# Part 1: the value in a when the program ends.
+
+include "assembunny.tin"
+
+example """
+cpy 41 a
+inc a
+inc a
+dec a
+jnz a 2
+dec a
+"""
+  part1 = 42
+
+answers
+  part1 = 318083
+
+program = assemble(input)
+
+part1 = registers(program, [0, 0, 0, 0])[0]

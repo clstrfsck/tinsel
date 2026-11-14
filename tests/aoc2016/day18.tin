@@ -1,0 +1,28 @@
+day 2016.18
+
+# Rows of safe tiles (.) and traps (^). In each next row, a tile is a trap
+# when exactly one of the two tiles beside it in the row above is (the
+# trap rules come down to that); off the ends counts as safe.
+# Part 1: the safe tiles in 40 rows.
+
+example ".^^.^.^^^^"
+  with rows = 10
+  part1 = 38
+
+answers
+  part1 = 1926
+
+rows = 40
+
+first = input.trim
+width = first.len
+
+# A row as bits, a trap as 1 and the leftmost tile highest. A tile's left
+# neighbour is the next bit up and its right the next down, so the next
+# row is the two shifts xored, within the row's width.
+start = first.chars.fold(0, (r, c) => r * 2 + int(c == '^'))
+next(r) = ((r << 1) xor (r >> 1)) & (2 ** width - 1)
+
+safe(n) = iterate(start, next).take(n).map(r => width - r.ones).sum
+
+part1 = safe(rows)

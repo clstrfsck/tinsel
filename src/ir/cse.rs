@@ -39,6 +39,7 @@ fn pure(op: &Op) -> bool {
             | Op::Map(_)
             | Op::Format(_)
             | Op::Index(..)
+            | Op::InIndices(..)
             | Op::IndexInt(..)
             | Op::Slice { .. }
             | Op::Range { .. }

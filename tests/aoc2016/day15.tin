@@ -1,0 +1,20 @@
+day 2016.15
+
+# Spinning discs, one second apart below a button: a capsule dropped at
+# time t reaches disc k at time t + k, and passes if the disc is then at
+# position 0.
+# Part 1: the first time to press the button.
+
+example """
+Disc #1 has 5 positions; at time=0, it is at position 4.
+Disc #2 has 2 positions; at time=0, it is at position 1.
+"""
+  part1 = 5
+
+answers
+  part1 = 16824
+
+discs = [(k, n, p) for "Disc #{k:int} has {n:int} positions; at time=0, it is at position {p:int}." in input.lines]
+
+# Disc k passes when p + t + k is a multiple of n: t = -(p + k) mod n.
+part1 = crt([((-(p + k)) % n, n) for (k, n, p) in discs]).0

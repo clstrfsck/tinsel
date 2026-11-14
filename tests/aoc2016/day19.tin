@@ -1,0 +1,17 @@
+day 2016.19
+
+# Elves in a circle, each in turn taking the presents of the elf to its
+# left, who then leaves the circle.
+# Part 1: the elf that ends up with every present.
+
+example "5"
+  part1 = 3
+
+answers
+  part1 = 1841611
+
+elves = int(input.trim)
+
+# The Josephus problem with every second one out: with n = 2^k + m (m
+# less than 2^k), elf 2m + 1 is left.
+part1 = 2 * (elves - 2 ** (elves.bits - 1)) + 1

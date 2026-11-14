@@ -1,0 +1,39 @@
+day 2016.10
+
+# Bots pass microchips: each, once it holds two, gives its low and high
+# chip to other bots or to output bins. Some chips start in bots.
+# Part 1: the bot that compares chips 61 and 17.
+
+example """
+value 5 goes to bot 2
+bot 2 gives low to bot 1 and high to bot 0
+value 3 goes to bot 1
+bot 1 gives low to output 1 and high to bot 0
+bot 0 gives low to output 2 and high to output 0
+value 2 goes to bot 2
+"""
+  with wanted = {2, 5}
+  part1 = 2
+
+answers
+  part1 = 73
+
+wanted = {17, 61}
+
+starts = [(("bot", b), v) for "value {v:int} goes to bot {b:int}" in input.lines]
+
+# (who receives, from which bot, the low or the high chip)
+passes = [p for "bot {b:int} gives low to {lt:word} {l:int} and high to {ht:word} {h:int}" in input.lines
+            for p in [((lt, l), b, "low"), ((ht, h), b, "high")]]
+
+# The chips that end up with a bot or an output: those it starts with,
+# and those passed to it. No simulation is needed: what a bot passes on
+# depends only on what it holds.
+holds(who) = [v for (w, v) in starts if w == who] ++ [passed(b, side) for (w, b, side) in passes if w == who]
+
+passed(b, "low") = holds(("bot", b)).min
+passed(b, "high") = holds(("bot", b)).max
+
+bots = set(b for (_, b, _) in passes)
+
+part1 = bots.first(b => set(holds(("bot", b))) == wanted)

@@ -130,7 +130,7 @@ a non-obvious rule.
 
 Discuss new dependencies before adding them. The current crates were chosen for
 specific architectural roles, including Logos, `num-bigint`, `imbl`, `stacker`,
-Ariadne, mimalloc and Cranelift.
+Ariadne, mimalloc, Cranelift and `md5`.
 
 ## Add Tests
 

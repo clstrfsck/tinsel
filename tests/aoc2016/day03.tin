@@ -1,0 +1,20 @@
+day 2016.3
+
+# Rows of three side lengths.
+# Part 1: how many rows could be a triangle (every two sides longer than
+# the third).
+
+example """
+5 10 25
+3 4 5
+"""
+  part1 = 1
+
+answers
+  part1 = 982
+
+triangle(sides) = a + b > c
+  where
+    [a, b, c] = sides.sort
+
+part1 = input.lines.map(.ints).count(triangle)

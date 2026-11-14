@@ -1,0 +1,25 @@
+day 2016.1
+
+# Directions on a city grid: turn left or right, then walk n blocks,
+# starting facing north.
+# Part 1: how many blocks away the end is.
+
+example "R2, L3"
+  part1 = 5
+
+example "R2, R2, R2"
+  part1 = 2
+
+example "R5, L5, R5, R3"
+  part1 = 12
+
+answers
+  part1 = 246
+
+steps = input.trim.split(", ")
+
+walk((pos, dir), "{turn:char}{n:int}") = (pos + d * n, d)
+  where
+    d = if turn == 'R' then cw(dir) else ccw(dir)
+
+part1 = manhattan(steps.fold(((0, 0), N), walk).0, (0, 0))
