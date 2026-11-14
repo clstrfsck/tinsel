@@ -283,6 +283,40 @@ the time (most of the rest is MD5 itself).
   `iterate`, and nearly all are cheap. Perhaps 2 s of 2016 day 5's 9 s.
   Worth doing once a profile shows it more widely.
 
+### 12. The right of `and` and `or` as a tail position (language, all engines)
+
+SPEC 8.1 counts only the whole body of a clause and the branches of `if`
+and `match` as tail positions. So `v == bit and f(...)` is not a tail
+call: a recursive function written that way is memoized, hashing its
+arguments on every call, and its recursion uses stack. Found in 2016 day
+25, where `alternates` carries a growing set of seen states: the memo
+warning fired, and the fix was rewriting it as
+`if v == bit then f(...) else false`. The two forms read as the same
+thing, so the difference is easy to trip over.
+
+- **The catch:** `and` and `or` check that their right operand is a
+  bool (`true and 5` is an error), and a plain tail call would skip
+  that check. The check is idempotent, so a chain of tail calls needs
+  only one: the trampoline (and the compiled tail-call loop) can carry a
+  "must be a bool" flag, with the span of the `and` or `or` that set it,
+  and check the final result once. The space stays constant. Which span
+  the error reports, and what its trace shows, must be settled and be
+  the same on all three engines.
+- **What changes:** the SPEC 8.1 definition of a tail call (wording to
+  agree with the user); the call-graph classification in the resolver,
+  so these functions become loops and stop being memoized; tail calls in
+  the tree-walker, the IR lowering and native code; and tests for the
+  memoization change, deep recursion through `and`/`or`, and the bool
+  check on a tail call's result.
+- **Risk:** a function that is recursive only through `and`/`or` and
+  really does repeat its arguments loses its memo, and could get much
+  slower. It would need `@memo`. Before deciding, find the corpus's
+  recursive functions that are memoized only because of an `and`/`or`
+  call, and time them both ways.
+- **Expected gain:** not speed in general, but fewer surprises: no
+  memo warnings or hidden hashing in search-style recursion, and
+  constant stack for loops written with `and`/`or`.
+
 ## Not candidates
 
 - **Hashed maps and sets with sorted views** (branch `hash-proto`):

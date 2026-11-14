@@ -1,5 +1,22 @@
 day 2016.25
 
+# Not from the puzzle: a program that, with a = 1, ends; with a = 2,
+# sends -1 first; and with a = 3, sends 0, 1, 0, 1, ... for ever.
+example """
+cpy a b
+dec b
+jnz b 2
+jnz 1 9
+dec b
+dec b
+out b
+inc b
+out b
+dec b
+jnz 1 -4
+"""
+  part1 = 3
+
 answers
   part1 = 196
 
@@ -19,7 +36,8 @@ program = assemble(input)
 alternates(pc, prog, regs, bit, seen) =
   if (pc, prog, regs, bit) in seen then true
   else match run(pc, prog, regs)
-    ("out", v, pc2, prog2, regs2) => v == bit and alternates(pc2, prog2, regs2, 1 - bit, seen | {(pc, prog, regs, bit)})
+    ("out", v, pc2, prog2, regs2) =>
+      if v == bit then alternates(pc2, prog2, regs2, 1 - bit, seen | {(pc, prog, regs, bit)}) else false
     ("end", _) => false
 
 clock(a) = alternates(0, program, [a, 0, 0, 0], 0, set())
