@@ -8,7 +8,6 @@ use crate::ast::*;
 use crate::builtins;
 use crate::error::{Error, Result, SourceFile, Span};
 use crate::parser::group_defs;
-use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -42,9 +41,6 @@ pub struct Program {
     /// The main file, for messages. Empty when the program wasn't loaded
     /// from a file.
     pub path: PathBuf,
-    /// Functions (by `FnDef::id`) already warned about for large memo keys
-    /// (SPEC 8.1), so each warning is given once per run.
-    pub memo_warned: RefCell<HashSet<usize>>,
     /// The `where` constants that hide a parameter of their function, as
     /// in `f(pos) = ... where pos = pos + 1`, by where each definition
     /// starts in the source, for a hint when one turns out to depend on
@@ -354,7 +350,6 @@ pub fn build_program(src: String, items: Vec<Item>) -> Result<Program> {
         memo,
         closed_lambdas: r.closed_lambdas,
         path: PathBuf::new(),
-        memo_warned: RefCell::new(HashSet::new()),
         hidden_params: r.hidden_params,
         symbols: without_placeholders(r.defs, r.refs),
     })

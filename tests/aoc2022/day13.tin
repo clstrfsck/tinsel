@@ -40,14 +40,12 @@ answers
   part2 = 22713
 
 # Parsing: value(s, i) gives (the value starting at s[i], the index after it).
-@nomemo
 value(s, i) =
   if s[i] == '[' then items(s, i + 1, [])
   else (int(digits.join), i + digits.len)
   where
     digits = s[i..].take_while(.is_digit)
 
-@nomemo
 items(s, i, acc) = match s[i]
   ']' => (acc, i + 1)
   ',' => items(s, i + 1, acc)
@@ -60,7 +58,6 @@ packet(s) = value(s, 0).0
 packets = input.lines.filter(_ != "").map(packet)
 
 # -1, 0 or 1, as a is before, level with, or after b.
-@nomemo
 compare(a: int, b: int) = sign(a - b)
 compare(a: int, b) = compare([a], b)
 compare(a, b: int) = compare(a, [b])

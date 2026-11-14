@@ -29,13 +29,11 @@ lowest = rock.map(.1).max
 # filled set and whether p ended up blocked. Each grain settles exactly
 # where the one-at-a-time simulation would put it: this fills the cave in
 # the same order, depth first.
-@nomemo
 fill(p, filled, floor, abyss) =
   if p in filled or p.1 == floor then (filled, true)
   else if p.1 >= abyss then (filled, false)
   else below([p + S, p + S + W, p + S + E], p, filled, floor, abyss)
 
-@nomemo
 below([], p, filled, _, _) = (filled.add(p), true)
 below([q, ..qs], p, filled, floor, abyss) = next_below(fill(q, filled, floor, abyss), qs, p, floor, abyss)
 

@@ -51,7 +51,6 @@ fits(ms) = ms.join(",").len <= 20
 # Split the moves into calls of at most three functions, each a run of
 # moves, trying each function in turn and then a new one of each length.
 # Gives (functions, main routine as function indices), or none.
-@nomemo
 cover([], fs, main) = (fs, main)
 cover(ms, fs, main) = if main.len >= 10 then none else reuse(ms, fs, main, 0) ?? fresh(ms, fs, main, 1)
 

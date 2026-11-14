@@ -35,7 +35,6 @@ dist = {v: bfs(v, tunnels[_]) for v in useful ++ ["AA"]}
 
 # Every way to go on from here, as (open valves, total pressure released),
 # including stopping now.
-@nomemo
 explore(pos, time, mask, total) =
   [(mask, total)] ++
     [r for (i, v) in useful.enumerate

@@ -767,15 +767,13 @@ The remaining rules:
 - `@memo` forces memoization, and `@nomemo` turns it off (for example, for
   a recursive function whose arguments are expensive to hash and never
   repeat).
-- A memo key is hashed on every call, so memoizing a function whose
-  arguments hold a lot of data, such as a growing simulation state passed
-  from call to call, can cost far more than it saves. When a function
-  memoized automatically (not with `@memo`) is called with arguments
-  holding more than **1,000 values**, counting every value inside
-  collections, the interpreter prints a warning on stderr naming the
-  function. It warns once per function for each run of a program, and the
-  program carries on. `@nomemo` turns the memoization off; `@memo` keeps
-  it and silences the warning.
+- A memo key is hashed on every call, so memoizing only pays for small
+  arguments. A function memoized automatically (not with `@memo`) uses
+  its cache only for calls whose arguments hold at most **256 values** in
+  all, counting every value inside collections; a call with larger
+  arguments runs as if the function weren't memoized, neither looking up
+  nor storing a result. Such calls usually pass a growing state along and
+  don't repeat. `@memo` memoizes every call, whatever its size.
 
 Because values are immutable and functions are pure, memoization never
 changes a program's result, only its speed.

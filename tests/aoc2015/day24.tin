@@ -18,13 +18,10 @@ weights = input.ints
 
 # Whether ws (all different, and weighing k shares in all) splits into k
 # groups of `share`: some group with the first weight in it must work.
-# Each search is new, so these aren't memoized.
-@nomemo
 splits(ws, k, share) = k == 1 or fill(ws, k, share, 1, share - ws[0], [ws[0]])
 
 # Adds weights from i on to a group that still needs `left`, then splits
 # what remains.
-@nomemo
 fill(ws, k, share, i, left, group) =
   if left == 0 then splits([w for w in ws if w not in group], k - 1, share)
   else if i == ws.len or left < 0 then false

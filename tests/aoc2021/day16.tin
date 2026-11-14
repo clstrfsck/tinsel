@@ -44,7 +44,6 @@ number(b, i, n) = int(b[i..<i + n], 2)
 
 # Each parser gives (what it read, the index after it). A packet is
 # (version, type, literal value or none, sub-packets).
-@nomemo
 packet(b, i) =
   if t == 4 then literal(b, i + 6, 0, v)
   else if b[i + 6] == '0' then by_length(b, i + 22, i + 22 + number(b, i + 7, 15), v, t, [])
@@ -57,25 +56,19 @@ literal(b, i, acc, v) =
   if b[i] == '1' then literal(b, i + 5, 16 * acc + number(b, i + 1, 4), v)
   else ((v, 4, 16 * acc + number(b, i + 1, 4), []), i + 5)
 
-@nomemo
 by_length(b, i, end, v, t, subs) =
   if i >= end then ((v, t, none, subs), i)
   else then_length(b, packet(b, i), end, v, t, subs)
 then_length(b, (p, j), end, v, t, subs) = by_length(b, j, end, v, t, subs ++ [p])
 
-@nomemo
 by_count(b, i, 0, v, t, subs) = ((v, t, none, subs), i)
 by_count(b, i, n, v, t, subs) = then_count(b, packet(b, i), n, v, t, subs)
 then_count(b, (p, j), n, v, t, subs) = by_count(b, j, n - 1, v, t, subs ++ [p])
 
 transmission = packet(bits(input.trim), 0).0
 
-# These recurse through subpackets, never the same one twice, so they
-# aren't memoized.
-@nomemo
 versions((v, _, _, subs)) = v + subs.map(versions).sum
 
-@nomemo
 evaluate((_, 4, n, _)) = n
 evaluate((_, t, _, subs)) = combine(t, subs.map(evaluate))
 

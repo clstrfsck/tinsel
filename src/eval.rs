@@ -430,8 +430,23 @@ fn trace_arg(v: &Value) -> String {
     }
 }
 
-/// A memo key holding more values than this gets a warning (SPEC 8.1).
-pub const MEMO_WARN_SIZE: usize = 1000;
+/// A call of a function memoized automatically whose arguments hold more
+/// values than this isn't cached (SPEC 8.1): hashing such a key on every
+/// call costs more than the memo could save.
+pub const MEMO_KEY_MAX: usize = 256;
+
+/// Whether a call of a memoized function with these arguments uses the
+/// cache (SPEC 8.1), on every engine. A call with a generator in its
+/// arguments doesn't: a cache hit would hide the error from reading it a
+/// second time. Nor does one whose arguments hold more than
+/// `MEMO_KEY_MAX` values, unless the function is marked `@memo`.
+pub(crate) fn memo_applies(args: &[Value], at_memo: bool) -> bool {
+    // The size first: it stops after `MEMO_KEY_MAX` values, so a large
+    // state passed along costs next to nothing, where looking through it
+    // for a generator would visit every value on every call.
+    let mut budget = MEMO_KEY_MAX;
+    (at_memo || args.iter().all(|a| within(a, &mut budget))) && !args.iter().any(contains_generator)
+}
 
 /// Whether `v` holds at most `budget` values, counting every value inside
 /// collections. Stops as soon as the budget runs out, so it costs no more
@@ -441,14 +456,26 @@ fn within(v: &Value, budget: &mut usize) -> bool {
         return false;
     }
     *budget -= 1;
+    // A collection's length is a lower bound on the values in it, so a long
+    // one is over budget without visiting its elements.
+    let over = |n: usize, budget: &mut usize| {
+        if n > *budget {
+            *budget = 0;
+            true
+        } else {
+            false
+        }
+    };
     match v.view() {
-        V::Tuple(xs) => xs.iter().all(|x| within(x, budget)),
-        V::List(xs) => xs.iter().all(|x| within(x, budget)),
-        V::Set(s) => s.iter().all(|x| within(x, budget)),
-        V::Map(m) => m
-            .iter()
-            .all(|(k, x)| within(k, budget) && within(x, budget)),
-        V::Grid(g) => g.cells.iter().all(|x| within(x, budget)),
+        V::Tuple(xs) => !over(xs.len(), budget) && xs.iter().all(|x| within(x, budget)),
+        V::List(xs) => !over(xs.len(), budget) && xs.iter().all(|x| within(x, budget)),
+        V::Set(s) => !over(s.len(), budget) && s.iter().all(|x| within(x, budget)),
+        V::Map(m) => {
+            !over(m.len().saturating_mul(2), budget)
+                && m.iter()
+                    .all(|(k, x)| within(k, budget) && within(x, budget))
+        }
+        V::Grid(g) => !over(g.cells.len(), budget) && g.cells.iter().all(|x| within(x, budget)),
         V::RangeSet(r) => {
             let n = r.spans.len();
             *budget = budget.saturating_sub(n);
@@ -1481,15 +1508,10 @@ impl<'p> Interp<'p> {
                     ));
                 }
                 // Functions in the key compare by identity, which is sound
-                // because the key keeps them alive. A call with a generator
-                // in its arguments isn't cached: a cache hit would hide the
-                // error from reading it a second time (SPEC 8.1).
+                // because the key keeps them alive.
                 if let Some(m) = memo
-                    && !args.iter().any(contains_generator)
+                    && memo_applies(&args, def.annotation == Some(Annotation::Memo))
                 {
-                    if def.annotation != Some(Annotation::Memo) {
-                        self.check_memo_key(def, &args);
-                    }
                     if let Some(v) = m.table.borrow().get(&args) {
                         return Ok(Prepared::Done(v.clone()));
                     }
@@ -1538,39 +1560,6 @@ impl<'p> Interp<'p> {
                 Ok(Prepared::Run(func.clone(), None, frame))
             }
         }
-    }
-
-    /// Warns, once per function, when a function memoized automatically is
-    /// called with a large key (SPEC 8.1): hashing it on every call can cost
-    /// far more than the memo saves, as when a recursive function threads a
-    /// growing simulation state through calls that never repeat.
-    fn check_memo_key(&self, def: &FnDef, args: &[Value]) {
-        self.check_memo_key_for(def.id, &def.name, def.span, args);
-    }
-
-    /// `check_memo_key` for function `id`, named `name`, defined at `span`.
-    pub(crate) fn check_memo_key_for(&self, id: usize, name: &str, span: Span, args: &[Value]) {
-        if self.prog.memo_warned.borrow().contains(&id) {
-            return;
-        }
-        let mut budget = MEMO_WARN_SIZE;
-        if args.iter().all(|a| within(a, &mut budget)) {
-            return;
-        }
-        self.prog.memo_warned.borrow_mut().insert(id);
-        let at = crate::runner::location(
-            &self.prog.path,
-            &self.prog.src,
-            &self.prog.files,
-            span.start,
-        );
-        eprintln!(
-            "{at}: warning: `{}` is memoized automatically, but was called with arguments \
-             holding more than {MEMO_WARN_SIZE} values, which are hashed on every call. \
-             Add @nomemo if its calls never repeat, or @memo to keep memoizing without \
-             this warning.",
-            name
-        );
     }
 
     /// The first clause whose patterns and guard match, and its frame.
