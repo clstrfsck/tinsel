@@ -215,7 +215,9 @@ fn a_bad_prefixed_literal_is_one_error() {
             "{name}: {err}"
         );
     }
+}
 
+#[test]
 fn a_lazy_chain_reports_the_first_failure_element_by_element() {
     // SPEC 9.2: in a chain read lazily, each element goes through the whole
     // chain in turn, so the filter's failure on the second element comes
