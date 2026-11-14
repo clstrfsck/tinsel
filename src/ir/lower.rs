@@ -1142,6 +1142,15 @@ impl<'p> Lowerer<'p> {
         if let ExprKind::Builtin(id) = func.kind
             && !BUILTINS[id].constant
         {
+            if let [g, init, f] = args
+                && BUILTINS[id].name == "fold"
+                && args.iter().all(|a| a.name.is_none())
+                && let ExprKind::Comp(comp) = &g.value.kind
+                && comp.kind == CompKind::Gen
+            {
+                let v = self.fused_fold(id, comp, g.value.span, &init.value, &f.value, span)?;
+                return Ok(ret(self, v));
+            }
             if let [arg] = args
                 && arg.name.is_none()
                 && let ExprKind::Comp(comp) = &arg.value.kind
@@ -1571,6 +1580,51 @@ impl<'p> Lowerer<'p> {
         Ok(Some(op[0]))
     }
 
+    /// `fold(g, init, f)` with `g` a generator expression: when `f` is a
+    /// function, as one loop over the comprehension, calling `f` with the
+    /// running value and each item, so that compiled code calls compiled
+    /// code (as `Op::Loopable` does for a collection). The generator is
+    /// lazy, so evaluating `init` and `f` first and then the comprehension
+    /// keeps the library's order, and its errors. Otherwise the generator
+    /// is built and the library function called, as before.
+    fn fused_fold(
+        &mut self,
+        id: usize,
+        comp: &Comp,
+        gspan: Span,
+        init: &Expr,
+        f: &Expr,
+        span: Span,
+    ) -> Result<Var> {
+        let init = self.expr(init)?;
+        let f = self.expr(f)?;
+        let ok = self.emit(Op::IsType(Use::new(f), TypeName::Function), span);
+        let (fast, _) = self.block(0);
+        let (slow, _) = self.block(0);
+        let (done, dp) = self.block(1);
+        self.branch(ok, fast, slow);
+        self.switch(slow);
+        let g = self.generator(comp, gspan)?;
+        let r = self.emit(
+            Op::CallBuiltin {
+                id,
+                args: vec![Use::new(g), Use::new(init), Use::new(f)],
+                named: Vec::new(),
+            },
+            span,
+        );
+        self.jump(done, &[r]);
+        self.switch(fast);
+        let (rest, rp) = self.block(1);
+        let depth = self.frames.len();
+        self.comp_level(comp, 0, init, rest, None, Sink::Apply(f, span))?;
+        self.frames.truncate(depth);
+        self.switch(rest);
+        self.jump(done, &[rp[0]]);
+        self.switch(done);
+        Ok(dp[0])
+    }
+
     /// Clause `i` onwards, adding to `acc`; `cont` takes the accumulator
     /// when this level has nothing more to add.
     /// `first` is clause 0's collection, if `comprehension` read it already.
@@ -1590,6 +1644,7 @@ impl<'p> Lowerer<'p> {
                     (_, Sink::Fold(op, span)) => {
                         self.emit(Op::Bin(op, Use::new(acc), Use::new(k)), span)
                     }
+                    (_, Sink::Apply(f, span)) => self.call_one(f, &[acc, k], span),
                     (_, Sink::Exit("first", _, out)) => {
                         self.jump(out, &[k]);
                         return Ok(());
@@ -1741,6 +1796,9 @@ enum Sink {
     Acc { finite: bool },
     /// Combines it with the running total, reporting errors at the call.
     Fold(BinOp, Span),
+    /// Calls the function with the running value and the item, giving the
+    /// new running value (`fold`), reporting errors at the call.
+    Apply(Var, Span),
     /// For library function `any`, `all` or `first` (at the span):
     /// jumps to the block with the result once an item decides it.
     Exit(&'static str, Span, BlockId),

@@ -295,6 +295,20 @@ test_error "an eager count needs a bool" = [1].count(x => x)
 test_error "an eager first needs a bool" = "ab".first(_ => 1)
 test "eager min_by keeps the first of equal keys" = [(1, 'a'), (1, 'b')].min_by(.0) == (1, 'a') and [].max_by(_ + 1) == none
 test "eager fold and scan" = (1..4).fold(0, (a, x) => a + x) == 10 and [1, 2, 3].scan(0, (a, x) => a + x) == [0, 1, 3, 6]
+# A fold over a generator expression runs as one loop natively; it must
+# behave as the library function does.
+test "fold over a generator" = (x * x for x in 1..4).fold(0, (a, x) => a + x) == 30
+test "fold over a generator with if, let and a nested for" = (x * y for x in 1..3 if x != 2 for y in [x, 10] let z = y if z > 0).fold([], (acc, v) => acc ++ [v]) == [1, 10, 9, 30]
+test "fold over a generator with a library function" = (x for x in [3, 9, 4]).fold(0, max) == 9
+test "fold over a generator updating a list in place" = (i % 3 for i in 0..<10).fold([0, 0, 0], (ls, i) => ls.set(i, ls[i] + 1)) == [4, 3, 3]
+test "fold over an empty generator doesn't call f" = ((x for x in []).fold(7, 5), (x for x in [] ).fold(7, (a, x) => 1 / 0)) == (7, 7)
+test_error "fold over a generator with something that isn't a function" = (x for x in [1, 2]).fold(0, 5)
+test_error "fold over a generator, failing in f" = (x for x in [1, 0]).fold(0, (a, x) => a + 10 / x)
+test_error "fold over a generator, failing in init" = (x for x in [1]).fold(int("x"), (a, x) => a)
+fold_twice(n) = (g.fold(0, (a, x) => a + x), g.fold(0, (a, x) => a + x))
+  where
+    g = (x for x in 1..n)
+test_error "a named generator is still single-pass for fold" = fold_twice(3)
 test_error "eager min_by keys must be comparable" = [1, "a"].min_by(x => x)
 
 # Group 2 additions (SPEC 9.2)
