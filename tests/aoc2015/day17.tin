@@ -1,0 +1,36 @@
+day 2015.17
+
+# Containers of various sizes, and 150 litres of eggnog.
+# Part 1: how many combinations of containers hold exactly 150 litres
+#         (filling each one used).
+# Part 2: how many of those combinations use the fewest containers.
+
+example "20\n15\n10\n5\n5"
+  with litres = 25
+  part1 = 4
+  part2 = 3
+
+answers
+  part1 = 4372
+  part2 = 4
+
+litres = 150
+
+sizes = input.ints
+
+# The ways to hold `left` litres with the containers from i on.
+ways(i, left) =
+  if left == 0 then 1
+  else if i == sizes.len or left < 0 then 0
+  else ways(i + 1, left - sizes[i]) + ways(i + 1, left)
+
+part1 = ways(0, litres)
+
+# The ways to hold `left` litres with exactly n of the containers from i
+# on.
+ways_with(i, left, n) =
+  if left == 0 then (if n == 0 then 1 else 0)
+  else if i == sizes.len or left < 0 or n == 0 then 0
+  else ways_with(i + 1, left - sizes[i], n - 1) + ways_with(i + 1, left, n)
+
+part2 = (1..sizes.len).map(ways_with(0, litres, _)).first(_ > 0)

@@ -1,0 +1,41 @@
+day 2015.13
+
+# Guests round a circular table, each gaining or losing happiness from
+# each neighbour.
+# Part 1: the largest total change in happiness from any seating.
+# Part 2: the same, with you seated too, indifferent and met with
+#         indifference (0 either way).
+
+example """
+Alice would gain 54 happiness units by sitting next to Bob.
+Alice would lose 79 happiness units by sitting next to Carol.
+Alice would lose 2 happiness units by sitting next to David.
+Bob would gain 83 happiness units by sitting next to Alice.
+Bob would lose 7 happiness units by sitting next to Carol.
+Bob would lose 63 happiness units by sitting next to David.
+Carol would lose 62 happiness units by sitting next to Alice.
+Carol would gain 60 happiness units by sitting next to Bob.
+Carol would gain 55 happiness units by sitting next to David.
+David would gain 46 happiness units by sitting next to Alice.
+David would lose 7 happiness units by sitting next to Bob.
+David would gain 41 happiness units by sitting next to Carol."""
+  part1 = 330
+
+answers
+  part1 = 709
+  part2 = 668
+
+# (who, next to whom) -> the change in happiness.
+change = {(a, b): (if way == "gain" then n else -n)
+          for "{a} would {way} {n:int} happiness units by sitting next to {b}." in input.lines}
+
+guests = set(a for (a, _) in change.keys).sort
+
+# A pair not in the list (one of them is you) changes nothing.
+total(seating) = [change.get((a, b), 0) + change.get((b, a), 0) for [a, b] in (seating ++ [seating[0]]).windows(2)].sum
+
+# The table is a circle, so the first guest's seat can be fixed.
+best(people) = people.drop(1).perms.map(rest => total([people[0]] ++ list(rest))).max
+
+part1 = best(guests)
+part2 = best(guests ++ ["you"])

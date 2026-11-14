@@ -836,10 +836,20 @@ fn last(it: &mut Interp<'_>, args: Args) -> Result<Value> {
             None => Err(args.err("an infinite range has no last element")),
         };
     }
-    if let V::Set(_) | V::Map(_) | V::RangeSet(_) = args.pos[0].view() {
-        return Ok(sorted_end(&args.pos[0], true));
+    // Directly, for the sequences: `xs.last` in a loop over a growing list
+    // must not copy the list each time.
+    match args.pos[0].view() {
+        V::Set(_) | V::Map(_) | V::RangeSet(_) => Ok(sorted_end(&args.pos[0], true)),
+        V::List(l) => Ok(l
+            .len()
+            .checked_sub(1)
+            .and_then(|i| l.get(i))
+            .cloned()
+            .unwrap_or(Value::NONE)),
+        V::Tuple(t) => Ok(t.last().cloned().unwrap_or(Value::NONE)),
+        V::Str(s) => Ok(s.chars().next_back().map_or(Value::NONE, Value::char)),
+        _ => Ok(it.to_vec(&args.pos[0])?.pop().unwrap_or(Value::NONE)),
     }
-    Ok(it.to_vec(&args.pos[0])?.pop().unwrap_or(Value::NONE))
 }
 
 /// The smallest or largest element of a set (or key of a map), or `none`.

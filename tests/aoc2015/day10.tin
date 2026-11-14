@@ -1,0 +1,26 @@
+day 2015.10
+
+# Look-and-say: each step reads the digits aloud, run by run, so 1211
+# becomes 111221 (one 1, one 2, two 1s).
+# Part 1: the length after 40 steps.
+# Part 2: the length after 50 steps.
+
+example "1"
+  with steps = 5
+  part1 = 6
+
+answers
+  part1 = 252_594
+  part2 = 3_579_328
+
+steps = 40
+
+# One step, over a list of digits: each run becomes its length and digit.
+say(ds) = ds.fold([], (out, d) =>
+  if out.len > 0 and out.last == d then out.set(out.len - 2, out[out.len - 2] + 1)
+  else out ++ [1, d])
+
+start = input.trim.chars.map(int)
+
+part1 = iterate(start, say, times: steps).len
+part2 = iterate(start, say, times: 50).len

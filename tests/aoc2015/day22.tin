@@ -1,0 +1,62 @@
+day 2015.22
+
+# A wizard fight: each turn you cast a spell, paid in mana; Shield, Poison
+# and Recharge start effects that last some turns, applied at the start
+# of every turn (yours and the boss's). The boss hits back each turn.
+# Part 1: the least mana that still wins.
+# Part 2: the same, when you lose a hit point at the start of each of
+#         your turns.
+
+answers
+  part1 = 1824
+  part2 = 1937
+
+hp = 50
+mana = 500
+
+(boss_hp, boss_damage) = tuple(input.ints)
+
+# A state: (your hit points, mana, boss hit points, the turns left on
+# Shield, Poison and Recharge).
+
+# The start of any turn: the effects apply, and their timers run down.
+effects((h, m, b, sh, po, re)) =
+  (h, if re > 0 then m + 101 else m, if po > 0 then b - 3 else b, max(sh - 1, 0), max(po - 1, 0), max(re - 1, 0))
+
+# (cost, what the spell does), for each spell that can be cast now.
+spells((h, m, b, sh, po, re)) = [(c, s) for (c, s) in [
+    (53, (h, m - 53, b - 4, sh, po, re)),
+    (73, (h + 2, m - 73, b - 2, sh, po, re)),
+    (113, if sh == 0 then (h, m - 113, b, 6, po, re) else none),
+    (173, if po == 0 then (h, m - 173, b, sh, 6, re) else none),
+    (229, if re == 0 then (h, m - 229, b, sh, po, 5) else none),
+  ] if s != none and c <= m]
+
+# The boss's turn, after your spell: none if it kills you.
+boss_turn(s, damage) =
+  if after.2 <= 0 then after
+  else if hit >= after.0 then none
+  else after.set(0, after.0 - hit)
+  where
+    after = effects(s)
+    # Shield's armour holds for the turn its timer runs out on.
+    hit = max(damage - (if s.3 > 0 then 7 else 0), 1)
+
+# Your turn and the boss's, for each spell: (the state after, its cost).
+# Your turn starts with losing `drain` hit points, before the effects.
+rounds(damage, drain, s) =
+  if s.0 <= drain then []
+  else if mine.2 <= 0 then [(mine, 0)]
+  else [(t, c) for (c, cast) in spells(mine) let t = if cast.2 <= 0 then cast else boss_turn(cast, damage) if t != none]
+  where
+    mine = effects(s.set(0, s.0 - drain))
+
+# The least mana that wins, with h hit points and m mana against a boss
+# with b hit points that does `damage`.
+least_mana(h, m, b, damage, drain) = dijkstra((h, m, b, 0, 0, 0), rounds(damage, drain, _), goal: _.2 <= 0).0
+
+test "the puzzle's first example" = least_mana(10, 250, 13, 8, 0) == 226
+test "the puzzle's second example" = least_mana(10, 250, 14, 8, 0) == 641
+
+part1 = least_mana(hp, mana, boss_hp, boss_damage, 0)
+part2 = least_mana(hp, mana, boss_hp, boss_damage, 1)

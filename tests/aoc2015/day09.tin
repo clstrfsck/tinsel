@@ -1,0 +1,28 @@
+day 2015.9
+
+# Distances between pairs of places.
+# Part 1: the length of the shortest route that visits every place once,
+#         starting and ending anywhere.
+# Part 2: the length of the longest such route.
+
+example """
+London to Dublin = 464
+London to Belfast = 518
+Dublin to Belfast = 141"""
+  part1 = 605
+  part2 = 982
+
+answers
+  part1 = 207
+  part2 = 804
+
+dist = {k: d for "{a} to {b} = {d:int}" in input.lines for k in [(a, b), (b, a)]}
+
+places = set(a for (a, _) in dist.keys)
+
+length(route) = route.windows(2).map(([a, b]) => dist[(a, b)]).sum
+
+routes = places.perms.map(length)
+
+part1 = routes.min
+part2 = routes.max

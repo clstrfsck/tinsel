@@ -1,0 +1,49 @@
+day 2015.5
+
+# Santa's list of strings, naughty or nice.
+# Part 1: how many are nice: at least three vowels, a letter twice in a
+#         row, and none of ab, cd, pq or xy.
+# Part 2: the same, with new rules: a pair of letters that appears twice
+#         without overlapping, and a letter repeated with one between.
+
+example "ugknbfddgicrmopn"
+  part1 = 1
+
+example "aaa"
+  part1 = 1
+
+example "jchzalrnumimnmhp"
+  part1 = 0
+
+example "haegwjzuvuyypxyu"
+  part1 = 0
+
+example "dvszwmarrgswjxmb"
+  part1 = 0
+
+example "qjhvhtzxzqqjkmpb"
+  part2 = 1
+
+example "xxyxx"
+  part2 = 1
+
+example "uurcxstgmygtbstg"
+  part2 = 0
+
+example "ieodomkazucvgmuy"
+  part2 = 0
+
+answers
+  part1 = 255
+  part2 = 55
+
+nice(s) = s.chars.count(c => c in "aeiou") >= 3
+  and s.chars.windows(2).any(([a, b]) => a == b)
+  and not ["ab", "cd", "pq", "xy"].any(t => t in s)
+
+part1 = input.lines.count(nice)
+
+nicer(s) = (0..<s.len - 1).any(i => s[i..<i + 2] in s[i + 2..])
+  and s.chars.windows(3).any(([a, _, c]) => a == c)
+
+part2 = input.lines.count(nicer)

@@ -1,0 +1,44 @@
+day 2015.24
+
+# Packages to split into three groups of equal weight. The first group
+# should have as few packages as possible, and then the smallest product
+# of weights (its quantum entanglement).
+# Part 1: the quantum entanglement of that first group.
+# Part 2: the same, with four groups.
+
+example "1\n2\n3\n4\n5\n7\n8\n9\n10\n11"
+  part1 = 99
+  part2 = 44
+
+answers
+  part1 = 11_266_889_531
+  part2 = 77_387_711
+
+weights = input.ints
+
+# Whether ws (all different, and weighing k shares in all) splits into k
+# groups of `share`: some group with the first weight in it must work.
+# Each search is new, so these aren't memoized.
+@nomemo
+splits(ws, k, share) = k == 1 or fill(ws, k, share, 1, share - ws[0], [ws[0]])
+
+# Adds weights from i on to a group that still needs `left`, then splits
+# what remains.
+@nomemo
+fill(ws, k, share, i, left, group) =
+  if left == 0 then splits([w for w in ws if w not in group], k - 1, share)
+  else if i == ws.len or left < 0 then false
+  else fill(ws, k, share, i + 1, left - ws[i], group ++ [ws[i]]) or fill(ws, k, share, i + 1, left, group)
+
+# The best first group's quantum entanglement: of the smallest groups of
+# the right weight, by product, the first whose leftovers make the other
+# groups.
+best(groups) = (1..).map(firsts).first(_ != none)
+  where
+    share = weights.sum / groups
+    firsts(n) = match weights.combos(n).filter(g => g.sum == share).sort_by(.product).first(g => splits([w for w in weights if w not in g], groups - 1, share))
+      none => none
+      g => g.product
+
+part1 = best(3)
+part2 = best(4)

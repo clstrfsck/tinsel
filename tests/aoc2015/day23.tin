@@ -1,0 +1,39 @@
+day 2015.23
+
+# A computer with registers a and b, both starting at 0: hlf (halve), tpl
+# (triple), inc, jmp, jie (jump if even) and jio (jump if one).
+# Part 1: the value in register b when the program ends.
+# Part 2: the same, when register a starts at 1.
+
+example """
+inc a
+jio a, +2
+tpl a
+inc a"""
+  with wanted = 0
+  part1 = 2
+
+answers
+  part1 = 170
+  part2 = 247
+
+wanted = 1
+
+program = input.lines
+
+# Registers as [a, b]; an instruction names one as a or b.
+reg(r) = if r == "a" then 0 else 1
+
+# Runs from instruction pc until it leaves the program.
+run(pc, regs) =
+  if pc not in program.indices then regs
+  else match program[pc]
+    "hlf {r}" => run(pc + 1, regs.set(reg(r), regs[reg(r)] / 2))
+    "tpl {r}" => run(pc + 1, regs.set(reg(r), regs[reg(r)] * 3))
+    "inc {r}" => run(pc + 1, regs.set(reg(r), regs[reg(r)] + 1))
+    "jmp {o:int}" => run(pc + o, regs)
+    "jie {r}, {o:int}" => run(if regs[reg(r)] % 2 == 0 then pc + o else pc + 1, regs)
+    "jio {r}, {o:int}" => run(if regs[reg(r)] == 1 then pc + o else pc + 1, regs)
+
+part1 = run(0, [0, 0])[wanted]
+part2 = run(0, [1, 0])[wanted]

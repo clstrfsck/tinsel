@@ -1,0 +1,68 @@
+day 2015.6
+
+# A 1000 by 1000 grid of lights, all off, and instructions that turn on,
+# turn off or toggle the rectangle between two corners (inclusive).
+# Part 1: how many lights are on at the end.
+# Part 2: the total brightness at the end, when turning on adds 1,
+#         turning off takes 1 (down to 0) and toggling adds 2.
+
+example "turn on 0,0 through 999,999"
+  part1 = 1_000_000
+
+example """
+turn on 0,0 through 999,999
+toggle 0,0 through 999,0
+turn off 499,499 through 500,500"""
+  part1 = 998_996
+
+example "turn on 0,0 through 0,0"
+  part2 = 1
+
+example "toggle 0,0 through 999,999"
+  part2 = 2_000_000
+
+answers
+  part1 = 400_410
+  part2 = 15_343_601
+
+# Each instruction: (what, x range, y range), with each range from its
+# first light up to (not including) the one after its last.
+steps = [(what, x0..<x1 + 1, y0..<y1 + 1) for "{what} {x0:int},{y0:int} through {x1:int},{y1:int}" in input.lines]
+
+# Every rectangle starts and ends on a cut, so the lights between two
+# neighbouring cuts, across and down, always change together: a block.
+# Working on blocks, not lights, is about five times less work.
+cuts(axis) = set([0, 1000] ++ [r.first for s in steps let r = s[axis]] ++ [r.last + 1 for s in steps let r = s[axis]]).sort
+xcuts = cuts(1)
+ycuts = cuts(2)
+xblock = {x: i for (i, x) in xcuts.enumerate}
+yblock = {y: i for (i, y) in ycuts.enumerate}
+across = xcuts.len - 1
+
+# The blocks as one list, row by row, each instruction changing its
+# blocks in place by a rule for each kind of instruction; then each
+# block's value counts once for every light in it.
+lights(rule) = [ls[j * across + i] * (xcuts[i + 1] - xcuts[i]) * (ycuts[j + 1] - ycuts[j]) for j in 0..<ycuts.len - 1 for i in 0..<across].sum
+  where
+    ls = steps.fold([0].repeat(across * (ycuts.len - 1)), (ls, (what, xs, ys)) =>
+      paint(ls, rule, what, xblock[xs.first]..<xblock[xs.last + 1], yblock[ys.first], yblock[ys.last + 1], xblock[xs.first]))
+
+# One instruction, block by block from (x, y), along each row of blocks
+# in turn.
+paint(ls, rule, what, xs, y, y_end, x) =
+  if y == y_end then ls
+  else if x == xs.last + 1 then paint(ls, rule, what, xs, y + 1, y_end, xs.first)
+  else paint(ls.set(i, rule(what, ls[i])), rule, what, xs, y, y_end, x + 1)
+  where
+    i = y * across + x
+
+switch("turn on", _) = 1
+switch("turn off", _) = 0
+switch("toggle", b) = 1 - b
+
+dim("turn on", b) = b + 1
+dim("turn off", b) = max(b - 1, 0)
+dim("toggle", b) = b + 2
+
+part1 = lights(switch)
+part2 = lights(dim)
