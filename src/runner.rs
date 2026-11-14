@@ -27,7 +27,14 @@ pub struct LoadError {
 /// Reads and compiles a `.tin` file, along with the files it includes
 /// (SPEC 2.8).
 pub fn load(path: &Path) -> Result<Program, LoadError> {
-    load_with(path, None)
+    load_with(path, None, None)
+}
+
+/// [`load`], with `text` in place of what the file at `path` holds, such
+/// as an editor's unsaved changes. Includes are still found relative to
+/// `path`, and read from their files.
+pub fn load_text(path: &Path, text: String) -> Result<Program, LoadError> {
+    load_with(path, None, Some(text))
 }
 
 /// The name of the constant that `tinsel eval` adds for its expression.
@@ -46,15 +53,16 @@ pub const EVAL_FILE: &str = "<expression>";
 /// program's scope (SPEC 2.7, `tinsel eval`). It is kept as one more file,
 /// named [`EVAL_FILE`] in messages.
 pub fn load_with_expr(path: &Path, expr: &str) -> Result<Program, LoadError> {
-    load_with(path, Some(expr))
+    load_with(path, Some(expr), None)
 }
 
-fn load_with(path: &Path, expr: Option<&str>) -> Result<Program, LoadError> {
+fn load_with(path: &Path, expr: Option<&str>, text: Option<String>) -> Result<Program, LoadError> {
     let mut loader = Loader {
         src: String::new(),
         files: Vec::new(),
         stack: Vec::new(),
         seen: Vec::new(),
+        main_text: text,
     };
     let items = loader
         .file(path, PathBuf::new(), None)
@@ -90,6 +98,8 @@ struct Loader {
     stack: Vec<PathBuf>,
     /// Every file loaded so far, so that each is included only once.
     seen: Vec<PathBuf>,
+    /// The main file's text, if given rather than read (`load_text`).
+    main_text: Option<String>,
 }
 
 impl Loader {
@@ -110,7 +120,10 @@ impl Loader {
             }
         };
         let canonical = path.canonicalize().map_err(cant_read)?;
-        let text = std::fs::read_to_string(path).map_err(cant_read)?;
+        let text = match (included_at, self.main_text.take()) {
+            (None, Some(text)) => text,
+            _ => std::fs::read_to_string(path).map_err(cant_read)?,
+        };
         if !self.src.is_empty() && !self.src.ends_with('\n') {
             self.src.push('\n');
         }
@@ -261,6 +274,25 @@ pub fn json_string(s: &str) -> String {
     out
 }
 
+/// Where `span` is, as JSON fields for tools (SPEC 2.7): `file`, and the
+/// 1-based `line`, `column`, `end_line` and `end_column`, with columns
+/// counted in chars.
+pub fn span_json(path: &Path, src: &str, files: &[SourceFile], span: Span) -> String {
+    let (i, start, text) = file_at(src, files, span.start);
+    let lines = LineIndex::new(text);
+    let at = |offset: usize| {
+        let offset = offset.clamp(start, start + text.len()) - start;
+        lines.line_col(text, offset)
+    };
+    let (line, column) = at(span.start);
+    let (end_line, end_column) = at(span.end.max(span.start));
+    let file = file_name(path, files, i);
+    format!(
+        "\"file\":{},\"line\":{line},\"column\":{column},\"end_line\":{end_line},\"end_column\":{end_column}",
+        json_string(&file.display().to_string())
+    )
+}
+
 /// An error as a JSON object, for tools (SPEC 2.7): its message, and the
 /// file and 1-based line and column where its span starts and ends, or
 /// just the file when it has no span.
@@ -268,18 +300,9 @@ pub fn error_json(path: &Path, src: Option<&str>, files: &[SourceFile], err: &Er
     let message = json_string(&err.msg);
     match (src, err.span) {
         (Some(src), Some(span)) => {
-            let (i, start, text) = file_at(src, files, span.start);
-            let lines = LineIndex::new(text);
-            let at = |offset: usize| {
-                let offset = offset.clamp(start, start + text.len()) - start;
-                lines.line_col(text, offset)
-            };
-            let (line, column) = at(span.start);
-            let (end_line, end_column) = at(span.end.max(span.start));
-            let file = file_name(path, files, i);
             format!(
-                "{{\"file\":{},\"line\":{line},\"column\":{column},\"end_line\":{end_line},\"end_column\":{end_column},\"message\":{message}}}",
-                json_string(&file.display().to_string())
+                "{{{},\"message\":{message}}}",
+                span_json(path, src, files, span)
             )
         }
         _ => format!(

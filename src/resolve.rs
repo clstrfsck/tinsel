@@ -51,6 +51,90 @@ pub struct Program {
     /// itself. By definition rather than by name, so that a cycle in some
     /// other constant of the same name gets no hint.
     pub hidden_params: HashSet<usize>,
+    /// Every definition and every use of one, for editors (`tinsel
+    /// symbols`, SPEC 2.7).
+    pub symbols: Symbols,
+}
+
+/// A definition, for `tinsel symbols` (SPEC 2.7).
+#[derive(Debug, Clone)]
+pub struct SymDef {
+    pub name: Name,
+    /// `function`, `constant`, `where function`, `where constant`,
+    /// `parameter` or `variable` (bound by a lambda, a `match` arm or a
+    /// comprehension).
+    pub what: &'static str,
+    /// The name, where it is defined.
+    pub span: Span,
+    /// The definition this one is inside, as an index into `defs`.
+    pub container: Option<usize>,
+}
+
+/// The program's definitions, and each use of one: the name's span and the
+/// index of the definition it refers to.
+#[derive(Debug, Clone, Default)]
+pub struct Symbols {
+    pub defs: Vec<SymDef>,
+    pub refs: Vec<(Span, usize)>,
+}
+
+/// The symbols without the parameters of the lambdas that `_`, `_1`, ...
+/// make (SPEC 5.4), which aren't names in the program. What was inside one
+/// moves to its container, and uses of one go.
+fn without_placeholders(defs: Vec<SymDef>, refs: Vec<(Span, usize)>) -> Symbols {
+    let hidden = |d: &SymDef| crate::parser::is_placeholder(&d.name);
+    // Each definition's new index, if it stays.
+    let mut index = Vec::with_capacity(defs.len());
+    let mut kept = 0;
+    for d in &defs {
+        index.push((!hidden(d)).then(|| {
+            kept += 1;
+            kept - 1
+        }));
+    }
+    // The nearest container that stays.
+    let lift = |mut c: Option<usize>| {
+        while let Some(i) = c {
+            match index.get(i).copied().flatten() {
+                Some(new) => return Some(new),
+                None => c = defs.get(i).and_then(|d| d.container),
+            }
+        }
+        None
+    };
+    let new_defs = defs
+        .iter()
+        .filter(|d| !hidden(d))
+        .map(|d| SymDef {
+            container: lift(d.container),
+            ..d.clone()
+        })
+        .collect();
+    let new_refs = refs
+        .into_iter()
+        .filter_map(|(span, d)| index.get(d).copied().flatten().map(|n| (span, n)))
+        .collect();
+    Symbols {
+        defs: new_defs,
+        refs: new_refs,
+    }
+}
+
+/// Where `name` is written in the definition at `span` (which may start
+/// with an annotation such as `@memo`): its first occurrence there as a
+/// whole word.
+fn name_span(src: &str, span: Span, name: &str) -> Span {
+    let text = src.get(span.start..span.end.min(src.len())).unwrap_or("");
+    let word = |c: Option<char>| c.is_some_and(|c| c.is_ascii_alphanumeric() || c == '_');
+    let mut from = 0;
+    while let Some(i) = text[from..].find(name) {
+        let at = from + i;
+        if !word(text[..at].chars().next_back()) && !word(text[at + name.len()..].chars().next()) {
+            return Span::new(span.start + at, span.start + at + name.len());
+        }
+        from = at + name.len();
+    }
+    Span::new(span.start, span.start + name.len())
 }
 
 impl Program {
@@ -157,6 +241,8 @@ pub fn build_program(src: String, items: Vec<Item>) -> Result<Program> {
         Ok(i)
     };
     let mut const_globals = Vec::new();
+    // Each constant binding's global and name span, to define below.
+    let mut const_binds: Vec<(Name, usize, Span)> = Vec::new();
     for c in &consts {
         unique_bindings(std::slice::from_ref(&c.pat))?;
         let mut names = Vec::new();
@@ -164,7 +250,9 @@ pub fn build_program(src: String, items: Vec<Item>) -> Result<Program> {
         copy.bindings_mut(&mut |b| names.push((b.name.clone(), b.span)));
         let mut idxs = Vec::new();
         for (n, span) in names {
-            idxs.push(declare(&n, span)?);
+            let gi = declare(&n, span)?;
+            const_binds.push((n, gi, span));
+            idxs.push(gi);
         }
         const_globals.push(idxs);
     }
@@ -178,16 +266,25 @@ pub fn build_program(src: String, items: Vec<Item>) -> Result<Program> {
         lambda_reach: Vec::new(),
         closed_lambdas: 0,
         hidden_params: HashSet::new(),
+        src: src.clone(),
+        defs: Vec::new(),
+        refs: Vec::new(),
+        within: Vec::new(),
+        fn_defs: HashMap::new(),
+        def_at: HashMap::new(),
     };
     let mut fn_globals = Vec::new();
     for f in &mut fns {
         let gi = declare(&f.name, f.span)?;
         f.id = r.new_fn(f.annotation);
-        r.globals.insert(f.name.clone(), (gi, Some(f.id)));
+        let def = r.define(&f.name, "function", name_span(&src, f.span, &f.name));
+        r.fn_defs.insert(f.id, def);
+        r.globals.insert(f.name.clone(), (gi, Some(f.id), def));
         fn_globals.push(gi);
     }
-    for (name, &gi) in &global_index {
-        r.globals.entry(name.clone()).or_insert((gi, None));
+    for (name, gi, span) in const_binds {
+        let def = r.define(&name, "constant", span);
+        r.globals.entry(name).or_insert((gi, None, def));
     }
 
     let mut globals: Vec<Option<GlobalDef>> = (0..global_names.len()).map(|_| None).collect();
@@ -226,6 +323,10 @@ pub fn build_program(src: String, items: Vec<Item>) -> Result<Program> {
                     ));
                 }
             }
+            // The name in `with name = ...` refers to that constant.
+            if let Some(&(_, _, d)) = r.globals.get(name) {
+                r.refs.push((name_span(&src, *span, name), d));
+            }
             r.top_const(rc_mut(def))?;
             crate::moves::constant(rc_mut(def));
         }
@@ -255,19 +356,24 @@ pub fn build_program(src: String, items: Vec<Item>) -> Result<Program> {
         path: PathBuf::new(),
         memo_warned: RefCell::new(HashSet::new()),
         hidden_params: r.hidden_params,
+        symbols: without_placeholders(r.defs, r.refs),
     })
 }
 
+/// A name in scope: its slot, the function id if it names a `where`
+/// function, and the index of its definition in `Resolver::defs`.
+type Local = (usize, Option<usize>, usize);
+
 struct FrameScope {
-    /// name -> (slot, function id if it names a `where` function)
-    scopes: Vec<HashMap<Name, (usize, Option<usize>)>>,
+    scopes: Vec<HashMap<Name, Local>>,
     size: usize,
 }
 
 struct Resolver {
     frames: Vec<FrameScope>,
-    /// name -> (global index, function id if it names a function)
-    globals: HashMap<Name, (usize, Option<usize>)>,
+    /// name -> (global index, function id if it names a function, index of
+    /// its definition in `defs`)
+    globals: HashMap<Name, (usize, Option<usize>, usize)>,
     annotations: Vec<Option<Annotation>>,
     /// Call graph: (caller, callee, is the reference a tail call).
     edges: Vec<(usize, usize, bool)>,
@@ -278,9 +384,33 @@ struct Resolver {
     closed_lambdas: usize,
     /// See `Program::hidden_params`.
     hidden_params: HashSet<usize>,
+    /// The program's source, to find names in definitions.
+    src: String,
+    /// See `Program::symbols`.
+    defs: Vec<SymDef>,
+    refs: Vec<(Span, usize)>,
+    /// The definitions being resolved, innermost last (indexes into `defs`).
+    within: Vec<usize>,
+    /// The definition of each function, by function id.
+    fn_defs: HashMap<usize, usize>,
+    /// The definition at each binding's span start, for constants.
+    def_at: HashMap<usize, usize>,
 }
 
 impl Resolver {
+    /// Records a definition of `name` at `span`, inside the innermost one
+    /// being resolved; gives its index.
+    fn define(&mut self, name: &Name, what: &'static str, span: Span) -> usize {
+        self.defs.push(SymDef {
+            name: name.clone(),
+            what,
+            span,
+            container: self.within.last().copied(),
+        });
+        self.def_at.insert(span.start, self.defs.len() - 1);
+        self.defs.len() - 1
+    }
+
     fn new_fn(&mut self, annotation: Option<Annotation>) -> usize {
         self.annotations.push(annotation);
         self.annotations.len() - 1
@@ -311,45 +441,51 @@ impl Resolver {
         self.frame().scopes.pop();
     }
 
-    fn declare(&mut self, name: &Name, fn_id: Option<usize>) -> usize {
+    fn declare(&mut self, name: &Name, fn_id: Option<usize>, def: usize) -> usize {
         let f = self.frame();
         let slot = f.size;
         f.size += 1;
         if let Some(scope) = f.scopes.last_mut() {
-            scope.insert(name.clone(), (slot, fn_id));
+            scope.insert(name.clone(), (slot, fn_id, def));
         }
         slot
     }
 
-    fn declare_pattern(&mut self, p: &mut Pattern) {
-        p.bindings_mut(&mut |b| b.slot = self.declare(&b.name, None));
+    /// Declares a pattern's bindings, each a definition of kind `what`,
+    /// giving each its slot in the same pass.
+    fn declare_pattern(&mut self, p: &mut Pattern, what: &'static str) {
+        p.bindings_mut(&mut |b| {
+            let def = self.define(&b.name, what, b.span);
+            b.slot = self.declare(&b.name, None, def);
+        });
     }
 
-    /// Finds a local or global binding: its resolved form, and the function
-    /// id if it is a function definition.
-    fn find(&self, name: &Name) -> Option<(ExprKind, Option<usize>)> {
+    /// Finds a local or global binding: its resolved form, the function id
+    /// if it is a function definition, and its definition's index.
+    fn find(&self, name: &Name) -> Option<(ExprKind, Option<usize>, usize)> {
         for (depth, frame) in self.frames.iter().rev().enumerate() {
             for scope in frame.scopes.iter().rev() {
-                if let Some(&(slot, fn_id)) = scope.get(name) {
+                if let Some(&(slot, fn_id, def)) = scope.get(name) {
                     let local = ExprKind::Local {
                         depth,
                         slot,
                         name: name.clone(),
                         moved: false,
                     };
-                    return Some((local, fn_id));
+                    return Some((local, fn_id, def));
                 }
             }
         }
         self.globals
             .get(name)
-            .map(|&(g, fn_id)| (ExprKind::Global(g), fn_id))
+            .map(|&(g, fn_id, def)| (ExprKind::Global(g), fn_id, def))
     }
 
     /// Resolves a name, recording a call-graph edge if it names a function.
     fn lookup(&mut self, name: &Name, span: Span, tail_call: bool) -> Result<ExprKind> {
         match self.find(name) {
-            Some((kind, fn_id)) => {
+            Some((kind, fn_id, def)) => {
+                self.refs.push((span, def));
                 if let ExprKind::Local { depth, .. } = &kind {
                     let reached = self.frames.len() - 1 - depth;
                     for (_, outermost) in &mut self.lambda_reach {
@@ -394,16 +530,37 @@ impl Resolver {
             slots.push(b.slot);
         });
         self.frame().size = slots.len();
+        let container = self.const_def(&c.pat);
+        self.within.extend(container);
         self.declare_wheres(&mut c.wheres)?;
         self.expr(&mut c.body, false)?;
         self.where_bodies(&mut c.wheres)?;
+        if container.is_some() {
+            self.within.pop();
+        }
         c.frame_size = self.pop_frame();
         Ok(slots)
     }
 
+    /// The definition of a constant: of its first binding.
+    fn const_def(&self, pat: &Pattern) -> Option<usize> {
+        let mut first = None;
+        pat.clone().bindings_mut(&mut |b| {
+            first.get_or_insert(b.span.start);
+        });
+        first.and_then(|s| self.def_at.get(&s).copied())
+    }
+
     fn fn_def(&mut self, f: &mut FnDef) -> Result<()> {
         self.current_fn.push(f.id);
-        for clause in &mut f.clauses {
+        let def = self.fn_defs.get(&f.id).copied();
+        self.within.extend(def);
+        for (i, clause) in f.clauses.iter_mut().enumerate() {
+            // Each later clause's head names the function again.
+            if let (Some(def), true) = (def, i > 0) {
+                let span = name_span(&self.src, clause.span, &f.name);
+                self.refs.push((span, def));
+            }
             unique_bindings(&clause.params)?;
             let mut params = Vec::new();
             for p in &clause.params {
@@ -420,7 +577,7 @@ impl Resolver {
             }
             self.push_frame();
             for p in &mut clause.params {
-                self.declare_pattern(p);
+                self.declare_pattern(p, "parameter");
             }
             self.push_scope();
             self.declare_wheres(&mut clause.wheres)?;
@@ -430,6 +587,9 @@ impl Resolver {
             self.expr(&mut clause.body, true)?;
             self.where_bodies(&mut clause.wheres)?;
             clause.frame_size = self.pop_frame();
+        }
+        if def.is_some() {
+            self.within.pop();
         }
         self.current_fn.pop();
         Ok(())
@@ -455,12 +615,18 @@ impl Resolver {
             }
         }
         for c in &mut w.consts {
-            self.declare_pattern(&mut rc_mut(c).pat);
+            self.declare_pattern(&mut rc_mut(c).pat, "where constant");
         }
         for (f, slot) in &mut w.fns {
             let f = rc_mut(f);
             f.id = self.new_fn(f.annotation);
-            *slot = self.declare(&f.name, Some(f.id));
+            let def = self.define(
+                &f.name,
+                "where function",
+                name_span(&self.src, f.span, &f.name),
+            );
+            self.fn_defs.insert(f.id, def);
+            *slot = self.declare(&f.name, Some(f.id), def);
         }
         Ok(())
     }
@@ -468,11 +634,16 @@ impl Resolver {
     fn where_bodies(&mut self, w: &mut Wheres) -> Result<()> {
         for c in &mut w.consts {
             let c = rc_mut(c);
+            let container = self.const_def(&c.pat);
+            self.within.extend(container);
             self.push_scope();
             self.declare_wheres(&mut c.wheres)?;
             self.expr(&mut c.body, false)?;
             self.where_bodies(&mut c.wheres)?;
             self.pop_scope();
+            if container.is_some() {
+                self.within.pop();
+            }
         }
         for (f, _) in &mut w.fns {
             self.fn_def(rc_mut(f))?;
@@ -518,7 +689,7 @@ impl Resolver {
                             self.expr(iter, false)?;
                             unique_bindings(std::slice::from_ref(pat))?;
                             self.push_frame();
-                            self.declare_pattern(pat);
+                            self.declare_pattern(pat, "variable");
                             pushed.push(i);
                         }
                         CompClause::If(c) => self.expr(c, false)?,
@@ -540,7 +711,7 @@ impl Resolver {
                     let n = n.clone();
                     // In `x.f`, a constant or variable doesn't hide a library
                     // function of the same name (SPEC 5.2).
-                    let names_fn = matches!(self.find(&n), Some((_, Some(_))));
+                    let names_fn = matches!(self.find(&n), Some((_, Some(_), _)));
                     func.kind = match builtins::lookup(&n) {
                         Some(b) if *method && !names_fn => ExprKind::Builtin(b),
                         _ => self.lookup(&n, func.span, tail)?,
@@ -581,7 +752,7 @@ impl Resolver {
                 let own = self.frames.len() - 1;
                 self.lambda_reach.push((own, own));
                 for p in &mut lam.params {
-                    self.declare_pattern(p);
+                    self.declare_pattern(p, "variable");
                 }
                 self.expr(&mut lam.body, false)?;
                 lam.frame_size = self.pop_frame();
@@ -597,7 +768,7 @@ impl Resolver {
                 for arm in arms {
                     unique_bindings(std::slice::from_ref(&arm.pat))?;
                     self.push_scope();
-                    self.declare_pattern(&mut arm.pat);
+                    self.declare_pattern(&mut arm.pat, "variable");
                     if let Some(g) = &mut arm.guard {
                         self.expr(g, false)?;
                     }

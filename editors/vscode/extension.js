@@ -48,6 +48,11 @@ function activate(context) {
     vscode.commands.registerCommand('tinsel.evalSelection', () => evalSelection(false)),
     vscode.commands.registerCommand('tinsel.evalSelectionOnExample', () => evalSelection(true)),
     vscode.commands.registerCommand('tinsel.openReference', openReference),
+    vscode.languages.registerDefinitionProvider(selector, new DefinitionProvider()),
+    vscode.languages.registerReferenceProvider(selector, new ReferenceProvider()),
+    vscode.languages.registerDocumentSymbolProvider(selector, new OutlineProvider()),
+    vscode.languages.registerDocumentHighlightProvider(selector, new HighlightProvider()),
+    vscode.workspace.onDidCloseTextDocument((doc) => symbols.delete(doc.uri.toString())),
     vscode.languages.registerHoverProvider(selector, new DocHoverProvider()),
     vscode.languages.registerCompletionItemProvider(selector, new DocCompletionProvider(), '.'),
     vscode.languages.registerSignatureHelpProvider(selector, new DocSignatureProvider(),
@@ -363,6 +368,23 @@ function binary() {
 function engineArgs() {
   const engine = vscode.workspace.getConfiguration('tinsel').get('engine');
   return engine && engine !== 'native' ? [`--${engine}`] : [];
+}
+
+/** Runs the CLI with `args` and `input` on its standard input; resolves to
+ * { ok, stdout, stderr }. */
+function tinselWithInput(args, input, cwd) {
+  return new Promise((resolve) => {
+    const child = execFile(binary(), args, { cwd, timeout: EVAL_TIMEOUT_MS, maxBuffer: 64 << 20 },
+      (err, stdout, stderr) => {
+        if (err && err.code === 'ENOENT') {
+          resolve({ ok: false, stdout: '', stderr: `cannot find the tinsel binary (${binary()})` });
+          return;
+        }
+        resolve({ ok: !err, stdout, stderr });
+      });
+    child.stdin.on('error', () => {}); // The binary may exit before reading.
+    child.stdin.end(input);
+  });
 }
 
 /** Runs the CLI with `args`; resolves to { ok, stdout, stderr }. */
@@ -708,6 +730,115 @@ async function openReference() {
     await vscode.commands.executeCommand('markdown.showPreview', doc.uri);
   } catch (_) {
     await vscode.window.showTextDocument(doc);
+  }
+}
+
+// Definitions and uses: `tinsel symbols --json --stdin`
+
+/** Per document: { version, index }, the last one that compiled. */
+const symbols = new Map();
+
+/**
+ * The symbol index of `doc` as it is now, unsaved changes and all. When the
+ * text doesn't compile (say, half-way through typing), the last index that
+ * did is kept, so that navigation still mostly works.
+ */
+async function symbolsFor(doc) {
+  const key = doc.uri.toString();
+  const cached = symbols.get(key);
+  if (cached && cached.version === doc.version) {
+    return cached.index;
+  }
+  const file = doc.uri.fsPath;
+  const cwd = path.dirname(file);
+  const r = await tinselWithInput(['symbols', '--json', '--stdin', file], doc.getText(), cwd);
+  if (r.ok) {
+    const index = lib.symbolIndex(lib.parseJsonLines(r.stdout), cwd);
+    symbols.set(key, { version: doc.version, index });
+    return index;
+  }
+  return cached ? cached.index : undefined;
+}
+
+/** The definition named at `position` in `doc`, with the index. */
+async function symbolAtPosition(doc, position) {
+  if (doc.uri.scheme !== 'file') {
+    return {};
+  }
+  const index = await symbolsFor(doc);
+  if (!index) {
+    return {};
+  }
+  const def = lib.symbolAt(index, doc.uri.fsPath, position.line + 1, position.character + 1);
+  return { index, def };
+}
+
+function location(loc) {
+  return new vscode.Location(vscode.Uri.file(loc.file), range(loc));
+}
+
+/** A located name's range (columns from 1, in chars). */
+function range(loc) {
+  return new vscode.Range(loc.line - 1, loc.column - 1, loc.endLine - 1, loc.endColumn - 1);
+}
+
+/** Go to Definition (F12, Cmd/Ctrl-click). */
+class DefinitionProvider {
+  async provideDefinition(doc, position) {
+    const { def } = await symbolAtPosition(doc, position);
+    return def ? location(def) : undefined;
+  }
+}
+
+/** Find All References (Shift+F12). */
+class ReferenceProvider {
+  async provideReferences(doc, position, context) {
+    const { index, def } = await symbolAtPosition(doc, position);
+    if (!def) {
+      return undefined;
+    }
+    const all = lib.occurrences(index, def);
+    return (context.includeDeclaration ? all : all.slice(1)).map(location);
+  }
+}
+
+/** Highlights every use of the name under the cursor in this file. */
+class HighlightProvider {
+  async provideDocumentHighlights(doc, position) {
+    const { index, def } = await symbolAtPosition(doc, position);
+    if (!def) {
+      return undefined;
+    }
+    return lib.occurrences(index, def)
+      .filter((loc) => loc.file === doc.uri.fsPath)
+      .map((loc, i) => new vscode.DocumentHighlight(range(loc),
+        i === 0 && loc === def ? vscode.DocumentHighlightKind.Write : vscode.DocumentHighlightKind.Read));
+  }
+}
+
+/** The outline: functions and constants, with their `where` definitions. */
+class OutlineProvider {
+  async provideDocumentSymbols(doc) {
+    if (doc.uri.scheme !== 'file') {
+      return undefined;
+    }
+    const index = await symbolsFor(doc);
+    if (!index) {
+      return undefined;
+    }
+    const kinds = {
+      function: vscode.SymbolKind.Function,
+      'where function': vscode.SymbolKind.Function,
+      constant: vscode.SymbolKind.Constant,
+      'where constant': vscode.SymbolKind.Variable,
+    };
+    const symbol = (node) => {
+      const r = range(node.def);
+      const s = new vscode.DocumentSymbol(node.def.name, node.def.what, kinds[node.def.what], r, r);
+      s.children = node.children.map(symbol);
+      return s;
+    };
+    return lib.outline(index, doc.uri.fsPath).map(symbol);
   }
 }
 

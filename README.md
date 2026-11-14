@@ -90,8 +90,11 @@ that every name they use is defined, without running anything.
 with examples, such as `tinsel doc find_cycle`; with no name, it shows
 them all.
 
-`check`, `test` and `doc` take `--json`, for editors and other tools
-(SPEC 2.7).
+`tinsel symbols FILE` lists a program's definitions, indented by what
+they're inside, with how often each is used.
+
+`check`, `test`, `doc` and `symbols` take `--json`, for editors and other
+tools (SPEC 2.7).
 
 ### Where the input comes from
 
@@ -316,7 +319,9 @@ without `just`.
 - evaluating a selected expression with Cmd+Alt+E (Ctrl+Alt+E elsewhere),
   its value shown next to it, on the real input or on an example;
 - documentation for every built-in on hover, in completion and while
-  typing a call, from the library reference.
+  typing a call, from the library reference;
+- go to definition, find all references and an outline of the file's
+  functions and constants, across included files too.
 
 The lenses and evaluation run the interpreter, so build it first with
 `cargo build --release`. [`editors/vscode/README.md`](editors/vscode/README.md)
@@ -377,11 +382,11 @@ cd editors/vscode
 npx @vscode/vsce package --allow-missing-repository --skip-license
 ```
 
-This writes `tinsel-0.4.1.vsix`. Install it from the command line:
+This writes `tinsel-0.5.0.vsix`. Install it from the command line:
 
 ```sh
-code --install-extension tinsel-0.4.1.vsix      # VS Code
-cursor --install-extension tinsel-0.4.1.vsix    # Cursor
+code --install-extension tinsel-0.5.0.vsix      # VS Code
+cursor --install-extension tinsel-0.5.0.vsix    # Cursor
 ```
 
 Or open the Extensions view, click the `...` menu at the top of the view,
