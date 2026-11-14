@@ -14,6 +14,10 @@ enum Raw {
     Ident,
     #[regex(r"[0-9][0-9_]*")]
     Int,
+    /// `0x`, `0b` or `0o` and what follows, checked when converted, so
+    /// that `0b102` is one bad literal rather than `0b10` then `2`.
+    #[regex(r"0[xbo][0-9A-Za-z_]*")]
+    Radix,
     #[regex(r"'([^'\\\n]|\\[^\n])'")]
     Char,
     /// Interpolations `{...}` may contain nested string literals.
@@ -511,6 +515,22 @@ pub fn lex(src: &str, base: usize) -> Result<Vec<Token>, Error> {
             Raw::Int => Tok::Int(
                 crate::int::Int::parse(text).ok_or_else(|| Error::new("invalid integer", span))?,
             ),
+            Raw::Radix => {
+                let (base, name) = match &text[..2] {
+                    "0x" => (16, "hex"),
+                    "0b" => (2, "binary"),
+                    _ => (8, "octal"),
+                };
+                let digits = &text[2..];
+                let n = if digits.starts_with('_') {
+                    None
+                } else {
+                    crate::int::Int::parse_radix(&digits.replace('_', ""), base)
+                };
+                Tok::Int(
+                    n.ok_or_else(|| Error::new(format!("`{text}` isn't a {name} integer"), span))?,
+                )
+            }
             Raw::Char => {
                 let inner = &text[1..text.len() - 1];
                 let mut cs = inner.chars();

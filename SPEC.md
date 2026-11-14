@@ -270,8 +270,15 @@ include "intcode.tin"
   number after `day`, a string after `example`, `test` and `test_error`,
   and nothing else on the line after `answers`). Anywhere else they are
   ordinary names, so `day(n) = ...` defines a function.
-- **Integers:** `0`, `42`, `1_000_000`. There is no floating-point syntax,
-  so `5.double` lexes as `5` `.` `double`.
+- **Integers:** `0`, `42`, `1_000_000`, and in hex, binary or octal with
+  the prefix `0x`, `0b` or `0o`: `0xff == 255`, `0b1010 == 10`,
+  `0o17 == 15`. Hex digits can be either case (`0xFF`); the prefix is
+  lower case. Underscores can separate digits as in decimal
+  (`0xffff_ffff`). A digit that doesn't belong to the base, or a prefix
+  with no digits, is a compile error (`0b102`, `0x`). As in decimal,
+  there is no sign (write `-0xff`), and a value too big for 64 bits is a
+  big integer. There is no floating-point syntax, so `5.double` lexes as
+  `5` `.` `double`.
 - **Three dots** `...` in a row are a compile error, explained as a
   spread from another language: Tinsel joins lists with `++`, and a list
   pattern takes the rest with `..rest`. (Otherwise `...r` would lex as
