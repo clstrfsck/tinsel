@@ -6,11 +6,12 @@ day 2016.5
 # Part 2: the password, with each hash's sixth digit giving the position
 #         (0 to 7) and its seventh the character.
 #
-# The puzzle's part 2 example ("abc" gives "05ace8e3") needs 13.7 million
-# hashes, so it isn't checked here (it was in Python).
+# The example needs 13.75 million hashes (both parts come from one pass),
+# about half as many as the real input.
 
 example "abc"
   part1 = "18f47a30"
+  part2 = "05ace8e3"
 
 answers
   part1 = "f97c354d"
@@ -18,17 +19,21 @@ answers
 
 door = input.trim
 
-# The hashes that start with five zeros, in order: a new generator for
-# each part, since a generator can be read only once.
+# The hashes that start with five zeros, in order.
 interesting(id) = (0..).map(i => md5("{id}{i}")).filter(_.starts_with("00000"))
 
-part1 = interesting(door).take(8).map(_[5]).join
+# Both passwords come from one pass over those hashes. Part 1 takes the
+# sixth digit of each of the first eight. Part 2 fills in a map of
+# positions: the sixth digit is a position, the seventh the character to
+# put there, and only the first for each position counts. Part 2 needs
+# at least eight hashes, so part 1 is complete by the time it is.
+add((first, pw), h) = (if first.len < 8 then first ++ [h[5]] else first, place(pw, h))
 
-# Part 2 fills in a map of positions: the sixth digit is a position, the
-# seventh the character to put there, and only the first for each
-# position counts.
 place(pw, h) = if p < 8 and p not in pw then pw.set(p, h[6]) else pw
   where
     p = int(h[5], 16)
 
-part2 = interesting(door).scan({}, place).first(_.len == 8).values.join
+passwords = interesting(door).scan(([], {}), add).first(((_, pw)) => pw.len == 8)
+
+part1 = passwords.0.join
+part2 = passwords.1.values.join

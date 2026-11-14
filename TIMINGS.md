@@ -21,8 +21,8 @@ Apple M3 Max, measured on 2026-11-14, and includes compiling the program
 | 2019 | 25 | 4.66 s | 11.46 s | day 18, 1.59 s |
 | 2018 | 25 | 11.43 s | 29.73 s | day 15, 4.01 s |
 | 2017 | 25 | 10.14 s | 55.15 s | day 25, 2.12 s |
-| 2016 | 25 | 16.61 s | 21.10 s | day 5, 9.10 s |
-| **All** | **237** | **64.16 s** | **167.04 s** | |
+| 2016 | 25 | 14.85 s | 18.50 s | day 5, 7.34 s |
+| **All** | **237** | **62.40 s** | **164.44 s** | |
 
 219 of the 237 solutions finish in under a second natively, and 202 on the tree-walker.
 
@@ -155,6 +155,8 @@ xs.indices`, matching against string constants and string interpolation
 1.22 s natively before its solution changed. Then `md5(s, times: n)`,
 which hashes `n` times without a string per round, took 2016 day 14 from
 7.68 s to 5.50 s natively, and from 11.12 s to 6.20 s on the tree-walker.
+Day 5 now finds both passwords in one pass over the hashes (25 million,
+not 32 million), which took it from 9.10 s to 7.34 s natively.
 
 ## 2025
 
@@ -456,7 +458,7 @@ The slow ones:
 | 2 | [Bathroom Security](tests/aoc2016/day02.tin) | 0.01 s | 0.00 s |
 | 3 | [Squares With Three Sides](tests/aoc2016/day03.tin) | 0.01 s | 0.00 s |
 | 4 | [Security Through Obscurity](tests/aoc2016/day04.tin) | 0.02 s | 0.01 s |
-| 5 | [How About a Nice Game of Chess?](tests/aoc2016/day05.tin) | 9.10 s | 10.66 s |
+| 5 | [How About a Nice Game of Chess?](tests/aoc2016/day05.tin) | 7.34 s | 8.06 s |
 | 6 | [Signals and Noise](tests/aoc2016/day06.tin) | 0.01 s | 0.00 s |
 | 7 | [Internet Protocol Version 7](tests/aoc2016/day07.tin) | 0.03 s | 0.03 s |
 | 8 | [Two-Factor Authentication](tests/aoc2016/day08.tin) | 0.02 s | 0.00 s |
