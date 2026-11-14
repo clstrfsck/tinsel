@@ -476,8 +476,8 @@ fn within(v: &Value, budget: &mut usize) -> bool {
                     .all(|(k, x)| within(k, budget) && within(x, budget))
         }
         V::Grid(g) => !over(g.cells.len(), budget) && g.cells.iter().all(|x| within(x, budget)),
-        // Its characters, counted only as far as the budget, so a long
-        // string costs no more than a short one.
+        // Its characters, counted only up to one past the remaining budget,
+        // so checking a long string costs at most that, however long it is.
         V::Str(s) => {
             let n = s.chars().take(*budget + 1).count();
             !over(n, budget) && {
