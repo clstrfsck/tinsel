@@ -282,9 +282,10 @@ the time (most of the rest is MD5 itself).
   elements, errors and single-pass rules would have to match the
   tree-walker exactly, which is most of the work.
 - **Expected gain:** small over the corpus: on 2026-11-14 only 13 calls
-  in the 237 solutions start from an infinite range, plus a few chains on
-  `iterate`, and nearly all are cheap. Perhaps 2 s of 2016 day 5's 9 s.
-  Worth doing once a profile shows it more widely.
+  in the 237 solutions start from an infinite range, plus a few chains
+  on `iterate`, and nearly all are cheap. About 1 s of 2016 day 5's
+  7.3 s (some 40 ns for each of 25 million elements). Worth doing once
+  a profile shows it more widely.
 
 ### 12. The right of `and` and `or` as a tail position (language, all engines)
 

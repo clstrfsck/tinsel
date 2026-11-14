@@ -118,9 +118,9 @@ Converted on 2026-11-14, the second practice run before December, again
 with the puzzles new to this account. Every answer, both parts, was first
 checked against separately written Python scripts that are not kept in
 the repository, then submitted; all 49 were accepted by the site. The
-`example` blocks hold the puzzles' own worked examples, except two part 2
-examples that cost as much as tens of millions of MD5 hashes (days 5 and
-14); their expected values are noted in comments, checked in Python.
+`example` blocks hold the puzzles' own worked examples, except day 14's
+part 2 example, which costs as much as 46 million MD5 hashes; its
+expected value is noted in a comment, checked in Python.
 
 The assembunny interpreter is shared through `include`:
 `tests/aoc2016/assembunny.tin`, used by days 12, 23 and 25, with its own
