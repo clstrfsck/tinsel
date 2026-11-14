@@ -160,15 +160,20 @@ chr(ord('a') + 2) == 'c'
 chr(-1) # error
 ```
 
-### s.md5 → str
+### s.md5, s.md5(times: n) → str
 The MD5 digest of the string's UTF-8 bytes, as 32 lowercase hex digits,
-as several puzzles use it.
+as several puzzles use it. With `times: n`, the digest is taken `n`
+times, each of the hex digits of the one before ("key stretching", as in
+2016 day 14), much faster than hashing `n` times by hand; `times: 0`
+gives the string itself.
 
 ```tinsel
 md5("") == "d41d8cd98f00b204e9800998ecf8427e"
 "abc".md5 == "900150983cd24fb0d6963f7d28e17f72"
 "abcdef609043".md5.starts_with("00000")
+md5("abc", times: 3) == md5(md5(md5("abc")))
 md5(1) # error
+md5("abc", times: -1) # error
 ```
 
 ### c.is_digit → bool

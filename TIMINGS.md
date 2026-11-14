@@ -21,8 +21,8 @@ Apple M3 Max, measured on 2026-11-14, and includes compiling the program
 | 2019 | 25 | 4.66 s | 11.46 s | day 18, 1.59 s |
 | 2018 | 25 | 11.43 s | 29.73 s | day 15, 4.01 s |
 | 2017 | 25 | 10.14 s | 55.15 s | day 25, 2.12 s |
-| 2016 | 25 | 18.79 s | 26.02 s | day 5, 9.10 s |
-| **All** | **237** | **66.34 s** | **171.96 s** | |
+| 2016 | 25 | 16.61 s | 21.10 s | day 5, 9.10 s |
+| **All** | **237** | **64.16 s** | **167.04 s** | |
 
 219 of the 237 solutions finish in under a second natively, and 202 on the tree-walker.
 
@@ -152,7 +152,9 @@ The 2016 solutions (`tests/aoc2016/`) were added on 2026-11-14, the
 second practice run. Profiling two of them led to faster `x in
 xs.indices`, matching against string constants and string interpolation
 (`reference/next-steps.md`, item 5); 2016 day 25 went from 2.45 s to
-1.22 s natively before its solution changed.
+1.22 s natively before its solution changed. Then `md5(s, times: n)`,
+which hashes `n` times without a string per round, took 2016 day 14 from
+7.68 s to 5.50 s natively, and from 11.12 s to 6.20 s on the tree-walker.
 
 ## 2025
 
@@ -463,7 +465,7 @@ The slow ones:
 | 11 | [Radioisotope Thermoelectric Generators](tests/aoc2016/day11.tin) | 0.32 s | 0.85 s |
 | 12 | [Leonardo's Monorail](tests/aoc2016/day12.tin) | 0.04 s | 0.00 s |
 | 13 | [A Maze of Twisty Little Cubicles](tests/aoc2016/day13.tin) | 0.01 s | 0.00 s |
-| 14 | [One-Time Pad](tests/aoc2016/day14.tin) | 7.68 s | 11.12 s |
+| 14 | [One-Time Pad](tests/aoc2016/day14.tin) | 5.50 s | 6.20 s |
 | 15 | [Timing is Everything](tests/aoc2016/day15.tin) | 0.01 s | 0.00 s |
 | 16 | [Dragon Checksum](tests/aoc2016/day16.tin) | 0.29 s | 0.27 s |
 | 17 | [Two Steps Forward](tests/aoc2016/day17.tin) | 0.09 s | 0.10 s |

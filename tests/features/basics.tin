@@ -146,6 +146,14 @@ test_error "one bits of inf"         = inf.ones
 test "md5, RFC 1321's test vectors"  = [md5(s) for s in ["", "a", "abc", "message digest", "abcdefghijklmnopqrstuvwxyz", "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789", "1234567890".repeat(8)]] == ["d41d8cd98f00b204e9800998ecf8427e", "0cc175b9c0f1b6a831c399e269772661", "900150983cd24fb0d6963f7d28e17f72", "f96b697d7cb7938d525a2f31aaf161d0", "c3fcd3d76192e4007dfb496cca67e13b", "d174ab98d277d9f5a5611c2c9f419d9f", "57edf4a22be3c955ac49da2e2107b67a"]
 test "md5 of non-ASCII text uses its UTF-8 bytes" = md5("é") == "66ddcd97cfdeabb2f6fb8a999b4bc76f"
 test_error "md5 of an int"           = md5(5)
+test "md5 times: is the digest of the digest" = (md5("abc", times: 0), md5("abc", times: 1) == md5("abc"), md5("abc", times: 3) == md5(md5(md5("abc")))) == ("abc", true, true)
+# 2016 day 14's example: "abc0" stretched (hashed 2016 more times).
+test "md5 times: 2017" = md5("abc0", times: 2017) == "a107ff634856bb300138cac6568c0f24"
+test_error "md5 times: must be 0 or more" = md5("abc", times: -1)
+test_error "md5 times: inf" = md5("abc", times: inf)
+test_error "md5 times: must be an int" = md5("abc", times: "2")
+test_error "md5 takes no other named argument" = md5("abc", rounds: 2)
+test_error "md5 takes one positional argument" = md5("abc", 2)
 test "a char in a base"              = (int('f', 16), int('F', 16), int('7', 8), int('z', 36)) == (15, 15, 7, 35)
 test_error "a char not in the base"  = int('8', 8)
 test "digits"                        = (1234.digits, 0.digits, 7.digits, digits(5, 2), digits(255, 16), digits(0, 2), (2 ** 70).digits.len, (10 ** 20).digits.sum) == ([1, 2, 3, 4], [0], [7], [1, 0, 1], [15, 15], [0], 22, 1)

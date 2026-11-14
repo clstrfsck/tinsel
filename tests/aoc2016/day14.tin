@@ -9,7 +9,8 @@ day 2016.14
 #         lowercase hex.
 #
 # The puzzle's part 2 example ("abc" gives 22551) needs 46 million hashes,
-# so it isn't checked here (it was in Python).
+# as many as the real input, so it isn't checked here (it was checked
+# once by hand, and in Python).
 
 example "abc"
   part1 = 22728
@@ -23,9 +24,7 @@ salt = input.trim
 # The hash for index i, hashed `extra` more times. Each is wanted by up to
 # a thousand later checks: computed once.
 @memo
-hash(i, extra) = stretch(md5("{salt}{i}"), extra)
-
-stretch(h, n) = if n == 0 then h else stretch(md5(h), n - 1)
+hash(i, extra) = md5("{salt}{i}", times: extra + 1)
 
 triple(h) = h.chars.windows(3).first(([a, b, c]) => a == b and b == c)
 
