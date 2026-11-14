@@ -197,6 +197,27 @@ fn a_where_under_one_match_arm_is_explained() {
 }
 
 #[test]
+fn a_bad_prefixed_literal_is_one_error() {
+    // SPEC 3: a digit outside the base, or no digits, is a compile error
+    // naming the whole literal.
+    for (name, literal, kind) in [
+        ("bad_binary.tin", "0b102", "binary"),
+        ("bad_hex.tin", "0xfg", "hex"),
+        ("bad_octal.tin", "0o8", "octal"),
+        ("empty_hex.tin", "0x", "hex"),
+        ("leading_underscore.tin", "0x_ff", "hex"),
+    ] {
+        let path = save(name, &format!("x = {literal}\n"));
+        let (ok, _, err) = tinsel(&["check", &path]);
+        assert!(!ok, "{name}");
+        assert!(
+            err.starts_with(&format!("Error: `{literal}` isn't a {kind} integer\n")),
+            "{name}: {err}"
+        );
+    }
+}
+
+#[test]
 fn three_dots_are_explained_as_a_spread() {
     // `...` isn't Tinsel (SPEC 3); without its own error it would read as
     // a range ending in an accessor lambda.

@@ -34,10 +34,10 @@ signal_on(wiring, w) = signal(w)
     signal(w) = output(wiring[w])
     value("{n:int}") = n
     value(x) = signal(x)
-    output("NOT {a}") = ~value(a) & 65535
+    output("NOT {a}") = ~value(a) & 0xffff
     output("{a} AND {b}") = value(a) & value(b)
     output("{a} OR {b}") = value(a) | value(b)
-    output("{a} LSHIFT {n:int}") = (value(a) << n) & 65535
+    output("{a} LSHIFT {n:int}") = (value(a) << n) & 0xffff
     output("{a} RSHIFT {n:int}") = value(a) >> n
     output(e) = value(e)
 

@@ -236,7 +236,7 @@
     },
     "number": {
       "name": "constant.numeric.integer.tinsel",
-      "match": "\\b\\d[\\d_]*\\b"
+      "match": "\\b(0x[0-9A-Fa-f_]+|0b[01_]+|0o[0-7_]+|\\d[\\d_]*)\\b"
     },
     "call": {
       "match": "\\b([A-Za-z_][A-Za-z0-9_]*)(?=\\()",

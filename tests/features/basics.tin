@@ -9,6 +9,10 @@ test "power is right associative"    = 2 ** 3 ** 2 == 512
 test "big integers"                  = 2 ** 100 == 1267650600228229401496703205376
 test "i64 overflow promotes"         = 2 ** 63 * 2 == 18446744073709551616
 test "digit separators"              = 1_000_000 == 1000000
+test "hex, binary and octal literals" = (0xff, 0xFF, 0b1010, 0o17, 0x0, 0b0) == (255, 255, 10, 15, 0, 0)
+test "separators in prefixed literals" = (0xffff_ffff, 0b1111_0000) == (4294967295, 240)
+test "prefixed literals past 64 bits" = 0x1_0000_0000_0000_0000 == 2 ** 64
+test "minus before a prefixed literal" = (-0xff, 0xff & -0x10) == (-255, 240)
 test "abs and sign"                  = (abs(-5), sign(-5), sign(0), sign(7)) == (5, -1, 0, 1)
 test "gcd and lcm"                   = (gcd(12, 18), lcm(4, 6)) == (6, 12)
 test "divmod"                        = divmod(-7, 2) == (-4, 1)
