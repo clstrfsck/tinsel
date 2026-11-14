@@ -35,9 +35,7 @@ part1 = input.ints.sum
 # A JSON value read from position i of s: (the value, the position after
 # it). Arrays become lists, objects maps, strings strs and numbers ints;
 # there is no whitespace. Only the structure is needed, so this is just
-# enough JSON for the puzzle. These functions are recursive, but no call
-# repeats, so they aren't memoized (each would hash the whole text).
-@nomemo
+# enough JSON for the puzzle.
 parse(s, i) = match s[i]
   '[' => elements(s, i + 1, [])
   '{' => members(s, i + 1, {})
@@ -54,7 +52,6 @@ number_at(s, i) = (int(s[i..<end]), end)
 
 # The rest of an array or object, from just after its `[` or `{`, or a
 # comma.
-@nomemo
 elements(s, i, items) =
   if s[i] == ']' then (items, i + 1)
   else elements(s, after, items ++ [v])
@@ -62,7 +59,6 @@ elements(s, i, items) =
     (v, j) = parse(s, if s[i] == ',' then i + 1 else i)
     after = j
 
-@nomemo
 members(s, i, fields) =
   if s[i] == '}' then (fields, i + 1)
   else members(s, j, fields.set(k, v))
@@ -71,7 +67,6 @@ members(s, i, fields) =
     (v, j) = parse(s, colon + 1)
 
 # The sum of the numbers in a value, leaving out red objects.
-@nomemo
 unred(n: int) = n
 unred(xs: list) = xs.map(unred).sum
 unred(m: map) = if "red" in m.values then 0 else m.values.map(unred).sum

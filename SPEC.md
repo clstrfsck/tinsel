@@ -770,7 +770,8 @@ The remaining rules:
 - A memo key is hashed on every call, so memoizing only pays for small
   arguments. A function memoized automatically (not with `@memo`) uses
   its cache only for calls whose arguments hold at most **256 values** in
-  all, counting every value inside collections; a call with larger
+  all, counting every value inside collections and every character of a
+  string (so `"abc"` holds 4, as `['a', 'b', 'c']` does); a call with larger
   arguments runs as if the function weren't memoized, neither looking up
   nor storing a result. Such calls usually pass a growing state along and
   don't repeat. `@memo` memoizes every call, whatever its size.

@@ -449,7 +449,7 @@ pub(crate) fn memo_applies(args: &[Value], at_memo: bool) -> bool {
 }
 
 /// Whether `v` holds at most `budget` values, counting every value inside
-/// collections. Stops as soon as the budget runs out, so it costs no more
+/// collections and every character of a string. Stops as soon as the budget runs out, so it costs no more
 /// than hashing the value would.
 fn within(v: &Value, budget: &mut usize) -> bool {
     if *budget == 0 {
@@ -476,6 +476,15 @@ fn within(v: &Value, budget: &mut usize) -> bool {
                     .all(|(k, x)| within(k, budget) && within(x, budget))
         }
         V::Grid(g) => !over(g.cells.len(), budget) && g.cells.iter().all(|x| within(x, budget)),
+        // Its characters, counted only up to one past the remaining budget,
+        // so checking a long string costs at most that, however long it is.
+        V::Str(s) => {
+            let n = s.chars().take(*budget + 1).count();
+            !over(n, budget) && {
+                *budget -= n;
+                true
+            }
+        }
         V::RangeSet(r) => {
             let n = r.spans.len();
             *budget = budget.saturating_sub(n);
