@@ -85,6 +85,33 @@ test "all of bools"             = all([true, true]) and not all([true, false])
 test "first and last"           = ([5, 6, 7].first, [5, 6, 7].last, [5, 6, 7].first(_ > 5)) == (5, 7, 6)
 test "first with no match"      = [1, 2].first(_ > 5) == none
 test "last of each kind of sequence" = ([].last, (4, 5).last, "abc".last, "".last, "é€".last, (x for x in [7, 8]).last) == (none, 5, 'c', none, '€', 8)
+# A chain of map, filter and the like in front of a call that can stop
+# early is read lazily, even over a finite collection (SPEC 9.2).
+test "a lazy chain stops at the first match" = [1, 0].map(10 / _).first == 10
+test "each short-circuiting call reads a chain lazily" = (
+    [2, 0].map(10 / _).first(_ > 1),
+    [2, 0].map(10 / _).take(1),
+    [2, 1, 0].map(10 / _).take_while(_ < 10),
+    [2, 0].map(10 / _).any(_ == 5),
+    [2, 0].map(10 / _).all(_ > 9),
+    [2, 0].map(10 / _).index(5),
+  ) == (5, [5], [5], true, false, 0)
+test "a longer chain is read lazily" = [3, 2, 1, 0].filter(_ < 3).map(10 / _).enumerate.drop(1).first == (1, 10)
+test "scan and drop_while in a lazy chain" = [1, 2, 0].scan(1, (a, x) => a * 10 / x).drop_while(_ < 10).first == 10
+test "a function-call chain is read lazily" = first(map([1, 0], 10 / _)) == 10
+# What is reached still fails, and a chain with a name is a list.
+test_error "a lazy chain still fails where it reads" = [2, 0, 1].map(10 / _).first(_ > 6)
+named_chain(xs) = ys.first
+  where
+    ys = xs.map(10 / _)
+test_error "a named chain is built in full" = named_chain([1, 0])
+test_error "a chain that only builds a list is built in full" = [1, 0].map(10 / _).len
+# The order is element by element: the filter would fail on the second
+# element, but the first element is all `first` needs. (Which failure a
+# failing chain reports is checked in tests/tools.rs.)
+test "a lazy chain is read element by element" = [1, 2, 3].map(x => if x == 3 then 1 / 0 else x).filter(x => x != 2 or 1 / 0 == 0).first == 1
+test "a lazy chain over a generator is unchanged" = (x for x in [1, 0]).map(10 / _).first == 10
+test "a lazy chain over a string, a set and a map" = ("abc".map(ord).first(_ > 97), {3, 1}.filter(_ > 1).first, {5: 1, 2: 1}.enumerate.first) == (98, 3, (0, 2))
 # `last` reads a list's end directly: this took minutes when it copied
 # the list on each step (2015 day 10's look-and-say).
 test "last of a growing list" = [1, 2].repeat(100_000).fold([], (out, d) => if out.last == d then out else out ++ [d]).len == 200_000

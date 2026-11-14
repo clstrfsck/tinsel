@@ -12,6 +12,7 @@ use imbl::OrdMap;
 use std::cmp::Ordering;
 
 pub const BUILTINS: &[Builtin] = &[
+    func(LAZY_SOURCE, lazy_source),
     func("len", len),
     fixed("map", 2, map),
     fixed("filter", 2, filter),
@@ -313,6 +314,28 @@ fn lazy(v: &Value) -> bool {
         V::Range(r) => r.end.as_ref().is_none_or(Int::is_inf),
         _ => false,
     }
+}
+
+/// The name of the built-in that starts a lazily read chain. It isn't an
+/// identifier, so no program can call it; the resolver inserts it.
+pub const LAZY_SOURCE: &str = "(lazy)";
+
+/// The functions that can stop reading early, and the ones that can be
+/// chained in front of them and read lazily (SPEC 9.2).
+pub const SHORT_CIRCUITING: &[&str] = &["first", "take", "take_while", "any", "all", "index"];
+pub const LAZY_ADAPTERS: &[&str] = &["map", "filter", "enumerate", "scan", "drop", "drop_while"];
+
+/// The collection at the start of a chain such as `xs.map(f).first(p)`,
+/// as a generator, so that the chain reads it one element at a time and
+/// stops when the call at the end has its result (SPEC 9.2). Already lazy
+/// values are left as they are.
+fn lazy_source(it: &mut Interp<'_>, args: Args) -> Result<Value> {
+    args.check(LAZY_SOURCE, 1, 1, &[])?;
+    if lazy(&args.pos[0]) {
+        return Ok(args.pos[0].clone());
+    }
+    let src = it.iter(&args.pos[0]).map_err(|e| e.at(args.span))?;
+    Ok(generator(Generator::drop(src, 0, None, args.span)))
 }
 
 fn generator(g: Generator) -> Value {

@@ -719,8 +719,14 @@ impl Resolver {
                 } else {
                     self.expr(func, false)?;
                 }
-                for a in args {
+                for a in args.iter_mut() {
                     self.expr(&mut a.value, false)?;
+                }
+                if let ExprKind::Builtin(b) = func.kind
+                    && builtins::collections::SHORT_CIRCUITING.contains(&builtins::BUILTINS[b].name)
+                    && let Some(recv) = args.iter_mut().find(|a| a.name.is_none())
+                {
+                    lazy_chain(&mut recv.value);
                 }
             }
             ExprKind::TupleIndex(x, _) | ExprKind::Unary(_, x) => self.expr(x, false)?,
@@ -787,6 +793,46 @@ impl Resolver {
         }
         Ok(())
     }
+}
+
+/// SPEC 9.2: a chain of `map`, `filter` and the other lazy adapters
+/// feeding a call that can stop early (`first`, `any`, ...) reads its
+/// collection lazily, even a finite one. When `e` is such an adapter
+/// call, the collection at the start of its chain is wrapped in the
+/// hidden `(lazy)` built-in, which turns it into a generator; the
+/// adapters then build their lazy forms, as for an infinite range. Says
+/// whether `e` was an adapter call.
+fn lazy_chain(e: &mut Expr) -> bool {
+    let span = e.span;
+    let ExprKind::Call { func, args, .. } = &mut e.kind else {
+        return false;
+    };
+    let ExprKind::Builtin(b) = func.kind else {
+        return false;
+    };
+    if !builtins::collections::LAZY_ADAPTERS.contains(&builtins::BUILTINS[b].name) {
+        return false;
+    }
+    let Some(src) = args.iter_mut().find(|a| a.name.is_none()) else {
+        return false;
+    };
+    if !lazy_chain(&mut src.value)
+        && let Some(source) = builtins::lookup(builtins::collections::LAZY_SOURCE)
+    {
+        let inner = std::mem::replace(&mut src.value, Expr::new(ExprKind::Tuple(Vec::new()), span));
+        src.value = Expr::new(
+            ExprKind::Call {
+                func: Box::new(Expr::new(ExprKind::Builtin(source), span)),
+                args: vec![Arg {
+                    name: None,
+                    value: inner,
+                }],
+                method: false,
+            },
+            span,
+        );
+    }
+    true
 }
 
 #[cfg(test)]

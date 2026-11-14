@@ -858,6 +858,24 @@ none of its arguments ends.) So `iterate(x, f).enumerate.first(...)` and
 `(1..).map(f).take(3)` work. Over finite collections they still return
 lists.
 
+**Chains feeding a short-circuiting call are read lazily.** When `first`,
+`take`, `take_while`, `any`, `all` or `index` is called directly on a
+chain of `map`, `filter`, `enumerate`, `scan`, `drop` and `drop_while`, as
+in `xs.map(f).filter(g).first(h)`, the chain reads `xs` lazily even when
+it is finite: each element passes through the chain only when the call
+needs it, and reading stops as soon as the result is known. So
+`(1..n).map(f).first(p)` calls `f` only up to the first match, just as
+`(1..).map(f).first(p)` does. The result is what the lists would give,
+except that an element that is never reached is never computed:
+`[1, 0].map(10 / _).first == 10`, where building the whole list would
+divide by zero, and `dbg` in the chain prints only for the elements read.
+The functions in the chain are called element by element rather than
+stage by stage, so `dbg` output comes in that order, and a chain that
+fails for two elements reports the first failure in that order. This
+applies to a chain written as one expression; a chain given a name
+(`ys = xs.map(f)`) is a list as usual, since it may be used more than
+once.
+
 | Function | Notes |
 |---|---|
 | `len` | `len` of an infinite range is an error. |

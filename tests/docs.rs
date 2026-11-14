@@ -12,7 +12,8 @@ use tinsel::runner::{Engine, Outcome, compile, run_checks_with};
 
 /// Built-ins that need no entry: `input` is the program's own input
 /// (SPEC 2.2), and has no value outside a program with a `day`.
-const UNDOCUMENTED: &[&str] = &["input"];
+/// `(lazy)` can't be called by name: the resolver inserts it (SPEC 9.2).
+const UNDOCUMENTED: &[&str] = &["input", "(lazy)"];
 
 /// The examples as one program, each a `test` named by its line.
 fn program() -> String {
