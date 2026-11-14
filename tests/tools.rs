@@ -197,6 +197,51 @@ fn a_where_under_one_match_arm_is_explained() {
 }
 
 #[test]
+fn three_dots_are_explained_as_a_spread() {
+    // `...` isn't Tinsel (SPEC 3); without its own error it would read as
+    // a range ending in an accessor lambda.
+    for (name, src, line) in [
+        ("spread_tuple.tin", "r = [1, 2]\nx = (1, ...r)\n", 2),
+        (
+            "spread_call.tin",
+            "f(a, b) = a\nr = (1, 2)\nx = f(...r)\n",
+            3,
+        ),
+        ("spread_pattern.tin", "f([a, ...rest]) = a\n", 1),
+    ] {
+        let path = save(name, src);
+        let (ok, _, err) = tinsel(&["check", &path]);
+        assert!(!ok, "{name}");
+        assert!(
+            err.starts_with(
+                "Error: Tinsel has no `...`: to join lists, use `++` (`[a] ++ rest`); \
+                 in a list pattern, `..rest` matches the rest\n"
+            ),
+            "{name}: {err}"
+        );
+        assert!(err.contains(&format!("{name}:{line}:")), "{name}: {err}");
+    }
+}
+
+#[test]
+fn an_open_start_range_suggests_concatenation() {
+    // `[1, ..r]` looks like a spread too, but it is an open-start range,
+    // which is a runtime error outside a slice, the same on every engine.
+    let path = save("open_start.tin", "r = [1, 2]\n");
+    for engine in ["--tree", "--ir", "--native"] {
+        let (ok, _, err) = tinsel(&["eval", &path, "[1, ..r]", engine]);
+        assert!(!ok, "{engine}");
+        assert!(
+            err.starts_with(
+                "Error: a range needs a start (open-start ranges are only for slicing; \
+                 to join lists, use `++`)\n"
+            ),
+            "{engine}: {err}"
+        );
+    }
+}
+
+#[test]
 fn a_pattern_definition_must_bind_a_name() {
     // Constants are lazy, so one that binds nothing would never be checked
     // (SPEC 7.1).

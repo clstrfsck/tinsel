@@ -48,6 +48,11 @@ enum Raw {
     DotDot,
     #[token("..<")]
     DotDotLt,
+    // Not Tinsel, but a likely slip (a spread, as in other languages):
+    // lexed so that it can be explained, rather than read as `..` then
+    // `.name`, a range ending in an accessor lambda.
+    #[token("...")]
+    Ellipsis,
     #[token("@")]
     At,
     #[token("+")]
@@ -541,6 +546,12 @@ pub fn lex(src: &str, base: usize) -> Result<Vec<Token>, Error> {
             Raw::Dot => Tok::Dot,
             Raw::DotDot => Tok::DotDot,
             Raw::DotDotLt => Tok::DotDotLt,
+            Raw::Ellipsis => {
+                return Err(Error::new(
+                    "Tinsel has no `...`: to join lists, use `++` (`[a] ++ rest`); in a list pattern, `..rest` matches the rest",
+                    span,
+                ));
+            }
             Raw::At => Tok::At,
             Raw::Plus => Tok::Plus,
             Raw::Minus => Tok::Minus,
