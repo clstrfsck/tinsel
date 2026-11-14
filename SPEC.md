@@ -654,10 +654,12 @@ classify(_) = "pos"
 ```
 
 - A constant's left-hand side can be a pattern, at top level or in a
-  `where` block: `[top, ..rows] = input.lines`, `(q, r) = divmod(n, 7)`. If
-  the pattern doesn't match, it's a runtime error. The left-hand side counts
-  as a pattern when it starts with `(` or `[`; when it starts with an
-  identifier followed by `(`, it's a function definition.
+  `where` block: `[top, ..rows] = input.lines`, `(q, r) = divmod(n, 7)`,
+  `"{w:int}x{h:int}" = size`. If the pattern doesn't match, it's a runtime
+  error. The left-hand side counts as a pattern when it starts with `(`,
+  `[` or a string (plain or triple-quoted); when it starts with an
+  identifier followed by `(`, it's a function definition. A pattern that
+  binds no names is an error, since nothing would ever check it.
 - All clauses of a function must be **next to each other**, with no other
   item (not even a `test` or `example`) between them, and have the same
   number of parameters. They are tried in order. If none matches, it's a

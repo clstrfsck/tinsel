@@ -259,7 +259,7 @@ This runs:
   `example` and `answers` block counts as a separate check:
 
 ```
-205 files (205 on the tree-walker, 15 on the IR interpreter, 15 native): 2559 passed, 0 failed, 0 skipped
+259 files (259 on the tree-walker, 17 on the IR interpreter, 17 native): 2924 passed, 0 failed, 0 skipped
 ```
 
 A failure shows the file, the line and both values:
@@ -283,6 +283,10 @@ cargo test --test run_tin -- aoc2024        # one year
 cargo test --test run_tin -- basics memo    # several feature files
 TIN_VERBOSE=1 cargo test --test run_tin -- functions   # list passing checks too
 ```
+
+The harness runs independent file/engine checks on up to 12 worker threads,
+limited by available parallelism. Set `TIN_JOBS=1` for a serial run, or
+another positive number to override the worker count.
 
 You can also use the interpreter directly. This is faster, because it uses
 the release build:

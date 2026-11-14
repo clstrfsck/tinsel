@@ -11,7 +11,7 @@ default:
 check: fmt-check clippy test test-native ext-test
     @echo "All checks passed."
 
-# `check`, plus every .tin file on the IR interpreter (about 7 minutes more).
+# `check`, plus every .tin file on the IR interpreter.
 check-all: check test-ir
 
 # Build the debug interpreter.
@@ -38,9 +38,10 @@ clippy:
 test:
     cargo test
 
-# Every .tin file natively, with the leak check (debug build).
+# Every non-feature .tin file natively, with the leak check (debug build).
+# `cargo test` already runs feature files natively.
 test-native:
-    TIN_ENGINE=native cargo test --test run_tin
+    TIN_ENGINE=native cargo test --test run_tin -- tests/aoc20 tests/lib
 
 # Every .tin file on the IR interpreter, with the leak check (slow).
 test-ir:
@@ -56,7 +57,7 @@ test-docs:
 
 # The VS Code extension's tests, against a fresh release build.
 ext-test: release
-    node --test editors/vscode/test
+    TINSEL_BIN=target/release/tinsel node --test editors/vscode/test
 
 # Run a solution with the release build, e.g. `just run tests/aoc2024/day01.tin`.
 run file *args: release

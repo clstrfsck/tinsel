@@ -197,6 +197,31 @@ fn a_where_under_one_match_arm_is_explained() {
 }
 
 #[test]
+fn a_pattern_definition_must_bind_a_name() {
+    // Constants are lazy, so one that binds nothing would never be checked
+    // (SPEC 7.1).
+    for (name, src) in [
+        (
+            "binds_none_tuple.tin",
+            "f(x) = 7\n  where\n    (1, _) = x\n",
+        ),
+        ("binds_none_str.tin", "\"done\" = 1\n"),
+        (
+            "binds_none_wild.tin",
+            "f(x) = 7\n  where\n    \"a{_}\" = x\n",
+        ),
+    ] {
+        let path = save(name, src);
+        let (ok, _, err) = tinsel(&["check", &path]);
+        assert!(!ok, "{name}");
+        assert!(
+            err.starts_with("Error: this pattern binds no names, so nothing would ever check it\n"),
+            "{name}: {err}"
+        );
+    }
+}
+
+#[test]
 fn an_include_path_keeps_its_braces() {
     // Not interpolated (SPEC 3), so a lone `{` in the path is plain text.
     save("lone{brace.tin", "helper = 41\n");

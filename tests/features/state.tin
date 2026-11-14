@@ -11,6 +11,31 @@ pair_sum(p) = a + b
     (a, b) = p
 test "where pattern definitions" = pair_sum((3, 4)) == 7
 
+# A string pattern, plain or triple-quoted, as a left-hand side.
+"{size_w:int}x{size_h:int}" = "3x4"
+test "a top-level string pattern definition" = size_w * size_h == 12
+
+area(s) = w * h
+  where
+    "{w:int}x{h:int}" = s
+test "a where string pattern definition" = area("5x6") == 30
+test_error "a string pattern definition that doesn't match" = area("5 by 6")
+
+corners(s) = top ++ bottom
+  where
+    """
+{top}
+{bottom}""" = s
+test "a triple-quoted pattern definition" = corners("ab\ncd") == "abcd"
+test_error "a triple-quoted pattern definition that doesn't match" = corners("ab")
+
+# A pattern definition is lazy like any constant: one that isn't used is
+# never checked.
+unused_parts(s) = 1
+  where
+    "{a:int}x{b:int}" = s
+test "an unused pattern definition isn't checked" = unused_parts("no") == 1
+
 # --- Tail-recursive loops ---------------------------------------------------
 # All recursive calls are tail calls, so this is a loop. It must run in
 # constant stack space and is not memoized (SPEC 8.1).

@@ -179,6 +179,10 @@ TIN_ENGINE=native cargo test --test run_tin -- grids
 cargo test resolve::tests::clauses_separated_by_another_item_are_rejected
 ```
 
+The `.tin` harness runs file/engine checks on up to 12 worker threads,
+limited by available parallelism. Set `TIN_JOBS=1` for serial diagnostics,
+or set it to another positive number to override the worker count.
+
 When fixing an edge case, test boundaries on all affected representations:
 small integers, `i64` limits, `BigInt`, `inf`/`-inf`, empty collections and
 single-element collections where relevant.
@@ -231,9 +235,9 @@ benchmark and preserve reference-engine behaviour.
 
 Before handing off a change, run `just check` (with
 [`just`](https://github.com/casey/just)). It runs everything below, and
-every `.tin` file natively as well, in about four minutes. `just check-all`
-adds every `.tin` file on the IR interpreter, which is worth it after
-changing the IR or its lowering. Without `just`, run:
+every `.tin` file natively as well, in under two minutes on the development
+machine. `just check-all` adds every `.tin` file on the IR interpreter,
+which is worth it after changing the IR or its lowering. Without `just`, run:
 
 ```sh
 cargo test
