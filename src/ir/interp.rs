@@ -24,8 +24,7 @@ use super::*;
 use crate::builtins::{Args, BUILTINS};
 use crate::error::{Error, Result};
 use crate::eval::{
-    Generator, Interp, Memo, binary_owned, contains_generator, match_segs, negate, short,
-    small_int_op, spread,
+    Generator, Interp, Memo, binary_owned, match_segs, negate, short, small_int_op, spread,
 };
 use crate::int::Int;
 use crate::value::{self, Func, Heap, Internal, Range, V};
@@ -572,18 +571,10 @@ pub(crate) fn memo_table(
     }
 }
 
-/// Whether a call with these arguments is memoized (SPEC 8.1), after the
-/// large-key warning.
-pub(crate) fn memo_key_ok(it: &mut Interp<'_>, f: &Function, args: &[Value]) -> bool {
-    if args.iter().any(contains_generator) {
-        return false;
-    }
-    if !f.memo_annotated
-        && let Some(id) = f.def_id
-    {
-        it.check_memo_key_for(id, &f.name, f.span, args);
-    }
-    true
+/// Whether a call of memoized function `f` with these arguments uses its
+/// cache (SPEC 8.1).
+pub(crate) fn memo_key_ok(f: &Function, args: &[Value]) -> bool {
+    crate::eval::memo_applies(args, f.memo_annotated)
 }
 
 // ---------------------------------------------------------------------------
@@ -634,7 +625,7 @@ fn run_loop(
             tail_calls = 0;
         }
         if let Some(at) = f.memo
-            && memo_key_ok(it, f, &args)
+            && memo_key_ok(f, &args)
         {
             let table = memo_table(it, at, &c.caps, span)?;
             // Copied out first: `finish` may add to this same table.

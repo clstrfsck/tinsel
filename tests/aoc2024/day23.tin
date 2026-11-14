@@ -56,7 +56,6 @@ part1 = {set([a, b, c]) for a in adj.keys for b in adj[a] for c in adj[a] & adj[
 
 # Bron-Kerbosch with a pivot: the largest clique containing all of r, some
 # of p and none of x.
-@nomemo
 clique(r, p, x) =
   if p.len == 0 then (if x.len == 0 then r else set())
   else (p - adj[pivot]).fold((set(), p, x), ((best, p, x), v) =>

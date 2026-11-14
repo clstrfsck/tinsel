@@ -369,7 +369,7 @@ extern "C" fn rt_memo_get(cx: &mut Ctx<'_, '_>, clo: u64, func: u64, argv: *cons
     let Some(at) = f.memo else {
         return MISS;
     };
-    if !memo_key_ok(cx.interp(), f, &args) {
+    if !memo_key_ok(f, &args) {
         return MISS;
     }
     match memo_table(cx.interp(), at, caps(&clo), f.span) {
@@ -396,7 +396,7 @@ extern "C" fn rt_memo_put(cx: &mut Ctx<'_, '_>, clo: u64, func: u64, argv: *cons
     let Some(at) = f.memo else {
         return;
     };
-    if args.iter().any(crate::eval::contains_generator) {
+    if !memo_key_ok(f, &args) {
         return;
     }
     if let Ok(t) = memo_table(cx.interp(), at, caps(&clo), f.span) {

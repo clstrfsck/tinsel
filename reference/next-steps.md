@@ -320,6 +320,12 @@ thing, so the difference is easy to trip over.
 - **Expected gain:** not speed in general, but fewer surprises: no
   memo warnings or hidden hashing in search-style recursion, and
   constant stack for loops written with `and`/`or`.
+- **Surveyed 2026-11-14, and parked:** with the right of `and`/`or` as a
+  tail position, the memo decision changed for no function in any of the
+  262 solutions. The trap is real for new code (2016 day 25 met it), but
+  the size limit on memo keys (SPEC 8.1, added the same day after the
+  same survey) now takes away its cost: a growing state passed through
+  `and` is no longer hashed. What remains is stack depth.
 
 ## Not candidates
 

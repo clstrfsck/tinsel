@@ -76,10 +76,10 @@ countdown(0) = []
 countdown(n) = [n] ++ countdown(n - 1)
 test "@nomemo still computes the same result" = countdown(3) == [3, 2, 1]
 
-# A function memoized automatically warns (on stderr, once) when its
-# arguments hold more than 1000 values (SPEC 8.1). @memo keeps the memo
-# without the warning, and @nomemo drops it; neither changes the result.
-# tests/memo_warning.rs checks the warning itself.
+# A function memoized automatically caches only calls whose arguments
+# hold at most 256 values (SPEC 8.1); @memo caches every call, and @nomemo
+# none. None of this changes a result. tests/memo_size.rs checks which
+# calls are cached.
 @memo
 grow_memo(xs, 0) = xs.len
 grow_memo(xs, n) = grow_memo(xs ++ [n], n - 1) + 0
@@ -89,3 +89,7 @@ test "@memo with large arguments still memoizes" = grow_memo((1..1000).list, 50)
 grow_plain(xs, 0) = xs.len
 grow_plain(xs, n) = grow_plain(xs ++ [n], n - 1) + 0
 test "@nomemo with large arguments gives the same result" = grow_plain((1..1000).list, 50) == 1050
+
+grow_auto(xs, 0) = xs.len
+grow_auto(xs, n) = grow_auto(xs ++ [n], n - 1) + 0
+test "large arguments without an annotation give the same result" = grow_auto((1..1000).list, 50) == 1050

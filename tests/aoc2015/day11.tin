@@ -16,7 +16,9 @@ answers
   part1 = "cqjxxyzz"
   part2 = "cqkaabcc"
 
-# The next password in order, as a list of letters.
+# The next password in order, as a list of letters. Recursive only for
+# the carry, and no call repeats, so it isn't memoized.
+@nomemo
 bump(cs) =
   if cs.last == 'z' then bump(cs.take(cs.len - 1)) ++ ['a']
   else cs.set(cs.len - 1, chr(ord(cs.last) + 1))

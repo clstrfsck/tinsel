@@ -35,10 +35,7 @@ vein("y={y:int}, x={x0:int}..{x1:int}") = [(x, y) for x in x0..x1]
 
 # Water flowing into p, moving in direction d (0 when it fell into p).
 # Gives whether p ends up held up (by clay or still water), and the state
-# (wet tiles, still tiles) afterwards. These functions recurse outside
-# tail position, but their state is never repeated, so they aren't
-# memoized: hashing the state would cost more than the work.
-@nomemo
+# (wet tiles, still tiles) afterwards.
 flow(p, _, st) when p in clay = (true, st)
 flow((_, y), _, st) when y > max_y = (false, st)
 flow(p, _, (wet, still)) when p in still = (true, (wet, still))
@@ -46,12 +43,10 @@ flow(p, _, (wet, still)) when p in wet = (false, (wet, still))
 flow(p, d, (wet, still)) = landed(p, d, flow(p + S, 0, (wet.add(p), still)))
 
 # After the water below p has been followed.
-@nomemo
 landed(_, _, (false, st)) = (false, st)
 landed(p, 0, (true, st)) = spread(p, flow(p + W, -1, st))
 landed(p, d, (true, st)) = flow(p + (d, 0), d, st)
 
-@nomemo
 spread(p, (left, st)) = settle(p, left, flow(p + E, 1, st))
 
 # Held on both sides: the row between the clay walls fills.

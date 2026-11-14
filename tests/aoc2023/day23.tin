@@ -81,7 +81,6 @@ hike(slippery) = longest(ids[start], 1 << ids[start])
     # would cut the end off.
     last = order.first(f => g[f].any((q, _) => q == end))
     last_n = g[last].first((q, _) => q == end).1
-    @nomemo
     longest(p, seen) =
       if p == ids[last] then last_n
       else max([n + longest(q, seen | 1 << q) for (q, n) in graph[p] if seen & 1 << q == 0] ++ [-inf])

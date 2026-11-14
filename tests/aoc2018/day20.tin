@@ -33,10 +33,7 @@ steps = {'N': N, 'E': E, 'S': S, 'W': W}
 # Follows the regex from index i, starting in any of the rooms in `here`,
 # up to the end of the current option. Gives (the index reached, the
 # rooms the option can end in, the doors seen so far as (room, room)
-# pairs). This and `branch` call each other outside tail position, but
-# never with the same arguments twice, so memoizing them would only cost
-# time hashing the doors.
-@nomemo
+# pairs).
 route(i, here, doors) = match regex[i]
   c when c in steps => route(i + 1, {p + steps[c] for p in here}, doors | {e for p in here for e in door(p, p + steps[c])})
   '(' => after_branch(branch(i + 1, here, set(), doors))
@@ -47,7 +44,6 @@ door(p, q) = [(p, q), (q, p)]
 after_branch((i, ends, doors)) = route(i, ends, doors)
 
 # The options of a branch, each starting from the rooms in `start`.
-@nomemo
 branch(i, start, ends, doors) = match route(i, start, doors)
   (j, out, ds) when regex[j] == '|' => branch(j + 1, start, ends | out, ds)
   (j, out, ds) => (j + 1, ends | out, ds)

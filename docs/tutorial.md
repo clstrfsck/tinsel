@@ -434,8 +434,11 @@ Two things happened here that Tinsel took care of:
   program finishes in milliseconds. You don't need to write a cache, or
   even think about one: any recursive function like this is remembered.
   (A function that only calls itself as its very last step is a loop, and
-  isn't remembered. `@nomemo` and `@memo` override the choice; see
-  [SPEC 8.1](../SPEC.md#81-automatic-memoization).)
+  isn't remembered. Nor, unless the function is marked `@memo`, are calls
+  whose arguments hold more than 256 values, such as a whole simulation
+  state, since hashing those would cost more than remembering saves.
+  `@nomemo` turns remembering off, and `@memo` turns it on for every call;
+  see [SPEC 8.1](../SPEC.md#81-automatic-memoization).)
 
 ### The whole program
 

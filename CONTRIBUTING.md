@@ -145,8 +145,8 @@ Tinsel's main behavioural tests are programs containing `test`,
 - Keep whole-program regressions in `tests/aocYYYY/`.
 - Test the command line in the Rust files in `tests/`: `debugging.rs`
   (`dbg`, `eval` and error traces), `tools.rs` (`check` and `--json`),
-  `engines.rs` (the engine flags) and `memo_warning.rs` (the warning for
-  large memo keys). A change to
+  `engines.rs` (the engine flags) and `memo_size.rs` (which calls to a
+  memoized function are cached, by argument size). A change to
   `main.rs`, `runner.rs` or the wording of error output is checked there,
   not by the `.tin` files.
 - The tutorial is checked by `tests/tutorial.rs`: its programs and `test`
