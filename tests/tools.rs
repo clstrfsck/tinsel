@@ -215,6 +215,23 @@ fn a_bad_prefixed_literal_is_one_error() {
             "{name}: {err}"
         );
     }
+
+fn a_lazy_chain_reports_the_first_failure_element_by_element() {
+    // SPEC 9.2: in a chain read lazily, each element goes through the whole
+    // chain in turn, so the filter's failure on the second element comes
+    // before the map's on the third (built stage by stage, the map's
+    // would come first). The same on every engine.
+    let path = save("lazy_order.tin", "x = 1\n");
+    let chain = "[1, 2, 3].map(x => if x == 3 then 1 / 0 else x)\
+                 .filter(x => if x == 2 then int(\"x\") > 0 else true).first(_ > 1)";
+    for engine in ["--tree", "--ir", "--native"] {
+        let (ok, _, err) = tinsel(&["eval", &path, chain, engine]);
+        assert!(!ok, "{engine}");
+        assert!(
+            err.starts_with("Error: `int` cannot parse \"x\"\n"),
+            "{engine}: {err}"
+        );
+    }
 }
 
 #[test]

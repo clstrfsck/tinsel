@@ -394,13 +394,17 @@ ones before it, as the same type. A negative `k` turns the other way, and
 
 ### xs.first, xs.first(f) → value
 The first element, or the first for which `f` is true. `none` if there
-isn't one. Works on ranges and generators that never end.
+isn't one. Works on ranges and generators that never end. A chain of
+`map`, `filter` and the like in front of it is read lazily, so
+`(1..n).map(f).first(p)` stops at the first match; the same goes for
+`take`, `take_while`, `any`, `all` and `index`.
 
 ```tinsel
 [4, 5, 6].first == 4
 [4, 5, 6].first(_ > 4) == 5
 [].first == none
 (1..).first(n => n * n > 50) == 8
+[1, 0].map(10 / _).first == 10
 ```
 
 ### xs.last → value
