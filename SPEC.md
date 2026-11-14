@@ -272,6 +272,10 @@ include "intcode.tin"
   ordinary names, so `day(n) = ...` defines a function.
 - **Integers:** `0`, `42`, `1_000_000`. There is no floating-point syntax,
   so `5.double` lexes as `5` `.` `double`.
+- **Three dots** `...` in a row are a compile error, explained as a
+  spread from another language: Tinsel joins lists with `++`, and a list
+  pattern takes the rest with `..rest`. (Otherwise `...r` would lex as
+  `..` `.r`, a range ending in an accessor lambda.)
 - **Strings:** `"..."` with the escapes `\n \t \\ \"` and no others.
   `{expr}` interpolates; the expression may contain nested strings, such as
   `"{xs.join(",")}"`. `{{` and `}}` are literal braces. Any other `{` or `}`

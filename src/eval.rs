@@ -1078,7 +1078,7 @@ impl<'p> Interp<'p> {
             ExprKind::Range { lo, hi, inclusive } => {
                 let Some(lo) = lo else {
                     return Err(Error::new(
-                        "a range needs a start (open-start ranges are only for slicing)",
+                        "a range needs a start (open-start ranges are only for slicing; to join lists, use `++`)",
                         e.span,
                     ));
                 };

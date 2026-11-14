@@ -1013,7 +1013,7 @@ impl<'p> Lowerer<'p> {
                     self.switch(bad);
                     self.fail(
                         Fail::Msg(
-                            "a range needs a start (open-start ranges are only for slicing)".into(),
+                            "a range needs a start (open-start ranges are only for slicing; to join lists, use `++`)".into(),
                         ),
                         &[],
                         span,
