@@ -90,8 +90,8 @@ enum GenKind {
         f: Value,
         first: bool,
     },
-    /// `map`, `filter`, `enumerate` and `zip` over a generator or an
-    /// infinite range: computed one element at a time (SPEC 9.2).
+    /// `map`, `filter`, `enumerate`, `zip` and `scan` over a generator or
+    /// an infinite range: computed one element at a time (SPEC 9.2).
     Map {
         src: ValIter,
         f: Value,
@@ -108,6 +108,14 @@ enum GenKind {
     },
     Zip {
         srcs: Vec<ValIter>,
+    },
+    /// `scan`: `acc` first, then `acc = f(acc, x)` for each `x` of `src`.
+    Scan {
+        src: ValIter,
+        f: Value,
+        acc: Value,
+        started: bool,
+        span: Span,
     },
     /// `drop(n)` and `drop_while(f)` over a generator or an infinite
     /// range: the first read skips `n` elements, then any for which `f`
@@ -157,6 +165,16 @@ impl Generator {
 
     pub fn zip(srcs: Vec<ValIter>) -> Generator {
         Generator::new(GenKind::Zip { srcs })
+    }
+
+    pub fn scan(src: ValIter, init: Value, f: Value, span: Span) -> Generator {
+        Generator::new(GenKind::Scan {
+            src,
+            f,
+            acc: init,
+            started: false,
+            span,
+        })
     }
 
     pub fn drop(src: ValIter, n: usize, f: Option<Value>, span: Span) -> Generator {
@@ -1776,8 +1794,8 @@ impl<'p> Interp<'p> {
         }
     }
 
-    /// The next element of a lazy `map`, `filter`, `enumerate`, `zip` or
-    /// `drop`.
+    /// The next element of a lazy `map`, `filter`, `enumerate`, `zip`,
+    /// `scan` or `drop`.
     fn adapter_next(&mut self, kind: &mut GenKind) -> Result<Option<Value>> {
         match kind {
             GenKind::Map { src, f, span } => match src.next(self)? {
@@ -1819,6 +1837,25 @@ impl<'p> Interp<'p> {
                     }
                 }
                 Ok(Some(Value::tuple(row)))
+            }
+            GenKind::Scan {
+                src,
+                f,
+                acc,
+                started,
+                span,
+            } => {
+                if !*started {
+                    *started = true;
+                    return Ok(Some(acc.clone()));
+                }
+                match src.next(self)? {
+                    Some(x) => {
+                        *acc = self.call(f, vec![acc.clone(), x], *span)?;
+                        Ok(Some(acc.clone()))
+                    }
+                    None => Ok(None),
+                }
             }
             GenKind::Drop { src, n, f, span } => {
                 while *n > 0 {
@@ -1874,6 +1911,7 @@ impl<'p> Interp<'p> {
         | GenKind::Filter { .. }
         | GenKind::Enumerate { .. }
         | GenKind::Zip { .. }
+        | GenKind::Scan { .. }
         | GenKind::Drop { .. }
         | GenKind::FlatMap { .. }
         | GenKind::Busy = gen_ref.kind
@@ -2027,6 +2065,7 @@ fn release_frame(frame: &Rc<Frame>) {
                         | GenKind::Filter { .. }
                         | GenKind::Enumerate { .. }
                         | GenKind::Zip { .. }
+                        | GenKind::Scan { .. }
                         | GenKind::Drop { .. }
                         | GenKind::FlatMap { .. }
                         | GenKind::Busy => 0,

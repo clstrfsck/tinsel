@@ -260,6 +260,29 @@ counting and error checks around it.
   faster than the tree-walker, so it barely moves the median.
 - **Cost:** the largest of these.
 
+### 11. Lazy library calls into compiled code (runtime, then compiler)
+
+Over a generator or an infinite range, `map`, `filter`, `scan` and the
+rest build a lazy generator, and each element passes through the
+tree-walker's iterator, which calls the compiled lambda through four
+layers (`ValIter::next`, `Interp::call`, `call_named`,
+`ir::interp::call_value`) before reaching native code. Compiled loops
+(`Op::Loopable`) only cover finite collections. Found in 2016 day 5,
+`(0..).map(i => md5(...)).filter(...)`, where it is about a quarter of
+the time (most of the rest is MD5 itself).
+
+- **First step:** a direct path from the iterator to a closure that is
+  already compiled, skipping the general dispatch. Nothing changes in
+  what runs or in which order, so it is low risk.
+- **Further:** compiling a chain over an infinite range that ends in
+  `first`, `take`, `take_while`, `any` or `all` as one native loop. Its
+  elements, errors and single-pass rules would have to match the
+  tree-walker exactly, which is most of the work.
+- **Expected gain:** small over the corpus: on 2026-11-14 only 13 calls
+  in the 237 solutions start from an infinite range, plus a few chains on
+  `iterate`, and nearly all are cheap. Perhaps 2 s of 2016 day 5's 9 s.
+  Worth doing once a profile shows it more widely.
+
 ## Not candidates
 
 - **Hashed maps and sets with sorted views** (branch `hash-proto`):

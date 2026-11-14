@@ -12,17 +12,17 @@ Apple M3 Max, measured on 2026-11-14, and includes compiling the program
 
 | Year | Solutions | Native | Tree-walker | Slowest (native) |
 |---|---|---|---|---|
-| 2025 | 12 | 1.02 s | 2.28 s | day 10, 0.36 s |
+| 2025 | 12 | 1.02 s | 2.27 s | day 10, 0.36 s |
 | 2024 | 25 | 2.54 s | 5.32 s | day 22, 0.73 s |
-| 2023 | 25 | 3.87 s | 6.94 s | day 23, 1.08 s |
-| 2022 | 25 | 5.61 s | 9.07 s | day 23, 2.19 s |
-| 2021 | 25 | 3.58 s | 8.36 s | day 23, 1.08 s |
-| 2020 | 25 | 4.74 s | 17.72 s | day 22, 1.29 s |
-| 2019 | 25 | 4.65 s | 11.47 s | day 18, 1.59 s |
-| 2018 | 25 | 11.42 s | 29.74 s | day 15, 4.01 s |
-| 2017 | 25 | 10.13 s | 55.13 s | day 25, 2.12 s |
-| 2016 | 25 | 19.95 s | 27.10 s | day 5, 10.27 s |
-| **All** | **237** | **67.50 s** | **173.15 s** | |
+| 2023 | 25 | 3.86 s | 6.94 s | day 23, 1.08 s |
+| 2022 | 25 | 5.61 s | 9.05 s | day 23, 2.19 s |
+| 2021 | 25 | 3.56 s | 8.34 s | day 23, 1.08 s |
+| 2020 | 25 | 4.73 s | 17.68 s | day 22, 1.29 s |
+| 2019 | 25 | 4.66 s | 11.46 s | day 18, 1.59 s |
+| 2018 | 25 | 11.43 s | 29.73 s | day 15, 4.01 s |
+| 2017 | 25 | 10.14 s | 55.15 s | day 25, 2.12 s |
+| 2016 | 25 | 18.79 s | 26.02 s | day 5, 9.10 s |
+| **All** | **237** | **66.34 s** | **171.96 s** | |
 
 219 of the 237 solutions finish in under a second natively, and 202 on the tree-walker.
 
@@ -454,7 +454,7 @@ The slow ones:
 | 2 | [Bathroom Security](tests/aoc2016/day02.tin) | 0.01 s | 0.00 s |
 | 3 | [Squares With Three Sides](tests/aoc2016/day03.tin) | 0.01 s | 0.00 s |
 | 4 | [Security Through Obscurity](tests/aoc2016/day04.tin) | 0.02 s | 0.01 s |
-| 5 | [How About a Nice Game of Chess?](tests/aoc2016/day05.tin) | 10.27 s | 11.69 s |
+| 5 | [How About a Nice Game of Chess?](tests/aoc2016/day05.tin) | 9.10 s | 10.66 s |
 | 6 | [Signals and Noise](tests/aoc2016/day06.tin) | 0.01 s | 0.00 s |
 | 7 | [Internet Protocol Version 7](tests/aoc2016/day07.tin) | 0.03 s | 0.03 s |
 | 8 | [Two-Factor Authentication](tests/aoc2016/day08.tin) | 0.02 s | 0.00 s |

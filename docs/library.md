@@ -467,10 +467,13 @@ for each element in turn.
 
 ### xs.scan(init, f) → list
 Every intermediate value of `fold`, starting with `init`, so the result
-has one more element than `xs`.
+has one more element than `xs`. On a generator or an infinite range, the
+result is a lazy generator, so a running state can be read until it is
+good enough.
 
 ```tinsel
 [1, 2, 3].scan(0, (acc, x) => acc + x) == [0, 1, 3, 6]
+(1..).scan(0, (acc, x) => acc + x).first(_ > 20) == 21
 ```
 
 ### xs.enumerate → list

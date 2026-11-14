@@ -869,6 +869,15 @@ fn fold(it: &mut Interp<'_>, mut args: Args) -> Result<Value> {
 
 fn scan(it: &mut Interp<'_>, args: Args) -> Result<Value> {
     args.check("scan", 3, 3, &[])?;
+    if lazy(&args.pos[0]) {
+        let src = it.iter(&args.pos[0]).map_err(|e| e.at(args.span))?;
+        return Ok(generator(Generator::scan(
+            src,
+            args.pos[1].clone(),
+            args.pos[2].clone(),
+            args.span,
+        )));
+    }
     let items = it.to_vec(&args.pos[0])?;
     let mut acc = args.pos[1].clone();
     let mut out = Vec::new();

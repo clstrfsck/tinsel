@@ -838,7 +838,7 @@ their keys) and generators, unless stated otherwise. Functions that return
 sequences return a **list**, unless a `tuple`, `set` or `map` result makes
 more sense.
 
-`map`, `filter`, `enumerate`, `zip`, `drop` and `drop_while` read a
+`map`, `filter`, `enumerate`, `zip`, `scan`, `drop` and `drop_while` read a
 generator or an infinite range lazily: given one, they return a **generator**, computing each element only
 when it is read. (`zip` does this when any argument is a generator, or when
 none of its arguments ends.) So `iterate(x, f).enumerate.first(...)` and
@@ -861,7 +861,7 @@ lists.
 | `drop(n)`, `drop_while(f)` | The elements after the first `n`, or after the leading elements for which `f` is true. Like `map` and `filter`, they give a list for a finite collection, and stay lazy on a generator or an infinite range: `iterate(1, _ * 2).drop(3).take(2) == [8, 16]`. |
 | `r.bisect(f)` | For a range `r` only: the first int in `r` for which `f` is true, found by binary search, or `none` if there is none. `f` must be false up to some point and true from then on. It calls `f` O(log n) times, and on an infinite range `a..` it searches upwards by doubling: `(0..).bisect(n => n * n >= 50) == 8`. |
 | `fold(init, f)` | `f(acc, x)` |
-| `scan(init, f)` | Includes `init`, so the result has `len + 1` elements |
+| `scan(init, f)` | Includes `init`, so the result has `len + 1` elements. Lazy on a generator or an infinite range, so `(1..).scan(0, (a, x) => a + x).take(4) == [0, 1, 3, 6]` |
 | `enumerate`, `zip(a, b, ...)` | Give tuples |
 | `pairs` | Neighbouring pairs as tuples: `[1,2,3]` → `[(1,2),(2,3)]` |
 | `windows(n)`, `chunks(n)` | Give lists. The last chunk may be shorter. |

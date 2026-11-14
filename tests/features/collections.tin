@@ -216,7 +216,7 @@ test "unequal keys decide even when the values can't be ordered" = ({1: none} < 
 test_error "equal keys compare their values" = {1: none} < {1: 0}
 test_error "subset of a list"   = {1}.subset([1])
 
-# map, filter, enumerate and zip are lazy on generators and infinite ranges (SPEC 9.2)
+# map, filter, enumerate, zip and scan are lazy on generators and infinite ranges (SPEC 9.2)
 test "enumerate an infinite generator" = iterate(1, _ * 2).enumerate.first((i, x) => x > 100) == (7, 128)
 test "map an infinite range"     = (1..).map(_ * _).first(_ > 50) == 64
 test "filter an infinite range"  = (1..).filter(_ % 7 == 0).take(3) == [7, 14, 21]
@@ -227,6 +227,12 @@ test "lazy results chain"        = (0..).map(_ * 3).filter(_ % 2 == 0).enumerate
 first_twice(g) = (g.first, g.first)
 test_error "a lazy map is single-pass" = first_twice((1..).map(_ + 1))
 test_error "a lazy filter needs a bool" = (1..).filter(_ + 1).first
+test "scan an infinite range"    = (1..).scan(0, (a, x) => a + x).take(4) == [0, 1, 3, 6]
+test "scan a generator until its state is enough" = iterate(1, _ * 2).scan(set(), (s, x) => s.add(x % 10)).first(_.len == 4) == {1, 2, 4, 8}
+test "scan a finite generator"   = list((x * x for x in 1..3).scan(0, (a, x) => a + x)) == [0, 1, 5, 14]
+test "scan over a list is a list" = (1..3).scan(1, (a, x) => a * x) == [1, 1, 2, 6]
+test_error "a lazy scan is single-pass" = first_twice((1..).scan(0, (a, x) => a + x))
+test_error "a lazy scan reports its function's error" = (1..).scan(0, (a, x) => a + "x").take(2)
 
 # filter, map, count, any, all and first with a function, over each kind of
 # finite collection (the IR engines run these as loops).

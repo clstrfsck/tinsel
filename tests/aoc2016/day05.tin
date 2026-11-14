@@ -18,23 +18,17 @@ answers
 
 door = input.trim
 
-# The hashes that start with five zeros, in order.
-interesting = (0..).map(i => md5("{door}{i}")).filter(_.starts_with("00000"))
+# The hashes that start with five zeros, in order: a new generator for
+# each part, since a generator can be read only once.
+interesting(id) = (0..).map(i => md5("{id}{i}")).filter(_.starts_with("00000"))
 
-part1 = interesting.take(8).map(_[5]).join
+part1 = interesting(door).take(8).map(_[5]).join
 
-# The first index from i on whose hash starts with five zeros, and the
-# hash.
-following(i) = (i..).map(j => (j, md5("{door}{j}"))).first(((_, h)) => h.starts_with("00000"))
-
-# The password filled in from the interesting hashes from index i on: the
-# sixth digit is a position, the seventh the character to put there, and
-# only the first for each position counts.
-password(i, pw) =
-  if pw.len == 8 then pw.values.join
-  else password(j + 1, if place < 8 and place not in pw then pw.set(place, h[6]) else pw)
+# Part 2 fills in a map of positions: the sixth digit is a position, the
+# seventh the character to put there, and only the first for each
+# position counts.
+place(pw, h) = if p < 8 and p not in pw then pw.set(p, h[6]) else pw
   where
-    (j, h) = following(i)
-    place = int(h[5], 16)
+    p = int(h[5], 16)
 
-part2 = password(0, {})
+part2 = interesting(door).scan({}, place).first(_.len == 8).values.join
