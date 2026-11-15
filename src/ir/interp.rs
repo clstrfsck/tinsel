@@ -1036,6 +1036,7 @@ pub(crate) fn exec(
         },
         Op::BitNot(_) => match next()?.view() {
             V::Int(n) if !n.is_inf() => Value::from_int(n.neg().sub(&Int::Small(1)).map_err(at)?),
+            V::Int(_) => return Err(at("~ is undefined for inf".to_string())),
             other => return Err(at(format!("`~` needs an int, found {}", other.type_name()))),
         },
         Op::CheckBool(_, what) => match next()?.view() {
@@ -1072,19 +1073,21 @@ pub(crate) fn exec(
         }
         Op::Tuple(xs) => Value::tuple((0..xs.len()).map(|_| next()).collect::<Result<_>>()?),
         Op::List(xs) => Value::list((0..xs.len()).map(|_| next()).collect::<Result<Vec<_>>>()?),
-        Op::Set(xs) => {
+        Op::Set(xs, spans) => {
             let mut s = ValueSet::new();
-            for _ in 0..xs.len() {
-                value::set_insert(&mut s, next()?).map_err(at)?;
+            for i in 0..xs.len() {
+                let at = spans.get(i).copied().unwrap_or(span);
+                value::set_insert(&mut s, next()?).map_err(|m| Error::new(m, at))?;
             }
             Value::set(s)
         }
-        Op::Map(kvs) => {
+        Op::Map(kvs, spans) => {
             let mut out = ValueMap::new();
-            for _ in 0..kvs.len() {
+            for i in 0..kvs.len() {
                 let k = next()?;
                 let x = next()?;
-                value::map_insert(&mut out, k, x).map_err(at)?;
+                let at = spans.get(i).copied().unwrap_or(span);
+                value::map_insert(&mut out, k, x).map_err(|m| Error::new(m, at))?;
             }
             Value::map(out)
         }

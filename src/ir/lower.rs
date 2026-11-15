@@ -891,17 +891,19 @@ impl<'p> Lowerer<'p> {
                 self.emit(Op::List(xs), span)
             }
             ExprKind::Set(xs) => {
+                let spans = xs.iter().map(|x| x.span).collect();
                 let xs = self.exprs(xs)?;
-                self.emit(Op::Set(xs), span)
+                self.emit(Op::Set(xs, spans), span)
             }
             ExprKind::Map(kvs) => {
                 let mut out = Vec::new();
+                let spans = kvs.iter().map(|(k, _)| k.span).collect();
                 for (k, v) in kvs {
                     let k = Use::new(self.expr(k)?);
                     let v = Use::new(self.expr(v)?);
                     out.push((k, v));
                 }
-                self.emit(Op::Map(out), span)
+                self.emit(Op::Map(out, spans), span)
             }
             ExprKind::Comp(comp) => self.comprehension(comp, span)?,
             ExprKind::Call { func, args, .. } => {
