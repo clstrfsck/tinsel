@@ -128,8 +128,14 @@ pub fn compile(module: Rc<ir::Module>) -> Result<Native, String> {
     } else {
         "false"
     };
+    // Cranelift's x86-64 backend needs frame pointers for tail calls
+    // (`return_call`), and panics without them; AArch64 always keeps them.
     let mut jb = JITBuilder::with_flags(
-        &[("opt_level", "speed"), ("enable_verifier", verify)],
+        &[
+            ("opt_level", "speed"),
+            ("enable_verifier", verify),
+            ("preserve_frame_pointers", "true"),
+        ],
         default_libcall_names(),
     )
     .map_err(|e| err(&e))?;
