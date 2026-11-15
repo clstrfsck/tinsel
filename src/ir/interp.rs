@@ -1099,7 +1099,13 @@ pub(crate) fn exec(
             Value::map(out)
         }
         Op::Format(parts) => {
-            let mut s = String::new();
+            // Room for the text and a short value per hole, so a typical
+            // key such as `"{id}{i}"` is built without growing.
+            let room = parts.iter().fold(0, |n, p| match p {
+                FmtPart::Lit(l) => n + l.len(),
+                FmtPart::Val(_) => n + 16,
+            });
+            let mut s = String::with_capacity(room);
             for p in parts {
                 match p {
                     FmtPart::Lit(l) => s.push_str(l),

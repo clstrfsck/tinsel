@@ -875,7 +875,9 @@ impl Value {
                 if n < 0 {
                     out.push('-');
                 }
-                out.extend(buf[i..].iter().map(|&d| char::from(d)));
+                // ASCII digits, so this never falls back; one copy, where
+                // pushing chars one at a time re-encoded each.
+                out.push_str(std::str::from_utf8(&buf[i..]).unwrap_or_default());
             }
             _ => self.write_repr(out, usize::MAX),
         }
