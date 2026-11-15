@@ -1,7 +1,7 @@
 // Tests for the parts of the extension that don't need VS Code. Run from
 // the repository root, after `cargo build --release`:
 //
-//   node --test editors/vscode/test
+//   node --test editors/vscode/test/*.test.js
 
 'use strict';
 

@@ -191,8 +191,10 @@ care that each use really is safe. The rules:
   (`src/value/word.rs` or similar: pointer tagging, `Rc::into_raw` and
   `Rc::from_raw`); the JIT boundary (turning finished code into function
   pointers and calling them); and the runtime entry points that compiled
-  code calls. The crate root has `#![deny(unsafe_code)]`, and only those
-  modules carry `#[allow(unsafe_code)]`. `word.rs` also holds the global
+  code calls. (As built, the last two are one module, `src/native/rt.rs`,
+  so there are two: section 11, "Safety".) The crate root has
+  `#![deny(unsafe_code)]`, and only those modules carry
+  `#[allow(unsafe_code)]`. `word.rs` also holds the global
   allocator (added 2026-11-11 with the user's agreement): mimalloc, called
   as plain `mi_malloc` for alignments up to 8, since every mimalloc block
   has that alignment. It is left out under Miri, which can't run
@@ -230,7 +232,8 @@ phase 0 starts.
 
 Only the Cranelift family, from one project (Bytecode Alliance):
 `cranelift-codegen`, `cranelift-frontend`, `cranelift-module`,
-`cranelift-jit` and `cranelift-native`. Nothing else is planned. An LLVM
+`cranelift-jit` and `cranelift-native` (the last turned out not to be
+needed directly: section 11). Nothing else is planned. An LLVM
 backend would add `inkwell` and need a system LLVM, which is one reason it
 is deferred.
 

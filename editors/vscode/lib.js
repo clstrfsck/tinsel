@@ -1,5 +1,5 @@
 // The parts of the extension that don't need VS Code, so that they can be
-// tested with plain Node (`node --test editors/vscode/test`).
+// tested with plain Node (`node --test editors/vscode/test/*.test.js`).
 
 'use strict';
 

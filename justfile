@@ -57,7 +57,7 @@ test-docs:
 
 # The VS Code extension's tests, against a fresh release build.
 ext-test: release
-    TINSEL_BIN=target/release/tinsel node --test editors/vscode/test
+    TINSEL_BIN=target/release/tinsel node --test editors/vscode/test/*.test.js
 
 # Run a solution with the release build, e.g. `just run tests/aoc2024/day01.tin`.
 run file *args: release

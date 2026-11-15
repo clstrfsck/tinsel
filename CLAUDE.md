@@ -57,7 +57,7 @@ input/YYYY/           puzzle inputs: gitignored, never commit them or copy them 
   - `ariadne` for error reports;
   - `md5` for the library's `md5` (SPEC 9.1);
   - the Cranelift crates (`cranelift-codegen`, `-frontend`, `-module`,
-    `-jit`, `-native`) for the native compiler (`reference/native-plan.md`).
+    `-jit`) for the native compiler (`reference/native-plan.md`).
   
   Ask before adding other dependencies.
 - **Pipeline:** layout pass on the tokens, then parse into the AST, then
