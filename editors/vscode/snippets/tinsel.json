@@ -3,7 +3,7 @@
     "prefix": "day",
     "description": "A new solution: day header, example, answers, parsing and both parts",
     "body": [
-      "day ${1:2025}.${2:1}",
+      "day ${1:2026}.${2:1}",
       "",
       "example \"\"\"",
       "${3:example input}",

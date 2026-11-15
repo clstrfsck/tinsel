@@ -324,8 +324,8 @@ thing, so the difference is easy to trip over.
   recursive functions that are memoized only because of an `and`/`or`
   call, and time them both ways.
 - **Expected gain:** not speed in general, but fewer surprises: no
-  memo warnings or hidden hashing in search-style recursion, and
-  constant stack for loops written with `and`/`or`.
+  hidden hashing in search-style recursion, and constant stack for loops
+  written with `and`/`or`.
 - **Surveyed 2026-11-14, and parked:** with the right of `and`/`or` as a
   tail position, the memo decision changed for no function in any of the
   262 solutions. The trap is real for new code (2016 day 25 met it), but
