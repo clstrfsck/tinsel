@@ -70,8 +70,9 @@ part1: 2769675
 part2: 24643097
 ```
 
-`run` checks every `example` block first. If an example fails, it prints
-the expected and actual values and doesn't run the real input. Options:
+`run` checks every `example` block first (with `--part N`, only the
+examples' `partN` lines). If an example fails, it prints the expected and
+actual values and doesn't run the real input. Options:
 
 | Option | Effect |
 | --- | --- |

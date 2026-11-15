@@ -22,7 +22,7 @@ use tinsel::error::{Error, SourceFile, Span, file_at};
 use tinsel::resolve::Program;
 use tinsel::runner::{
     ARGUMENTS_BUDGET, EVAL_NAME, Engine, Outcome, error_json, file_name, json_string, load,
-    load_with_expr, parts, quest_input_missing, real_input, run_checks_with, run_examples_with,
+    load_with_expr, parts, quest_input_missing, real_input, run_checks_with, run_examples_for,
     span_json, with_arguments,
 };
 
@@ -216,9 +216,24 @@ fn run(args: &[String]) -> ExitCode {
         }
     };
 
+    let mut parts = parts(&prog);
+    if parts.is_empty() {
+        eprintln!(
+            "{}: nothing to run: the program defines no `part1`, `part2`, ...",
+            file.display()
+        );
+        return ExitCode::FAILURE;
+    }
+    if let Some(n) = only_part {
+        parts.retain(|(k, _)| *k == n);
+        if parts.is_empty() {
+            eprintln!("{}: the program doesn't define `part{n}`", file.display());
+            return ExitCode::FAILURE;
+        }
+    }
     if examples {
         let mut ok = true;
-        for r in run_examples_with(&prog, &engine) {
+        for r in run_examples_for(&prog, &engine, only_part.map(|_| &*parts[0].1)) {
             if let Outcome::Fail(msg) = r.outcome {
                 eprintln!(
                     "{}:{}: {} failed:\n      {msg}",
@@ -235,21 +250,6 @@ fn run(args: &[String]) -> ExitCode {
         }
     }
 
-    let mut parts = parts(&prog);
-    if parts.is_empty() {
-        eprintln!(
-            "{}: nothing to run: the program defines no `part1`, `part2`, ...",
-            file.display()
-        );
-        return ExitCode::FAILURE;
-    }
-    if let Some(n) = only_part {
-        parts.retain(|(k, _)| *k == n);
-        if parts.is_empty() {
-            eprintln!("{}: the program doesn't define `part{n}`", file.display());
-            return ExitCode::FAILURE;
-        }
-    }
     let input_override = input_path.as_deref();
     // A `day` program's parts share one input and one interpreter; each
     // part of a `quest` program has its own (SPEC 2.2).

@@ -281,6 +281,31 @@ fn run_part_runs_one_part() {
 }
 
 #[test]
+fn run_part_checks_only_that_parts_examples() {
+    // Part 2's example is wrong, and an example without a part1 line
+    // would fail if it ran; neither stops `--part 1`.
+    let src = format!(
+        "{QUEST}\nexample \"ab\"\n  part1 = \"ab\"\n  part2 = \"wrong\"\n\n\
+         example \"cd\"\n  part3 = 1 / 0\n"
+    );
+    let path = quest("examples", &src, &[1, 2, 3]);
+    let (ok, out, err) = tinsel(&["run", &path, "--part", "1"]);
+    assert!(ok, "{err}");
+    assert_eq!(out, "part1: in1\n");
+    let (ok, out, err) = tinsel(&["run", &path, "--part", "2"]);
+    assert!(!ok);
+    assert_eq!(out, "");
+    assert!(
+        err.contains("part2: expected \"wrong\", got \"ab\""),
+        "{err}"
+    );
+    assert!(!err.contains("part3"), "{err}");
+    let (ok, _, err) = tinsel(&["run", &path]);
+    assert!(!ok);
+    assert!(err.contains("part3"), "{err}");
+}
+
+#[test]
 fn eval_part_uses_that_parts_input() {
     let path = quest("eval", QUEST, &[1, 2, 3]);
     let (ok, out, err) = tinsel(&["eval", &path, "input.trim", "--part", "3"]);

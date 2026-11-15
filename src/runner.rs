@@ -616,13 +616,26 @@ pub fn run_examples(prog: &Program) -> Vec<CheckResult> {
 }
 
 pub fn run_examples_with(prog: &Program, engine: &Engine) -> Vec<CheckResult> {
+    run_examples_for(prog, engine, None)
+}
+
+/// Checks the `example` blocks, or with `only`, just their lines for that
+/// name (`run --part N`); an example with no such line is left out.
+pub fn run_examples_for(prog: &Program, engine: &Engine, only: Option<&str>) -> Vec<CheckResult> {
     let lines = LineIndex::new(&prog.src);
     let mut results = Vec::new();
     for (i, ex) in prog.examples.iter().enumerate() {
-        let mut it = engine.interp(prog, Ok(ex.text.clone()), Some(i));
-        let failures: Vec<String> = ex
+        let wanted: Vec<&Check> = ex
             .expects
             .iter()
+            .filter(|c| only.is_none_or(|n| *c.name == *n))
+            .collect();
+        if wanted.is_empty() && only.is_some() {
+            continue;
+        }
+        let mut it = engine.interp(prog, Ok(ex.text.clone()), Some(i));
+        let failures: Vec<String> = wanted
+            .into_iter()
             .filter_map(|c| expect(&mut it, c).err())
             .collect();
         results.push(CheckResult {
