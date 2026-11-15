@@ -19,6 +19,23 @@ depth(0) = 0
 depth(n) = 1 + depth(n - 1)
 test "deep recursion" = depth(1_000_000) == 1_000_000
 
+# A value nested deeply is compared, hashed, shown and released a level at a
+# time, which mustn't run out of stack either.
+nested(0, acc) = acc
+nested(n, acc) = nested(n - 1, [acc])
+paired(0, acc) = acc
+paired(n, acc) = paired(n - 1, (n, acc))
+mapped(0, acc) = acc
+mapped(n, acc) = mapped(n - 1, {n: acc})
+unnest([x]) = 1 + unnest(x)
+unnest(_) = 0
+test "a deeply nested list"       = nested(300_000, 0).len == 1
+test "taking one apart"           = unnest(nested(300_000, 0)) == 300_000
+test "comparing deeply nested values" = (nested(300_000, 0) == nested(300_000, 0), nested(300_000, 0) == nested(300_000, 1), paired(300_000, 0) < paired(300_000, 1)) == (true, false, true)
+test "a deeply nested value in a set" = {nested(300_000, 0), nested(300_000, 0)}.len == 1
+test "showing a deeply nested value" = str(nested(300_000, 0)).len == 600_001
+test "deeply nested tuples and maps" = (paired(300_000, 0).len, mapped(300_000, 0).len) == (2, 1)
+
 # Functions in a where block get a separate cache for each call. If the cache
 # were shared, paths(x, y) from the 2x2 call would be reused by the 16x16
 # call and give a wrong answer.

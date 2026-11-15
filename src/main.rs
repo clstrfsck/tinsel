@@ -86,7 +86,8 @@ fn engine(prog: &Program, which: Which) -> Result<Engine, Error> {
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
-    match args.first().map(String::as_str) {
+    // On a deep stack, so that deeply nested values don't overflow it.
+    tinsel::runner::on_deep_stack(|| match args.first().map(String::as_str) {
         Some("run") => run(&args[1..]),
         Some("test") => test(&args[1..]),
         Some("eval") => eval(&args[1..]),
@@ -97,7 +98,7 @@ fn main() -> ExitCode {
             eprintln!("{USAGE}");
             ExitCode::from(2)
         }
-    }
+    })
 }
 
 /// Prints an error with the source line underlined. A program's files are

@@ -49,7 +49,7 @@ const MARGIN: usize = 1024 * 1024;
 /// A call into compiled code with less stack than this left moves to a new
 /// stack of `SEGMENT` bytes (address space; pages are used only as needed).
 const RED_ZONE: usize = 64 * 1024 * 1024;
-const SEGMENT: usize = 4 * 1024 * 1024 * 1024;
+const SEGMENT: usize = crate::runner::DEEP_STACK;
 
 /// What compiled code passes to every function and runtime entry point:
 /// one per call from Rust into compiled code.

@@ -130,6 +130,20 @@ fn a_bad_key_in_a_literal_is_reported_at_the_key() {
     }
 }
 
+/// A deeply nested value that is the program's result is shown and
+/// released outside the engine, which mustn't overflow the stack either.
+#[test]
+fn a_deeply_nested_result_is_printed() {
+    let src = "nest(n, acc) = if n == 0 then acc else nest(n - 1, [acc])\n\
+               part1 = nest(300000, 7)\n";
+    let expected = format!("part1: {}7{}\n", "[".repeat(300_000), "]".repeat(300_000));
+    for opt in ["--native", "--tree", "--ir"] {
+        let out = tinsel("nested.tin", src, &["run", opt]);
+        assert!(out.status.success(), "{opt}: {:?}", out.status);
+        assert!(text(&out).0 == expected, "{opt}: wrong output");
+    }
+}
+
 /// These messages say what was found, on every engine.
 #[test]
 fn messages_name_the_value_that_was_wrong() {
