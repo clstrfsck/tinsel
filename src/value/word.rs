@@ -76,6 +76,11 @@ pub const FIX_MIN: i64 = -(1 << 61);
 pub const FIX_MAX: i64 = (1 << 61) - 1;
 
 /// A tagged word that owns its reference, if it has one.
+///
+/// `repr(transparent)`, as [`Value`](super::Value) is over it, so a slice
+/// of raw words can be read as values in place
+/// ([`Value::borrow_raw_slice`](super::Value::borrow_raw_slice)).
+#[repr(transparent)]
 pub struct Word(u64);
 
 /// What a word holds.
@@ -425,6 +430,25 @@ impl super::Value {
         self.0.0
     }
 
+    /// The words of `words` as values, borrowed: nothing is counted or
+    /// released, so a whole argument array can be read (hashed, compared)
+    /// without cloning each word.
+    ///
+    /// # Safety
+    ///
+    /// Each word must be a valid word (from [`into_raw`](Self::into_raw),
+    /// or the bits of an unboxed value) whose owner keeps its reference for
+    /// as long as the result is used.
+    pub unsafe fn borrow_raw_slice(words: &[u64]) -> &[super::Value] {
+        debug_assert!(words.iter().all(|&w| plausible(w)), "not all words");
+        // SAFETY: `Value` is `repr(transparent)` over `Word`, which is
+        // `repr(transparent)` over `u64`, so the slices have the same
+        // layout; each word is a valid `Value` by this function's
+        // contract. The result is only a shared borrow, so no value is
+        // dropped, and the owners keep their references.
+        unsafe { &*(std::ptr::from_ref(words) as *const [super::Value]) }
+    }
+
     /// The value whose reference `bits` holds.
     ///
     /// # Safety
@@ -709,6 +733,31 @@ mod tests {
         for s in [sentinel::ERR, sentinel::DONE, sentinel::MISS] {
             assert!(!plausible(s), "{s:#x} must never be taken for a value");
         }
+        if cfg!(debug_assertions) {
+            assert_eq!(live::words(), before);
+        }
+    }
+
+    #[test]
+    fn a_raw_slice_is_read_in_place() {
+        let before = live::words();
+        let s = Value::str("key");
+        let vals = [
+            Value::int(7),
+            s.clone(),
+            Value::pair(Value::int(3), Value::int(-4)),
+        ];
+        let raw: Vec<u64> = vals.iter().map(Value::raw_bits).collect();
+        // SAFETY: the words are `vals`'s, which outlives the borrow.
+        let seen = unsafe { Value::borrow_raw_slice(&raw) };
+        assert!(seen == &vals[..]);
+        assert_eq!(
+            s.heap_refs().map(|r| r.1),
+            Some(2),
+            "reading takes no reference"
+        );
+        drop(vals);
+        drop(s);
         if cfg!(debug_assertions) {
             assert_eq!(live::words(), before);
         }
