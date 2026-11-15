@@ -1,0 +1,53 @@
+quest 2024.2
+
+# Quest 2: runic words in an inscription.
+# Part 1: count the places where a runic word starts; words may overlap.
+# Part 2: count the symbols that belong to a runic word, read either way,
+#         on each line.
+# Part 3: the same on a grid that wraps from the right edge to the left,
+#         with words in all four directions.
+
+example "WORDS:THE,OWE,MES,ROD,HER\n\nAWAKEN THE POWER ADORNED WITH THE FLAMES BRIGHT IRE"
+  part1 = 4
+
+example "WORDS:THE,OWE,MES,ROD,HER\n\nTHE FLAME SHIELDED THE HEART OF THE KINGS"
+  part1 = 3
+
+example "WORDS:THE,OWE,MES,ROD,HER\n\nPOWE PO WER P OWE R"
+  part1 = 2
+
+example "WORDS:THE,OWE,MES,ROD,HER\n\nTHERE IS THE END"
+  part1 = 3
+
+example "WORDS:THE,OWE,MES,ROD,HER,QAQ\n\nAWAKEN THE POWE ADORNED WITH THE FLAMES BRIGHT IRE\nTHE FLAME SHIELDED THE HEART OF THE KINGS\nPOWE PO WER P OWE R\nTHERE IS THE END\nQAQAQ"
+  part2 = 42
+
+example "WORDS:THE,OWE,MES,ROD,RODEO\n\nHELWORLT\nENIGWDXL\nTRODEOAL"
+  part3 = 10
+
+answers
+  part1 = 34
+  part2 = 5470
+  part3 = 12221
+
+[header, text] = input.trim.blocks
+words = header.split(":")[1].split(",")
+
+part1 = text.indices.map(i => words.count(w => text[i..].starts_with(w))).sum
+
+# The positions in a line covered by a runic word, read either way.
+covered(line) = {i + k for i in line.indices for w in runes if line[i..].starts_with(w) for k in 0..<w.len}
+
+runes = words ++ words.map(.reverse)
+
+part2 = text.lines.map(covered(_).len).sum
+
+# Rows wrap around, so each is searched with its start repeated at the
+# end; columns, as rows of the transposed armour, don't.
+part3 = (across | down).len
+  where
+    rows = text.lines
+    w = rows[0].len
+    longest = words.map(.len).max
+    across = {(r, i % w) for (r, row) in rows.enumerate for i in covered(row ++ row[..<longest - 1])}
+    down = {(r, c) for (c, col) in rows.transpose.enumerate for r in covered(col)}
