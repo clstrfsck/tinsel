@@ -295,7 +295,7 @@ fn md5(_: &mut Interp<'_>, args: Args) -> Result<Value> {
             digest = ::md5::compute(hex);
         }
     }
-    Ok(Value::string(
-        hex.iter().map(|&b| char::from(b)).collect::<String>(),
-    ))
+    // The digits are ASCII, so this never falls back; one allocation,
+    // where collecting chars grew a `String` step by step.
+    Ok(Value::str(std::str::from_utf8(&hex).unwrap_or_default()))
 }
