@@ -143,7 +143,7 @@ fn int(_: &mut Interp<'_>, args: Args) -> Result<Value> {
     if args.pos.len() == 2 {
         let base = base_arg(&args, 1, "int")?;
         let s: std::rc::Rc<str> = match args.pos[0].view() {
-            V::Str(s) => s.clone(),
+            V::Str(s) => s.rc().clone(),
             // A single digit, such as 'f' in base 16.
             V::Char(c) => c.to_string().into(),
             _ => {

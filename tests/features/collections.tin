@@ -69,7 +69,10 @@ test "negative index"           = [1, 2, 3][-1] == 3
 test "slice bounds can be negative and are clamped" = ([1, 2, 3][-2..], [1, 2, 3][5..], "abc"[..<-1]) == ([2, 3], [], "ab")
 test "the largest inclusive slice bound is clamped too" = ([1][..9223372036854775807], (1, 2)[0..9223372036854775807], "ab"[..9223372036854775807], [1][..-9223372036854775808]) == ([1], (1, 2), "ab", [])
 test "huge negative slice bounds clamp to the start" = ([1, 2, 3][-(2 ** 70)..], [1, 2, 3][..-(2 ** 70)], [1, 2, 3][..<-(2 ** 70)], "abc"[-(2 ** 70)..1], (1, 2, 3)[-inf..-2]) == ([1, 2, 3], [], [], "ab", (1, 2))
-test "infinite slice bounds"     = ([1, 2, 3][..-inf], [1, 2, 3][..inf], [1, 2, 3][2 ** 70..], [1, 2, 3][..2 ** 70]) == ([], [1, 2, 3], [], [1, 2, 3])
+test "strings index by character, whether made from ASCII text or not" =
+  [("é" ++ "abc")[1], ("abc" ++ "é")[3], "aéb"[1..][1], ("ab"[1..] ++ "ü")[1], "{1}é"[1], "ab".repeat(50000)[99999]] == ['a', 'é', 'b', 'ü', 'é', 'b']
+    and ["€abc"[1..].len, ("a" ++ "é").len, "aé"[..<1].len, "€abc"[1..][2..]] == [3, 2, 1, "c"]
+test "infinite slice bounds"     =([1, 2, 3][..-inf], [1, 2, 3][..inf], [1, 2, 3][2 ** 70..], [1, 2, 3][..2 ** 70]) == ([], [1, 2, 3], [], [1, 2, 3])
 
 # --- Aggregates ---------------------------------------------------------------
 test "sum, product, count"      = ([1, 2, 3, 4].sum, [1, 2, 3, 4].product, [1, 2, 3, 4].count(_ > 2)) == (10, 24, 2)

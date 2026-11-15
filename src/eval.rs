@@ -1645,7 +1645,7 @@ impl<'p> Interp<'p> {
                 end: r.end.clone(),
             },
             V::Str(s) => ValIter::Chars {
-                s: s.clone(),
+                s: s.rc().clone(),
                 pos: 0,
             },
             V::RangeSet(r) => ValIter::RangeSet {

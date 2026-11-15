@@ -6,7 +6,7 @@ use crate::error::{Error, Result};
 use crate::eval::{Generator, Interp, binary, short, with_article};
 use crate::fxhash::{FxHashMap, FxHashSet};
 use crate::int::Int;
-use crate::value::{self, Heap, V, Value, compare};
+use crate::value::{self, Heap, Str, V, Value, compare};
 use crate::value::{ValueMap, ValueSet};
 use imbl::OrdMap;
 use std::cmp::Ordering;
@@ -131,7 +131,7 @@ fn cmp(a: &Value, b: &Value, args: &Args) -> Result<Ordering> {
     compare(a, b).map_err(|e| args.err(e))
 }
 
-fn char_len(s: &str) -> usize {
+fn char_len(s: &Str) -> usize {
     if s.is_ascii() {
         s.len()
     } else {
@@ -139,7 +139,7 @@ fn char_len(s: &str) -> usize {
     }
 }
 
-fn char_at(s: &str, i: usize) -> Option<char> {
+fn char_at(s: &Str, i: usize) -> Option<char> {
     if s.is_ascii() {
         s.as_bytes().get(i).map(|&b| b as char)
     } else {
@@ -267,7 +267,7 @@ pub fn slice(
         V::Tuple(items) => Value::tuple(items[start..end].to_vec()),
         V::Str(s) => {
             if s.is_ascii() {
-                Value::str(&s[start..end])
+                Value::of_str(Str::ascii(&s[start..end]))
             } else {
                 Value::from_str_rc(
                     s.chars()
