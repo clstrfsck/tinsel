@@ -27,7 +27,11 @@ pub struct Program {
     /// Where each file starts in `src` (SPEC 2.8). Empty when the program
     /// wasn't loaded from a file.
     pub files: Vec<SourceFile>,
+    /// The `day` or `quest` header's numbers.
     pub day: Option<(u32, u32)>,
+    /// Whether the header is `quest`: Everybody Codes, with an input for
+    /// each part (SPEC 2.5).
+    pub quest: bool,
     pub globals: Vec<GlobalDef>,
     pub global_names: Vec<Name>,
     pub global_index: HashMap<Name, usize>,
@@ -183,6 +187,7 @@ fn rc_mut<T>(rc: &mut Rc<T>) -> &mut T {
 
 pub fn build_program(src: String, items: Vec<Item>) -> Result<Program> {
     let mut day = None;
+    let mut quest = false;
     let mut raw_defs = Vec::new();
     let mut tests = Vec::new();
     let mut examples = Vec::new();
@@ -193,11 +198,20 @@ pub fn build_program(src: String, items: Vec<Item>) -> Result<Program> {
             raw_defs.push(None);
         }
         match item {
-            Item::Day { year, day: d, span } => {
+            Item::Day {
+                year,
+                day: d,
+                quest: q,
+                span,
+            } => {
                 if day.is_some() {
-                    return Err(Error::new("duplicate `day` header", span));
+                    return Err(Error::new(
+                        "a program can have only one `day` or `quest` header",
+                        span,
+                    ));
                 }
                 day = Some((year, d));
+                quest = q;
             }
             Item::Example(e) => examples.push(e),
             Item::Answers { expects, span } => {
@@ -341,6 +355,7 @@ pub fn build_program(src: String, items: Vec<Item>) -> Result<Program> {
         src,
         files: Vec::new(),
         day,
+        quest,
         globals,
         global_names,
         global_index,

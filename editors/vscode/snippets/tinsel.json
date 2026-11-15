@@ -18,6 +18,26 @@
       "part1 = ${0:$6.len}"
     ]
   },
+  "Quest": {
+    "prefix": "quest",
+    "description": "An Everybody Codes quest: a quest header, an example for each of the three parts, and part 1 (each part reads its own input, input/ecYYYY/qNNpN.txt)",
+    "body": [
+      "quest ${1:2026}.${2:1}",
+      "",
+      "example \"${3:example 1}\"",
+      "  part1 = ${4:0}",
+      "",
+      "example \"${5:example 2}\"",
+      "  part2 = ${6:0}",
+      "",
+      "example \"${7:example 3}\"",
+      "  part3 = ${8:0}",
+      "",
+      "${9:items} = input.lines",
+      "",
+      "part1 = ${0:$9.len}"
+    ]
+  },
   "Example": {
     "prefix": "example",
     "description": "An example block with its expected answers",

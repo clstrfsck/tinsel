@@ -70,8 +70,9 @@ part1: 2769675
 part2: 24643097
 ```
 
-`run` checks every `example` block first. If an example fails, it prints
-the expected and actual values and doesn't run the real input. Options:
+`run` checks every `example` block first (with `--part N`, only the
+examples' `partN` lines). If an example fails, it prints the expected and
+actual values and doesn't run the real input. Options:
 
 | Option | Effect |
 | --- | --- |
@@ -113,6 +114,17 @@ tests/aoc2024/day01.tin
 The `input/` directory is gitignored, because Advent of Code asks that
 puzzle inputs not be published. Download your own inputs from the site
 while logged in, and save each one under the name above.
+
+Everybody Codes quests have three parts, each with its own input. A
+program that starts with `quest 2024.1` (event 2024, quest 1) reads
+`input/ec2024/q01p1.txt` for `part1`, `q01p2.txt` for `part2` and
+`q01p3.txt` for `part3`, each part with its own input. A part whose input
+isn't there yet is skipped with a note, and `--part N` runs just one part:
+
+```sh
+./target/release/tinsel run tests/ec2024/q01.tin            # every part with an input
+./target/release/tinsel run tests/ec2024/q01.tin --part 2   # part 2 only
+```
 
 ### Timing solutions
 

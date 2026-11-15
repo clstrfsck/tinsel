@@ -217,6 +217,143 @@ fn a_bad_prefixed_literal_is_one_error() {
     }
 }
 
+/// A quest program (SPEC 2.5) in a directory of its own, `dir`, with an
+/// input file for each of `parts` (part N's text is `inN`), giving the
+/// program's path.
+fn quest(dir: &str, src: &str, parts: &[usize]) -> String {
+    let root = PathBuf::from(env!("CARGO_TARGET_TMPDIR"))
+        .join("quests")
+        .join(dir);
+    let _ = std::fs::remove_dir_all(&root);
+    let inputs = root.join("input").join("ec2024");
+    std::fs::create_dir_all(&inputs).expect("input directory");
+    for k in parts {
+        std::fs::write(inputs.join(format!("q07p{k}.txt")), format!("in{k}\n")).expect("input");
+    }
+    let path = root.join("q07.tin");
+    std::fs::write(&path, src).expect("program");
+    path.to_str().expect("utf-8 path").to_string()
+}
+
+const QUEST: &str = "quest 2024.7\n\npart1 = input.trim\npart2 = input.trim\npart3 = input.trim\n";
+
+#[test]
+fn each_quest_part_reads_its_own_input() {
+    let path = quest("all", QUEST, &[1, 2, 3]);
+    for engine in ["--tree", "--ir", "--native"] {
+        let (ok, out, err) = tinsel(&["run", &path, engine]);
+        assert!(ok, "{engine}: {err}");
+        assert_eq!(out, "part1: in1\npart2: in2\npart3: in3\n", "{engine}");
+    }
+}
+
+#[test]
+fn a_quest_part_without_its_input_is_skipped_with_a_note() {
+    let path = quest("first", QUEST, &[1]);
+    let (ok, out, err) = tinsel(&["run", &path]);
+    assert!(ok, "{err}");
+    assert_eq!(out, "part1: in1\n");
+    assert!(
+        err.contains("part2: no input yet (input/ec2024/q07p2.txt)"),
+        "{err}"
+    );
+    assert!(
+        err.contains("part3: no input yet (input/ec2024/q07p3.txt)"),
+        "{err}"
+    );
+}
+
+#[test]
+fn run_part_runs_one_part() {
+    let path = quest("one", QUEST, &[1, 2, 3]);
+    let (ok, out, _) = tinsel(&["run", &path, "--part", "2"]);
+    assert!(ok);
+    assert_eq!(out, "part2: in2\n");
+    let (ok, _, err) = tinsel(&["run", &path, "--part", "4"]);
+    assert!(!ok);
+    assert!(err.contains("the program doesn't define `part4`"), "{err}");
+    let (ok, _, err) = tinsel(&["run", &path, "--part", "0"]);
+    assert!(!ok);
+    assert!(
+        err.contains("--part needs a number from 1, found `0`"),
+        "{err}"
+    );
+}
+
+#[test]
+fn run_part_checks_only_that_parts_examples() {
+    // Part 2's example is wrong, and an example without a part1 line
+    // would fail if it ran; neither stops `--part 1`.
+    let src = format!(
+        "{QUEST}\nexample \"ab\"\n  part1 = \"ab\"\n  part2 = \"wrong\"\n\n\
+         example \"cd\"\n  part3 = 1 / 0\n"
+    );
+    let path = quest("examples", &src, &[1, 2, 3]);
+    let (ok, out, err) = tinsel(&["run", &path, "--part", "1"]);
+    assert!(ok, "{err}");
+    assert_eq!(out, "part1: in1\n");
+    let (ok, out, err) = tinsel(&["run", &path, "--part", "2"]);
+    assert!(!ok);
+    assert_eq!(out, "");
+    assert!(
+        err.contains("part2: expected \"wrong\", got \"ab\""),
+        "{err}"
+    );
+    assert!(!err.contains("part3"), "{err}");
+    let (ok, _, err) = tinsel(&["run", &path]);
+    assert!(!ok);
+    assert!(err.contains("part3"), "{err}");
+}
+
+#[test]
+fn eval_part_uses_that_parts_input() {
+    let path = quest("eval", QUEST, &[1, 2, 3]);
+    let (ok, out, err) = tinsel(&["eval", &path, "input.trim", "--part", "3"]);
+    assert!(ok, "{err}");
+    assert_eq!(out, "\"in3\"\n");
+    // Without --part, part 1's input (SPEC 2.2).
+    let (ok, out, _) = tinsel(&["eval", &path, "input.trim"]);
+    assert!(ok);
+    assert_eq!(out, "\"in1\"\n");
+    let (ok, _, err) = tinsel(&["eval", &path, "1", "--part", "2", "--example", "1"]);
+    assert!(!ok);
+    assert!(
+        err.contains("use only one of --example, --input and --part"),
+        "{err}"
+    );
+}
+
+#[test]
+fn quest_answers_are_checked_part_by_part() {
+    let src =
+        format!("{QUEST}\nanswers\n  part1 = \"in1\"\n  part2 = \"in2\"\n  part3 = \"in3\"\n");
+    let path = quest("answers", &src, &[1, 2]);
+    let (ok, out, _) = tinsel(&["test", &path]);
+    assert!(ok, "{out}");
+    assert!(out.contains("skip"), "{out}");
+    assert!(
+        out.contains("answers \"answers part3\" (no input file input/ec2024/q07p3.txt found)"),
+        "{out}"
+    );
+    assert!(out.ends_with("2 passed, 0 failed, 1 skipped\n"), "{out}");
+}
+
+#[test]
+fn quest_is_an_ordinary_name_elsewhere() {
+    // An item word only at the start of an item (SPEC 3).
+    let path = save("quest_fn.tin", "quest(n) = n + 1\npart1 = quest(1)\n");
+    let (ok, out, err) = tinsel(&["run", "--input", "/dev/null", &path]);
+    assert!(ok, "{err}");
+    assert_eq!(out, "part1: 2\n");
+    let path = save("two_headers.tin", "day 2024.1\nquest 2024.1\npart1 = 1\n");
+    let (ok, _, err) = tinsel(&["check", &path]);
+    assert!(!ok);
+    assert!(
+        err.contains("a program can have only one `day` or `quest` header"),
+        "{err}"
+    );
+}
+
 #[test]
 fn a_lazy_chain_reports_the_first_failure_element_by_element() {
     // SPEC 9.2: in a chain read lazily, each element goes through the whole

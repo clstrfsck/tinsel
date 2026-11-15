@@ -119,7 +119,11 @@ fn run_inner(root: &Path, run: &Run, verbose: bool) -> Report {
             }
             Outcome::Skip(why) => {
                 report.skipped += 1;
-                let _ = writeln!(report.output, "skip {loc} {} ({why})", r.kind);
+                if r.name == r.kind {
+                    let _ = writeln!(report.output, "skip {loc} {} ({why})", r.kind);
+                } else {
+                    let _ = writeln!(report.output, "skip {loc} {} {:?} ({why})", r.kind, r.name);
+                }
             }
         }
     }

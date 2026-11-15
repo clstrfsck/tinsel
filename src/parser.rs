@@ -186,14 +186,21 @@ impl Parser {
                     _ => Ok(Item::Def(self.def(annotation)?)),
                 }
             }
-            Tok::Day => {
-                self.advance();
-                let year = self.small_int("a year after `day`")?;
-                self.expect(&Tok::Dot, "between year and day")?;
-                let day = self.small_int("a day number")?;
+            Tok::Day | Tok::Quest => {
+                // `quest` (Everybody Codes) is `day` with an input per part.
+                let quest = self.advance().tok == Tok::Quest;
+                let (word, unit) = if quest {
+                    ("quest", "quest")
+                } else {
+                    ("day", "day")
+                };
+                let year = self.small_int(&format!("a year after `{word}`"))?;
+                self.expect(&Tok::Dot, &format!("between year and {unit}"))?;
+                let day = self.small_int(&format!("a {unit} number"))?;
                 Ok(Item::Day {
                     year,
                     day,
+                    quest,
                     span: start.to(self.prev_span()),
                 })
             }

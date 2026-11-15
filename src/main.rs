@@ -1,9 +1,9 @@
 //! Command line (SPEC 2.7):
 //!
 //! ```text
-//! tinsel run FILE.tin [--input PATH] [--no-examples] [--tree | --ir | --native]
+//! tinsel run FILE.tin [--input PATH] [--part N] [--no-examples] [--tree | --ir | --native]
 //! tinsel test [--tree | --ir | --native] [FILE_OR_DIR ...]
-//! tinsel eval FILE.tin EXPR [--example N | --input PATH] [--raw] [--tree | --ir | --native]
+//! tinsel eval FILE.tin EXPR [--example N | --input PATH | --part N] [--raw] [--tree | --ir | --native]
 //! tinsel check FILE.tin [--json]
 //! tinsel doc [NAME] [--json]
 //! tinsel symbols FILE.tin [--json] [--stdin]
@@ -22,13 +22,14 @@ use tinsel::error::{Error, SourceFile, Span, file_at};
 use tinsel::resolve::Program;
 use tinsel::runner::{
     ARGUMENTS_BUDGET, EVAL_NAME, Engine, Outcome, error_json, file_name, json_string, load,
-    load_with_expr, real_input, run_checks_with, run_examples_with, span_json, with_arguments,
+    load_with_expr, parts, quest_input_missing, real_input, run_checks_with, run_examples_for,
+    span_json, with_arguments,
 };
 
 const USAGE: &str = "usage:
-  tinsel run FILE.tin [--input PATH] [--no-examples] [--tree | --ir | --native]
+  tinsel run FILE.tin [--input PATH] [--part N] [--no-examples] [--tree | --ir | --native]
   tinsel test [--tree | --ir | --native] [--json] [FILE_OR_DIR ...]
-  tinsel eval FILE.tin EXPR [--example N | --input PATH] [--raw] [--tree | --ir | --native]
+  tinsel eval FILE.tin EXPR [--example N | --input PATH | --part N] [--raw] [--tree | --ir | --native]
   tinsel check FILE.tin [--json]
   tinsel doc [NAME] [--json]
   tinsel symbols FILE.tin [--json] [--stdin]";
@@ -143,9 +144,19 @@ fn report(path: &Path, src: Option<&str>, files: &[SourceFile], err: &Error) {
     }
 }
 
+/// The number after `--part`: 1 or more.
+fn part_arg(v: Option<&String>) -> Result<usize, String> {
+    match v.map(|v| (v, v.parse::<usize>())) {
+        Some((_, Ok(n))) if n >= 1 => Ok(n),
+        Some((v, _)) => Err(format!("--part needs a number from 1, found `{v}`")),
+        None => Err("--part needs a number".into()),
+    }
+}
+
 fn run(args: &[String]) -> ExitCode {
     let mut file = None;
     let mut input_path = None;
+    let mut only_part = None;
     let mut examples = true;
     let mut choice = Choice::default();
     let mut i = 0;
@@ -162,6 +173,16 @@ fn run(args: &[String]) -> ExitCode {
                 }
             }
             "--no-examples" => examples = false,
+            "--part" => {
+                i += 1;
+                match part_arg(args.get(i)) {
+                    Ok(n) => only_part = Some(n),
+                    Err(m) => {
+                        eprintln!("{m}\n{USAGE}");
+                        return ExitCode::from(2);
+                    }
+                }
+            }
             a if Choice::of(a).is_some() => {
                 if let Err(m) = choice.choose(a) {
                     eprintln!("{m}\n{USAGE}");
@@ -195,9 +216,24 @@ fn run(args: &[String]) -> ExitCode {
         }
     };
 
+    let mut parts = parts(&prog);
+    if parts.is_empty() {
+        eprintln!(
+            "{}: nothing to run: the program defines no `part1`, `part2`, ...",
+            file.display()
+        );
+        return ExitCode::FAILURE;
+    }
+    if let Some(n) = only_part {
+        parts.retain(|(k, _)| *k == n);
+        if parts.is_empty() {
+            eprintln!("{}: the program doesn't define `part{n}`", file.display());
+            return ExitCode::FAILURE;
+        }
+    }
     if examples {
         let mut ok = true;
-        for r in run_examples_with(&prog, &engine) {
+        for r in run_examples_for(&prog, &engine, only_part.map(|_| &*parts[0].1)) {
             if let Outcome::Fail(msg) = r.outcome {
                 eprintln!(
                     "{}:{}: {} failed:\n      {msg}",
@@ -214,17 +250,24 @@ fn run(args: &[String]) -> ExitCode {
         }
     }
 
-    if prog.global("part1").is_none() && prog.global("part2").is_none() {
-        eprintln!(
-            "{}: nothing to run: the program defines neither `part1` nor `part2`",
-            file.display()
-        );
-        return ExitCode::FAILURE;
-    }
-    let input = real_input(&prog, &file, input_path.as_deref());
-    let mut it = engine.interp(&prog, input.clone(), None);
+    let input_override = input_path.as_deref();
+    // A `day` program's parts share one input and one interpreter; each
+    // part of a `quest` program has its own (SPEC 2.2).
+    let mut shared = None;
     let mut status = ExitCode::SUCCESS;
-    for part in ["part1", "part2"] {
+    for (k, part) in &parts {
+        if let Some(rel) = quest_input_missing(&prog, &file, input_override, *k) {
+            eprintln!("{part}: no input yet ({})", rel.display());
+            continue;
+        }
+        let input = real_input(&prog, &file, input_override, *k);
+        let mut own;
+        let it = if prog.quest {
+            own = engine.interp(&prog, input.clone(), None);
+            &mut own
+        } else {
+            shared.get_or_insert_with(|| engine.interp(&prog, input.clone(), None))
+        };
         match it.global_by_name(part, Default::default()) {
             None => {}
             Some(Ok(v)) => println!("{part}: {}", v.display()),
@@ -247,7 +290,7 @@ fn eval(args: &[String]) -> ExitCode {
         ExitCode::from(2)
     };
     let (mut file, mut expr) = (None, None);
-    let (mut input_path, mut example) = (None, None);
+    let (mut input_path, mut example, mut part) = (None, None, None);
     let mut raw = false;
     let mut choice = Choice::default();
     let mut i = 0;
@@ -271,6 +314,13 @@ fn eval(args: &[String]) -> ExitCode {
                 }
             }
             "--raw" => raw = true,
+            "--part" => {
+                i += 1;
+                match part_arg(args.get(i)) {
+                    Ok(n) => part = Some(n),
+                    Err(m) => return usage(&m),
+                }
+            }
             a if Choice::of(a).is_some() => {
                 if let Err(m) = choice.choose(a) {
                     return usage(&m);
@@ -285,9 +335,16 @@ fn eval(args: &[String]) -> ExitCode {
     let (Some(file), Some(expr)) = (file, expr) else {
         return usage("eval needs a file and an expression");
     };
-    if input_path.is_some() && example.is_some() {
-        return usage("use only one of --example and --input");
+    if [input_path.is_some(), example.is_some(), part.is_some()]
+        .iter()
+        .filter(|&&b| b)
+        .count()
+        > 1
+    {
+        return usage("use only one of --example, --input and --part");
     }
+    // Part 1's input unless `--part` says otherwise (SPEC 2.2).
+    let part = part.unwrap_or(1);
     let prog = match load_with_expr(&file, &expr) {
         Ok(p) => p,
         Err(e) => {
@@ -305,7 +362,7 @@ fn eval(args: &[String]) -> ExitCode {
     // The input, kept for running again to show arguments in a trace.
     let input = match example {
         Some(n) => prog.examples.get(n - 1).map(|ex| Ok(ex.text.clone())),
-        None => Some(real_input(&prog, &file, input_path.as_deref())),
+        None => Some(real_input(&prog, &file, input_path.as_deref(), part)),
     };
     let mut it = match example {
         Some(n) => match prog.examples.get(n - 1) {
@@ -323,7 +380,11 @@ fn eval(args: &[String]) -> ExitCode {
                 return ExitCode::FAILURE;
             }
         },
-        None => engine.interp(&prog, real_input(&prog, &file, input_path.as_deref()), None),
+        None => engine.interp(
+            &prog,
+            real_input(&prog, &file, input_path.as_deref(), part),
+            None,
+        ),
     };
     match it.global_by_name(EVAL_NAME, Default::default()) {
         Some(Ok(v)) => {
@@ -616,7 +677,13 @@ fn test(args: &[String]) -> ExitCode {
                 }
                 Outcome::Skip(why) => {
                     skipped += 1;
-                    println!("skip {loc} {} ({why})", r.kind);
+                    // The name, when it says more than the kind does, as for
+                    // a `quest` program's `answers part2`.
+                    if r.name == r.kind {
+                        println!("skip {loc} {} ({why})", r.kind);
+                    } else {
+                        println!("skip {loc} {} {:?} ({why})", r.kind, r.name);
+                    }
                 }
             }
         }

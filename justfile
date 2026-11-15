@@ -41,7 +41,7 @@ test:
 # Every non-feature .tin file natively, with the leak check (debug build).
 # `cargo test` already runs feature files natively.
 test-native:
-    TIN_ENGINE=native cargo test --test run_tin -- tests/aoc20 tests/lib
+    TIN_ENGINE=native cargo test --test run_tin -- tests/aoc20 tests/ec20 tests/lib
 
 # Every .tin file on the IR interpreter, with the leak check (slow).
 test-ir:

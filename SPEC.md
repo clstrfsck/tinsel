@@ -33,7 +33,7 @@ the code, so they stay fixed.
 A program is one `.tin` file containing a sequence of **top-level items**:
 
 ```tinsel
-day 2025.1                 # optional header: year.day
+day 2025.1                 # optional header: year.day (or quest year.quest)
 
 example """                # zero or more worked examples
 L50
@@ -66,9 +66,13 @@ error naming the cycle.
 `input` is a built-in constant holding the puzzle input as a `str`.
 
 - When running a program normally, it is the real input file (see 2.5).
+  In a program with a `quest` header, each part has its own input:
+  `partN` is evaluated with part N's input, separately from the other
+  parts. Elsewhere, as in a `test` or in `eval` without `--part`, it is
+  part 1's input.
 - Inside an `example` check, it is that example's text.
-- When there is no `day` header and no `--input` flag, using `input` is an
-  error.
+- When there is no `day` or `quest` header and no `--input` flag, using
+  `input` is an error.
 
 ### 2.3 `example` blocks
 
@@ -105,13 +109,18 @@ expected and actual values and does **not** run the real input.
 Lists the known answers for the real input, used as a regression check.
 `tinsel test` checks them when the input file exists and skips them, with a
 note, when it doesn't. That way the tests still pass on machines without
-your inputs.
+your inputs. In a `quest` program, each part's answer is checked against
+that part's input, and skipped, with a note, when that part's input file
+is missing.
 
 ### 2.5 Finding the input
 
-For `day 2025.1`, the interpreter looks for `input/2025/y25d01.txt` in the
-program's directory and then in each parent directory. The first match
-wins. `--input PATH` overrides the search.
+For `day 2025.1` (Advent of Code), the interpreter looks for
+`input/2025/y25d01.txt`. For `quest 2024.1` (Everybody Codes, event 2024,
+quest 1), part N's input is `input/ec2024/q01pN.txt`: `q01p1.txt` for
+`part1`, `q01p2.txt` for `part2`, and so on. Each is looked for in the
+program's directory and then in each parent directory; the first match
+wins. `--input PATH` overrides the search, for every part.
 
 ### 2.6 `test` declarations
 
@@ -130,25 +139,32 @@ test_error "length mismatch" = (1, 2) + (1, 2, 3)
 ### 2.7 Command line
 
 ```
-tinsel run FILE.tin [--input PATH] [--no-examples] [--tree | --ir | --native]
+tinsel run FILE.tin [--input PATH] [--part N] [--no-examples] [--tree | --ir | --native]
 tinsel test [--tree | --ir | --native] [--json] [FILE_OR_DIR ...]   # runs tests, examples and answers
-tinsel eval FILE.tin EXPR [--example N | --input PATH] [--raw] [--tree | --ir | --native]
+tinsel eval FILE.tin EXPR [--example N | --input PATH | --part N] [--raw] [--tree | --ir | --native]
 tinsel check FILE.tin [--json]
 tinsel doc [NAME] [--json]
 tinsel symbols FILE.tin [--json] [--stdin]
 tinsel repl [FILE.tin]             # planned, not yet implemented
 ```
 
-`run` prints `part1: <value>` and `part2: <value>` for whichever parts are
-defined. If neither is defined, it says so and exits with an error status.
+`run` prints `partN: <value>` for each of `part1`, `part2`, `part3`, ...
+that the program defines, in order. If it defines none, it says so and
+exits with an error status. With `--part N`, it runs only `partN`, whose
+definition must exist. In a `quest` program, a part whose input file
+doesn't exist yet is skipped, with a note on stderr (`part2: no input yet
+(input/ec2024/q01p2.txt)`), so that solving part 1 before part 2's input
+is out gives no error.
 
 `eval` prints the value of the expression `EXPR` in its display form (10),
 with strings quoted. With `--raw`, it prints the display form itself, so a
 string is printed as its text, without quotes or escapes (and without an
 extra newline if it ends in one), which suits a picture such as `g.show`. The expression can use everything the program defines,
 and `input` is the real input, the file given by `--input`, or with
-`--example N` the input of the program's `N`th `example` block (counting
-from 1), with that block's `with` constants. Only what the expression
+`--part N` part N's input (in a `quest` program; in a `day` program, the
+input, since its parts share one), or with `--example N` the input of the
+program's `N`th `example` block (counting from 1), with that block's
+`with` constants. Only what the expression
 needs is computed, and no checks are run. The expression may span several
 lines, laid out as it would be in a program (3.1), as for a `match` with
 its arms on the lines after it. An error in the expression is reported in a
@@ -244,12 +260,12 @@ include "intcode.tin"
 - An included file can include other files. A file included more than
   once, directly or not, is included only once. An include cycle is a
   compile error.
-- An included file can't have a `day` header, `example` blocks or an
-  `answers` block. Its `test` and `test_error` declarations are ignored
-  when it is included; they run when the file is tested on its own, so a
-  shared library carries its own unit tests. Since `tinsel test` runs every
-  `.tin` file it finds, a library must compile on its own, without
-  definitions from the files that include it.
+- An included file can't have a `day` or `quest` header, `example` blocks
+  or an `answers` block. Its `test` and `test_error` declarations are
+  ignored when it is included; they run when the file is tested on its
+  own, so a shared library carries its own unit tests. Since
+  `tinsel test` runs every `.tin` file it finds, a library must compile
+  on its own, without definitions from the files that include it.
 - Error messages and stack traces name the file and line where the code
   is written, including inside included files.
 - `include` is not a keyword: it is recognised only at the start of a
@@ -264,12 +280,13 @@ include "intcode.tin"
 - **Identifiers** match `[A-Za-z_][A-Za-z0-9_]*`. Convention: `snake_case`,
   with `UPPER_CASE` for library constants such as `N` and `DIRS4`.
 - **Keywords:** `where match when if then else for let in and or not xor
-  true false none inf`. The item words `day`, `example`, `answers`, `test`
-  and `test_error` are keywords only at the start of a top-level item: in
-  column 1, at the start of a line, and followed by what the item needs (a
-  number after `day`, a string after `example`, `test` and `test_error`,
-  and nothing else on the line after `answers`). Anywhere else they are
-  ordinary names, so `day(n) = ...` defines a function.
+  true false none inf`. The item words `day`, `quest`, `example`,
+  `answers`, `test` and `test_error` are keywords only at the start of a
+  top-level item: in column 1, at the start of a line, and followed by what
+  the item needs (a number after `day` and `quest`, a string after
+  `example`, `test` and `test_error`, and nothing else on the line after
+  `answers`). Anywhere else they are ordinary names, so `day(n) = ...` and
+  `quest(n) = ...` define functions.
 - **Integers:** `0`, `42`, `1_000_000`, and in hex, binary or octal with
   the prefix `0x`, `0b` or `0o`: `0xff == 255`, `0b1010 == 10`,
   `0o17 == 15`. Hex digits can be either case (`0xFF`); the prefix is
