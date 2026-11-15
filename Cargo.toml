@@ -32,3 +32,8 @@ opt-level = 1
 # cost of a slower release build (about 15 s).
 lto = "fat"
 codegen-units = 1
+# No unwinding: 2% to 14% faster on the slow solutions (`TIMINGS.md`). A
+# panic is an interpreter bug, and nothing in a release build catches one;
+# it still prints its message, then aborts. Tests use the dev profile, so
+# the harness can still contain a panic in one file.
+panic = "abort"
