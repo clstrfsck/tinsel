@@ -85,6 +85,7 @@ fn usize_arg(args: &Args, i: usize, fname: &str) -> Result<usize> {
             .as_i64()
             .and_then(|n| usize::try_from(n).ok())
             .unwrap_or(usize::MAX)),
+        V::Int(n) => Err(args.err(format!("`{fname}` needs a count of 0 or more, found {n}"))),
         other => Err(type_err(args, fname, "a non-negative int", other)),
     }
 }

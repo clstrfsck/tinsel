@@ -248,8 +248,11 @@ pub enum Op {
     },
     Tuple(Vec<Use>),
     List(Vec<Use>),
-    Set(Vec<Use>),
-    Map(Vec<(Use, Use)>),
+    /// A set literal, with the span of each element: an element that
+    /// can't join the set is reported there, as the tree-walker does.
+    Set(Vec<Use>, Vec<Span>),
+    /// A map literal, with the span of each key (as for `Set`).
+    Map(Vec<(Use, Use)>, Vec<Span>),
     Format(Vec<FmtPart>),
     Index(Use, Use),
     /// `x.0`
@@ -427,8 +430,8 @@ impl Op {
                 f(b);
                 f(c);
             }
-            Op::Tuple(xs) | Op::List(xs) | Op::Set(xs) => xs.iter_mut().for_each(f),
-            Op::Map(kvs) => kvs.iter_mut().for_each(|(k, v)| {
+            Op::Tuple(xs) | Op::List(xs) | Op::Set(xs, _) => xs.iter_mut().for_each(f),
+            Op::Map(kvs, _) => kvs.iter_mut().for_each(|(k, v)| {
                 f(k);
                 f(v);
             }),
@@ -521,8 +524,8 @@ impl Op {
                 f(*b);
                 f(*c);
             }
-            Op::Tuple(xs) | Op::List(xs) | Op::Set(xs) => xs.iter().for_each(|u| f(*u)),
-            Op::Map(kvs) => kvs.iter().for_each(|(k, v)| {
+            Op::Tuple(xs) | Op::List(xs) | Op::Set(xs, _) => xs.iter().for_each(|u| f(*u)),
+            Op::Map(kvs, _) => kvs.iter().for_each(|(k, v)| {
                 f(*k);
                 f(*v);
             }),
@@ -706,8 +709,8 @@ impl fmt::Display for Op {
             Op::Loopable { coll, f: g } => write!(f, "loopable {coll} {g}"),
             Op::Tuple(xs) => write!(f, "({})", list(xs)),
             Op::List(xs) => write!(f, "[{}]", list(xs)),
-            Op::Set(xs) => write!(f, "{{{}}}", list(xs)),
-            Op::Map(kvs) => {
+            Op::Set(xs, _) => write!(f, "{{{}}}", list(xs)),
+            Op::Map(kvs, _) => {
                 let kv: Vec<String> = kvs.iter().map(|(k, v)| format!("{k}: {v}")).collect();
                 write!(f, "{{{}}}", kv.join(", "))
             }

@@ -81,6 +81,82 @@ fn every_engine_reports_the_same_error() {
     assert_eq!(errs[2], errs[0], "--ir");
 }
 
+/// `tinsel eval` of `expr` on each engine, which must fail: the three
+/// error reports (message, span and trace), native first.
+fn eval_errors(expr: &str) -> Vec<String> {
+    let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("engines");
+    std::fs::create_dir_all(&dir).expect("temporary directory");
+    let path = dir.join("eval.tin");
+    std::fs::write(&path, "one = 1\n").expect("temporary program");
+    ["--native", "--tree", "--ir"]
+        .iter()
+        .map(|opt| {
+            let out = Command::new(env!("CARGO_BIN_EXE_tinsel"))
+                .args(["eval", opt])
+                .arg(&path)
+                .arg(expr)
+                .output()
+                .expect("run tinsel");
+            assert!(!out.status.success(), "{opt} {expr} should fail");
+            text(&out).1
+        })
+        .collect()
+}
+
+/// A key or element that can't join a map or set literal is reported at
+/// that key or element, on every engine.
+#[test]
+fn a_bad_key_in_a_literal_is_reported_at_the_key() {
+    for (expr, message, at) in [
+        (
+            "{[1]: 2, (1,): 3}",
+            "cannot mix list and tuple keys",
+            "1:10",
+        ),
+        ("{1, 2, \"a\"}", "cannot mix int and str keys", "1:8"),
+        ("{x => x}", "a function cannot be a map key", "1:2"),
+        (
+            "{1: 2, (x => x): 1}",
+            "a function cannot be a map key",
+            "1:9",
+        ),
+    ] {
+        let errs = eval_errors(expr);
+        assert!(errs[0].contains(message), "{expr}: {}", errs[0]);
+        let place = format!("<expression>:{at} ");
+        assert!(errs[0].contains(&place), "{expr}: {}", errs[0]);
+        assert_eq!(errs[1], errs[0], "{expr}: --tree");
+        assert_eq!(errs[2], errs[0], "{expr}: --ir");
+    }
+}
+
+/// These messages say what was found, on every engine.
+#[test]
+fn messages_name_the_value_that_was_wrong() {
+    for (expr, message) in [
+        ("~inf", "~ is undefined for inf"),
+        ("~-inf", "~ is undefined for inf"),
+        ("~\"a\"", "`~` needs an int, found str"),
+        (
+            "[1, 2, 3].take(-1)",
+            "`take` needs a count of 0 or more, found -1",
+        ),
+        (
+            "[1, 2, 3].drop(-2)",
+            "`drop` needs a count of 0 or more, found -2",
+        ),
+        (
+            "[1, 2, 3].take(\"a\")",
+            "`take` expects a non-negative int, found str",
+        ),
+    ] {
+        let errs = eval_errors(expr);
+        assert!(errs[0].contains(message), "{expr}: {}", errs[0]);
+        assert_eq!(errs[1], errs[0], "{expr}: --tree");
+        assert_eq!(errs[2], errs[0], "{expr}: --ir");
+    }
+}
+
 #[test]
 fn two_engines_are_refused() {
     for cmd in ["run", "test"] {

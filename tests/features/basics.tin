@@ -142,6 +142,7 @@ test "item words in interpolation" = "{day(1)} {example}" == "2 5"
 test "bitwise not"                   = (~0, ~5, ~(-1), ~(2 ** 70)) == (-1, -6, 0, -(2 ** 70) - 1)
 test "bitwise not binds tightly"     = ~1 + 1 == -1
 test_error "bitwise not needs an int" = ~true
+test_error "bitwise not of inf"      = ~inf
 test "bit length"                    = (0.bits, 1.bits, 255.bits, 256.bits, (2 ** 100).bits) == (0, 1, 8, 9, 101)
 test_error "bit length of a negative" = (-1).bits
 test "one bits"                      = (0.ones, 1.ones, 11.ones, 255.ones, (2 ** 100).ones, (2 ** 100 - 1).ones) == (0, 1, 3, 8, 1, 100)

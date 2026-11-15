@@ -1081,6 +1081,7 @@ impl<'p> Interp<'p> {
                             .sub(&Int::Small(1))
                             .map(Value::from_int)
                             .map_err(|m| Error::new(m, e.span)),
+                        V::Int(_) => Err(Error::new("~ is undefined for inf", e.span)),
                         other => Err(Error::new(
                             format!("`~` needs an int, found {}", other.type_name()),
                             e.span,
