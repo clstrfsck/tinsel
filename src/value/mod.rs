@@ -211,8 +211,10 @@ impl Str {
         Str { text, ascii }
     }
 
-    /// Text known to be all ASCII, such as part of an ASCII string.
-    pub fn ascii(text: &str) -> Str {
+    /// Text known to be all ASCII, such as part of an ASCII string. Only
+    /// the crate may vouch for that: a wrong flag would make indexing cut
+    /// UTF-8 characters in two. Elsewhere, use [`Str::new`], which checks.
+    pub(crate) fn ascii(text: &str) -> Str {
         debug_assert!(text.is_ascii());
         Str {
             text: text.into(),
