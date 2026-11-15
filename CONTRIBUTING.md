@@ -139,7 +139,11 @@ Tinsel's main behavioural tests are programs containing `test`,
 
 - Put focused language tests in the matching `tests/features/*.tin` file.
 - Use `test_error` for invalid programs or runtime failures; check the error
-  text in a Rust test when its exact wording or source span matters.
+  text in a Rust test when its exact wording or source span matters. A
+  `test_error` passes on any error, but in `tests/features/`, which runs on
+  all three engines, the harness also fails it if the IR interpreter or
+  native code raises a different error (message, place or trace) from the
+  tree-walker's.
 - Add Rust unit tests for internal algorithms and invariants that are awkward
   to express in Tinsel.
 - Keep whole-program regressions in `tests/aocYYYY/`.

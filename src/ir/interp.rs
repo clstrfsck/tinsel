@@ -22,7 +22,7 @@
 
 use super::*;
 use crate::builtins::{Args, BUILTINS};
-use crate::error::{Error, Result};
+use crate::error::{AtCall, Error, Result};
 use crate::eval::{
     Generator, Interp, Memo, binary_owned, match_segs, negate, short, small_int_op, spread,
 };
@@ -840,7 +840,14 @@ pub(crate) fn fail_error(fail: &Fail, vals: &[Value], span: Span) -> Error {
         }
         Fail::Msg(msg) => msg.to_string(),
     };
-    Error::new(msg, span)
+    let e = Error::new(msg, span);
+    // These two are reported where the function was called, as the
+    // tree-walker does.
+    match fail {
+        Fail::NoClause(_) => e.at_call(AtCall::Listed),
+        Fail::LambdaArg(_) => e.at_call(AtCall::Unlisted),
+        _ => e,
+    }
 }
 
 pub(crate) fn item(v: &Value, i: usize, span: Span) -> Result<Value> {

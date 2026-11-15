@@ -54,6 +54,20 @@ pub struct ErrorInfo {
     pub span: Option<Span>,
     /// Most recent call first.
     pub trace: Vec<TraceEntry>,
+    /// Set while the error belongs at the call of the function it was
+    /// raised in, which that function can't know ([`Error::at_call`]).
+    at_call: Option<AtCall>,
+}
+
+/// How an error raised inside a function for the way it was called is
+/// placed, once the call is known.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AtCall {
+    /// The call is in the trace as usual (no clause matched).
+    Listed,
+    /// The call isn't in the trace: it never started (a lambda's argument
+    /// didn't match its parameter).
+    Unlisted,
 }
 
 /// One entry of a Tinsel stack trace (SPEC 8.3).
@@ -122,6 +136,7 @@ impl Error {
             msg: msg.into(),
             span: Some(span),
             trace: Vec::new(),
+            at_call: None,
         }))
     }
 
@@ -130,6 +145,7 @@ impl Error {
             msg: msg.into(),
             span: None,
             trace: Vec::new(),
+            at_call: None,
         }))
     }
 
@@ -146,6 +162,18 @@ impl Error {
         self
     }
 
+    /// Says that the error belongs at the call of the function it was
+    /// raised in: the first [`push_trace`](Self::push_trace), which is for
+    /// that call, moves the error there.
+    ///
+    /// The tree-walker picks a function's clause and matches a lambda's
+    /// arguments at the call, so it reports a failure there directly. The
+    /// IR does both inside the function, which doesn't know its caller.
+    pub fn at_call(mut self, how: AtCall) -> Error {
+        self.at_call = Some(how);
+        self
+    }
+
     pub fn push_trace(
         &mut self,
         name: &str,
@@ -153,6 +181,12 @@ impl Error {
         tail_calls: usize,
         args: Option<Vec<String>>,
     ) {
+        if let Some(how) = self.at_call.take() {
+            self.span = Some(span);
+            if how == AtCall::Unlisted {
+                return;
+            }
+        }
         if let Some(last) = self.trace.last_mut()
             && last.name == name
             && last.span == span
