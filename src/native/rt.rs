@@ -352,32 +352,33 @@ extern "C" fn rt_call_value(cx: &mut Ctx<'_, '_>, site: u64, argv: *const u64) -
 }
 
 /// The memoized result of function `func` for the arguments in `argv`
-/// (borrowed), called as `clo` (borrowed), or [`MISS`].
+/// (borrowed), called as `clo` (borrowed), or [`MISS`]; [`ERR`] if the
+/// function's memo table can't be found (an internal error).
 extern "C" fn rt_memo_get(cx: &mut Ctx<'_, '_>, clo: u64, func: u64, argv: *const u64) -> u64 {
     let native = cx.native;
     let f = &native.module.funcs[func as usize];
     // SAFETY: `argv` holds the function's `params` arguments, which the
     // caller keeps for the duration of the call.
     let raw = unsafe { words(argv, f.params as usize) };
-    let args: Vec<Value> = raw
-        .iter()
-        // SAFETY: as above; each is cloned, taking a new reference.
-        .map(|&w| Value::clone(&*unsafe { borrow(w) }))
-        .collect();
+    // SAFETY: as above: they are valid words that the caller keeps, read
+    // here in place, so a lookup clones nothing and allocates nothing.
+    let args = unsafe { Value::borrow_raw_slice(raw) };
     // SAFETY: the caller owns `clo` for the duration of the call.
     let clo = unsafe { borrow(clo) };
     let Some(at) = f.memo else {
         return MISS;
     };
-    if !memo_key_ok(f, &args) {
+    if !memo_key_ok(f, args) {
         return MISS;
     }
     match memo_table(cx.interp(), at, caps(&clo), f.span) {
         Ok(t) => {
-            let hit = t.table.borrow().get(&args).cloned();
+            let hit = t.table.borrow().get(args).cloned();
             hit.map_or(MISS, Value::into_raw)
         }
-        Err(_) => MISS,
+        // The wrapper treats `ERR` as a hit: it releases its arguments and
+        // returns it, which is what a failed call does.
+        Err(e) => cx.fail(e),
     }
 }
 

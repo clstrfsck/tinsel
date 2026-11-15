@@ -38,6 +38,7 @@ pub const BRIEF_CHARS: usize = 200;
 
 /// A Tinsel value: one tagged word (see [`word`]).
 #[derive(Clone)]
+#[repr(transparent)]
 pub struct Value(Word);
 
 /// The objects behind heap values.
