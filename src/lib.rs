@@ -2,7 +2,14 @@
 //! See `SPEC.md` for the language definition.
 //!
 //! Pipeline: [`lexer`] → [`layout`] → [`parser`] → [`resolve`] (names, call
-//! graph, [`memo`] decisions) → [`eval`] (tree-walking evaluator).
+//! graph, [`memo`] decisions). From there a program runs on one of three
+//! engines, which must agree:
+//!
+//! - [`eval`], the tree-walking evaluator and the reference;
+//! - [`ir`], the mid-level IR that the resolved program is lowered to, and
+//!   its interpreter ([`ir::interp`]);
+//! - [`native`], the IR compiled to machine code with Cranelift (the
+//!   default; `reference/native-plan.md`).
 //!
 //! `unsafe` is denied everywhere except the modules that
 //! `reference/native-plan.md` (section 4) allows, which opt in one by one.
