@@ -229,7 +229,8 @@ fn main() -> ExitCode {
 
     let (mut passed, mut failed, mut skipped) = (0, 0, 0);
     let reports = support::parallel::map(runs.len(), jobs, |i| {
-        run_one(&root, &runs[i], verbose, show_tree_leaks)
+        // As `tinsel` itself runs a command (deeply nested values).
+        tinsel::runner::on_deep_stack(|| run_one(&root, &runs[i], verbose, show_tree_leaks))
     });
     for (run, report) in runs.iter().zip(reports) {
         let report = match report {

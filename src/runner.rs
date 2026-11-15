@@ -10,6 +10,23 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 /// Parses and resolves a program from source.
+/// How much stack [`on_deep_stack`] reserves: address space only, since
+/// pages are used as they are touched.
+pub const DEEP_STACK: usize = 4 * 1024 * 1024 * 1024;
+
+/// Runs `f` on a new stack of [`DEEP_STACK`] bytes.
+///
+/// A value nested hundreds of thousands deep (a list in a list in a list,
+/// as a long cons list is) is compared, hashed, shown and dropped by
+/// Rust code that recurses once per level, wherever the value ends up:
+/// inside an engine, or in the code that prints a result. The thread's own
+/// stack (8 MiB for the main thread) overflows at a few hundred thousand
+/// levels, which aborts the process, so every command, and every file of
+/// the test harness, runs inside this.
+pub fn on_deep_stack<R>(f: impl FnOnce() -> R) -> R {
+    stacker::grow(DEEP_STACK, f)
+}
+
 pub fn compile(src: String) -> Result<Program, Error> {
     let items = crate::parser::parse_program(&src)?;
     build_program(src, items)
