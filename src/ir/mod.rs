@@ -128,7 +128,7 @@ pub struct Function {
     pub params: u32,
     pub caps: u32,
     pub memo: Option<MemoAt>,
-    /// Set for `@memo`, which caches calls of any size (SPEC 8.1).
+    /// Set for `@memo`; bypasses the `MEMO_KEY_MAX` key-size limit (SPEC 8.1).
     pub memo_annotated: bool,
     /// The `FnDef::id` of a named function, for the large-key warning.
     pub def_id: Option<usize>,
