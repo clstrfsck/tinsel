@@ -1,7 +1,7 @@
 //! Loading programs and running their checks: `test`, `test_error`,
 //! `example` and `answers` (SPEC 2).
 
-use crate::ast::{Check, CmpOp, ExprKind, Item, PatKind, RawDef};
+use crate::ast::{Check, CmpOp, ExprKind, Item, Name, PatKind, RawDef};
 use crate::error::{Error, LineIndex, SourceFile, Span, file_at};
 use crate::eval::{Frame, Interp, short};
 use crate::resolve::{Program, build_program};
@@ -165,9 +165,10 @@ impl Loader {
                     }
                     out.extend(self.file(&target, target_rel, Some(span))?);
                 }
-                Item::Day { span, .. } if included_at.is_some() => {
+                Item::Day { span, quest, .. } if included_at.is_some() => {
+                    let word = if quest { "quest" } else { "day" };
                     return Err(Error::new(
-                        "an included file can't have a `day` header",
+                        format!("an included file can't have a `{word}` header"),
                         span,
                     ));
                 }
@@ -364,39 +365,87 @@ pub fn format_error(path: &Path, src: Option<&str>, files: &[SourceFile], err: &
     out
 }
 
-/// Looks for `input/YYYY/yYYdDD.txt` in the program's directory and then in
-/// each parent directory (SPEC 2.5).
-pub fn find_input(program_path: &Path, year: u32, day: u32) -> Option<PathBuf> {
-    let rel = PathBuf::from("input")
-        .join(year.to_string())
-        .join(format!("y{:02}d{day:02}.txt", year % 100));
+/// The input file a program's header names for part `part` (SPEC 2.5),
+/// relative to the directory it is looked for in: `input/YYYY/yYYdDD.txt`
+/// for `day`, the same for every part, and `input/ecYYYY/qNNpN.txt` for
+/// `quest`. `None` without a header.
+pub fn input_name(prog: &Program, part: usize) -> Option<PathBuf> {
+    let (year, n) = prog.day?;
+    Some(if prog.quest {
+        PathBuf::from("input")
+            .join(format!("ec{year}"))
+            .join(format!("q{n:02}p{part}.txt"))
+    } else {
+        PathBuf::from("input")
+            .join(year.to_string())
+            .join(format!("y{:02}d{n:02}.txt", year % 100))
+    })
+}
+
+/// Looks for `rel` in the program's directory and then in each parent
+/// directory (SPEC 2.5).
+pub fn find_input(program_path: &Path, rel: &Path) -> Option<PathBuf> {
     let start = program_path.canonicalize().ok()?;
     start
         .parent()?
         .ancestors()
-        .map(|dir| dir.join(&rel))
+        .map(|dir| dir.join(rel))
         .find(|p| p.is_file())
 }
 
-/// The real input for a program: its contents, or why there isn't one.
+/// The real input for part `part` of a program (every part of a `day`
+/// program has the same one): its contents, or why there isn't one.
 pub fn real_input(
     prog: &Program,
     path: &Path,
     input_override: Option<&Path>,
+    part: usize,
 ) -> Result<Rc<str>, String> {
-    let file = match (input_override, prog.day) {
+    let file = match (input_override, input_name(prog, part)) {
         (Some(p), _) => p.to_path_buf(),
-        (None, Some((year, day))) => find_input(path, year, day).ok_or_else(|| {
-            format!(
-                "no input file input/{year}/y{:02}d{day:02}.txt found",
-                year % 100
-            )
-        })?,
-        (None, None) => return Err("`input` needs a `day` header or --input".into()),
+        (None, Some(rel)) => find_input(path, &rel)
+            .ok_or_else(|| format!("no input file {} found", rel.display()))?,
+        (None, None) => return Err("`input` needs a `day` or `quest` header, or --input".into()),
     };
     std::fs::read_to_string(&file)
         .map(Rc::from)
         .map_err(|e| format!("cannot read {}: {e}", file.display()))
+}
+
+/// For a `quest` program with no `--input`, part `part`'s input file when
+/// it doesn't exist yet: that part is skipped, with a note (SPEC 2.7).
+pub fn quest_input_missing(
+    prog: &Program,
+    path: &Path,
+    input_override: Option<&Path>,
+    part: usize,
+) -> Option<PathBuf> {
+    if !prog.quest || input_override.is_some() {
+        return None;
+    }
+    let rel = input_name(prog, part)?;
+    find_input(path, &rel).is_none().then_some(rel)
+}
+
+/// The part a name stands for: `part1` is 1, `part12` is 12.
+pub fn part_number(name: &str) -> Option<usize> {
+    let digits = name.strip_prefix("part")?;
+    if digits.is_empty() || digits.starts_with('0') || !digits.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    digits.parse().ok()
+}
+
+/// The parts a program defines, `part1`, `part2`, ..., in order.
+pub fn parts(prog: &Program) -> Vec<(usize, Name)> {
+    let mut parts: Vec<(usize, Name)> = prog
+        .global_names
+        .iter()
+        .filter_map(|n| part_number(n).map(|k| (k, n.clone())))
+        .collect();
+    parts.sort();
+    parts.dedup();
+    parts
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -599,7 +648,8 @@ pub fn run_checks_with(prog: &Program, path: &Path, engine: &Engine) -> Vec<Chec
     let line = |offset: usize| lines.line(offset);
     let mut results = Vec::new();
 
-    let input = real_input(prog, path, None);
+    // Tests see part 1's input (SPEC 2.2).
+    let input = real_input(prog, path, None, 1);
     let mut it = engine.interp(prog, input.clone(), None);
     for (check, expect_error) in &prog.tests {
         results.push(CheckResult {
@@ -613,27 +663,44 @@ pub fn run_checks_with(prog: &Program, path: &Path, engine: &Engine) -> Vec<Chec
     results.extend(run_examples_with(prog, engine));
 
     if let Some((expects, span)) = &prog.answers {
-        let outcome = match &input {
-            Err(why) => Outcome::Skip(why.clone()),
-            Ok(_) => {
-                let mut it = engine.interp(prog, input.clone(), None);
-                let failures: Vec<String> = expects
-                    .iter()
-                    .filter_map(|c| expect(&mut it, c).err())
-                    .collect();
-                if failures.is_empty() {
-                    Outcome::Pass
-                } else {
-                    Outcome::Fail(failures.join("\n      "))
-                }
-            }
+        // A `day` program's answers share one input and one result; a
+        // `quest` program's are checked part by part, each against its own
+        // input, and skipped when that part's input is missing (SPEC 2.4).
+        let groups: Vec<(String, usize, Vec<&Check>)> = if prog.quest {
+            expects
+                .iter()
+                .map(|c| {
+                    let part = part_number(&c.name).unwrap_or(1);
+                    (format!("answers {}", c.name), part, vec![c])
+                })
+                .collect()
+        } else {
+            vec![("answers".to_string(), 1, expects.iter().collect())]
         };
-        results.push(CheckResult {
-            kind: "answers",
-            name: "answers".into(),
-            line: line(span.start),
-            outcome,
-        });
+        for (name, part, checks) in groups {
+            let input = real_input(prog, path, None, part);
+            let outcome = match &input {
+                Err(why) => Outcome::Skip(why.clone()),
+                Ok(_) => {
+                    let mut it = engine.interp(prog, input.clone(), None);
+                    let failures: Vec<String> = checks
+                        .iter()
+                        .filter_map(|c| expect(&mut it, c).err())
+                        .collect();
+                    if failures.is_empty() {
+                        Outcome::Pass
+                    } else {
+                        Outcome::Fail(failures.join("\n      "))
+                    }
+                }
+            };
+            results.push(CheckResult {
+                kind: "answers",
+                name,
+                line: line(span.start),
+                outcome,
+            });
+        }
     }
     results
 }

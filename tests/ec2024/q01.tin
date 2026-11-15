@@ -1,0 +1,35 @@
+quest 2024.1
+
+# Quest 1: potions for each creature in the notes.
+# Part 1: A needs none, B needs 1, C needs 3.
+# Part 2: the creatures fight in pairs (x is an empty spot); D needs 5,
+#         and each creature in a pair needs one potion more.
+# Part 3: the same in groups of three, where each needs two more.
+
+example "ABBAC"
+  part1 = 5
+
+example "AxBCDDCAxD"
+  part2 = 28
+
+example "xBxAAABCDxCC"
+  part3 = 30
+
+answers
+  part1 = 1408
+  part2 = 5560
+  part3 = 27922
+
+potions = {'A': 0, 'B': 1, 'C': 3, 'D': 5}
+
+# A group of creatures fighting together: each needs one potion more for
+# every other creature in the group.
+fight(group) = monsters.map(potions[_]).sum + monsters.len * (monsters.len - 1)
+  where
+    monsters = group.filter(_ != 'x')
+
+creatures = input.trim.chars
+
+part1 = creatures.map(potions[_]).sum
+part2 = creatures.chunks(2).map(fight).sum
+part3 = creatures.chunks(3).map(fight).sum

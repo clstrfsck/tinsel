@@ -457,9 +457,11 @@ pub struct Example {
 
 #[derive(Debug)]
 pub enum Item {
+    /// `day year.day`, or with `quest`, `quest year.quest` (SPEC 2.5).
     Day {
         year: u32,
         day: u32,
+        quest: bool,
         span: Span,
     },
     Example(Example),

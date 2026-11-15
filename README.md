@@ -114,6 +114,17 @@ The `input/` directory is gitignored, because Advent of Code asks that
 puzzle inputs not be published. Download your own inputs from the site
 while logged in, and save each one under the name above.
 
+Everybody Codes quests have three parts, each with its own input. A
+program that starts with `quest 2024.1` (event 2024, quest 1) reads
+`input/ec2024/q01p1.txt` for `part1`, `q01p2.txt` for `part2` and
+`q01p3.txt` for `part3`, each part with its own input. A part whose input
+isn't there yet is skipped with a note, and `--part N` runs just one part:
+
+```sh
+./target/release/tinsel run tests/ec2024/q01.tin            # every part with an input
+./target/release/tinsel run tests/ec2024/q01.tin --part 2   # part 2 only
+```
+
 ### Timing solutions
 
 The interpreter doesn't time itself; use the shell's `time` with the

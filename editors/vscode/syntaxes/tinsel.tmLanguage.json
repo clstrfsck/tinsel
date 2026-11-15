@@ -168,7 +168,7 @@
         },
         {
           "name": "keyword.other.item.tinsel",
-          "match": "^(day(?=\\s+\\d)|answers(?=\\s*$))"
+          "match": "^((?:day|quest)(?=\\s+\\d)|answers(?=\\s*$))"
         },
         {
           "match": "^\\s+(with)\\b(?=\\s+[A-Za-z_])",

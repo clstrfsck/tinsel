@@ -207,6 +207,7 @@ pub enum Tok {
     TripleStr(Rc<str>),
     // Keywords
     Day,
+    Quest,
     Example,
     Answers,
     Test,
@@ -295,6 +296,7 @@ impl Tok {
     pub fn text(&self) -> &'static str {
         match self {
             Tok::Day => "day",
+            Tok::Quest => "quest",
             Tok::Example => "example",
             Tok::Answers => "answers",
             Tok::Test => "test",
@@ -364,6 +366,7 @@ impl Tok {
     pub fn keyword_name(&self) -> Option<&'static str> {
         match self {
             Tok::Day
+            | Tok::Quest
             | Tok::Example
             | Tok::Answers
             | Tok::Test
@@ -399,6 +402,7 @@ pub struct Token {
 fn keyword(s: &str) -> Option<Tok> {
     Some(match s {
         "day" => Tok::Day,
+        "quest" => Tok::Quest,
         "example" => Tok::Example,
         "answers" => Tok::Answers,
         "test" => Tok::Test,
@@ -437,7 +441,7 @@ pub fn unescape_char(c: char) -> Option<char> {
     })
 }
 
-/// `day`, `example`, `answers`, `test` and `test_error` are keywords only
+/// `day`, `quest`, `example`, `answers`, `test` and `test_error` are keywords only
 /// where they start a top-level item (SPEC 3): at the start of a line in
 /// column 1, followed by what that item needs. Anywhere else they are
 /// turned into ordinary names. `src` is the text the tokens' spans index.
@@ -447,6 +451,7 @@ pub fn item_keywords(src: &str, mut toks: Vec<Token>) -> Vec<Token> {
     for i in 0..toks.len() {
         let word = match toks[i].tok {
             Tok::Day => "day",
+            Tok::Quest => "quest",
             Tok::Example => "example",
             Tok::Answers => "answers",
             Tok::Test => "test",
@@ -457,7 +462,7 @@ pub fn item_keywords(src: &str, mut toks: Vec<Token>) -> Vec<Token> {
         let column_one = index.line_col(src, toks[i].span.start).1 == 1;
         let next = toks.get(i + 1);
         let fits = match (&toks[i].tok, next.map(|t| &t.tok)) {
-            (Tok::Day, Some(Tok::Int(_))) => true,
+            (Tok::Day | Tok::Quest, Some(Tok::Int(_))) => true,
             (Tok::Example | Tok::Test | Tok::TestError, Some(Tok::Str(_) | Tok::TripleStr(_))) => {
                 true
             }
@@ -478,6 +483,7 @@ pub fn no_item_keywords(mut toks: Vec<Token>) -> Vec<Token> {
     for t in &mut toks {
         let word = match t.tok {
             Tok::Day => "day",
+            Tok::Quest => "quest",
             Tok::Example => "example",
             Tok::Answers => "answers",
             Tok::Test => "test",
