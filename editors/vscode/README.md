@@ -114,7 +114,7 @@ install it with `code --install-extension` or `cursor --install-extension`.
   From the repository root, after `cargo build --release`:
 
   ```bash
-  node --test editors/vscode/test
+  node --test editors/vscode/test/*.test.js
   ```
 
 ## License

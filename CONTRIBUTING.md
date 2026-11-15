@@ -155,7 +155,7 @@ Tinsel's main behavioural tests are programs containing `test`,
   tutorial shows. After changing an error message or an output format,
   update the tutorial to match.
 - The VS Code extension in `editors/vscode/` has its own tests, run with
-  Node.js after a release build (`node --test editors/vscode/test`).
+  Node.js after a release build (`node --test editors/vscode/test/*.test.js`).
 
 Feature files run on the tree walker, IR interpreter and native engine by
 default. AoC programs run on the tree walker in the ordinary debug suite to
@@ -249,7 +249,7 @@ and, as `just check` does in any case, the extension's tests:
 
 ```sh
 cargo build --release
-node --test editors/vscode/test
+node --test editors/vscode/test/*.test.js
 ```
 
 The full suite must pass without changing expected values. If a check cannot be
