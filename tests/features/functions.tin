@@ -12,6 +12,14 @@ test "guards and clause order" = [-2, 0, 3].map(classify) == ["neg", "zero", "po
 
 only_zero(0) = "ok"
 test_error "no matching clause is an error" = only_zero(1)
+# The harness checks that every engine reports these at the same call.
+zero_by_tail(n) = only_zero(n)
+zero_in_loop(n) = if n == 0 then only_zero(7) else zero_in_loop(n - 1)
+zero_deep(n) = if n == 0 then only_zero(5) else 1 + zero_deep(n - 1)
+test_error "no matching clause, by a tail call" = zero_by_tail(1)
+test_error "no matching clause, after a loop" = zero_in_loop(3)
+test_error "no matching clause, in a recursion" = zero_deep(3)
+test_error "no matching clause, called by the library" = [0, 1].map(only_zero)
 
 # --- where ------------------------------------------------------------------
 hyp(a, b) = root(sq(a) + sq(b))
@@ -184,3 +192,8 @@ kind(_) = "other"
 test "type patterns in clauses" = [1, inf, "a", (1,), [1], none].map(kind) == ["int", "int", "str", "tuple", "other", "other"]
 test "type pattern in a lambda" = ((n: int) => n + 1)(4) == 5
 test_error "type pattern mismatch in a lambda" = ((n: int) => n + 1)("4")
+call_tail(f, x) = f(x)
+call_inside(f, x) = 1 + f(x)
+test_error "lambda mismatch, called by the library" = ["4"].map((n: int) => n + 1)
+test_error "lambda mismatch, by a tail call" = call_tail((n: int) => n + 1, "4")
+test_error "lambda mismatch, inside a function" = call_inside((n: int) => n + 1, "4")

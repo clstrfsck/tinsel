@@ -92,7 +92,9 @@ input/YYYY/           puzzle inputs: gitignored, never commit them or copy them 
   Never `panic!` or `unwrap()` on anything a user's program can cause.
 - **The test harness** (`tests/run_tin.rs`) finds every `.tin` file under
   `tests/`. It reports each `test`, `test_error`, `example` and `answers`
-  block as a separate pass or fail, with the file and line.
+  block as a separate pass or fail, with the file and line. For a file
+  run on more than one engine, it also fails a `test_error` whose error
+  (message, place and trace) differs from the tree-walker's.
 
 ## Conventions
 

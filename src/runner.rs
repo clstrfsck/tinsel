@@ -478,6 +478,10 @@ pub struct CheckResult {
     pub name: String,
     pub line: usize,
     pub outcome: Outcome,
+    /// For a `test_error` that passed: the error it raised, as
+    /// [`format_error`] shows it (message, place and trace), so that the
+    /// test harness can check the engines raise the same one.
+    pub error: Option<String>,
 }
 
 /// Which interpreter runs a program's checks.
@@ -581,12 +585,15 @@ fn expect(it: &mut Interp<'_>, check: &Check) -> Result<(), String> {
     }
 }
 
+/// Runs a `test` or `test_error`. The error a passing `test_error` raised
+/// is left in `raised` ([`CheckResult::error`]).
 fn run_test(
     it: &mut Interp<'_>,
     check: &Check,
     expect_error: bool,
     path: &Path,
     prog: &Program,
+    raised: &mut Option<String>,
 ) -> Outcome {
     it.input_missing = false;
     let result = eval_check(it, check);
@@ -598,7 +605,10 @@ fn run_test(
         return Outcome::Skip(why.clone());
     }
     match (expect_error, result) {
-        (true, Err(_)) => Outcome::Pass,
+        (true, Err(e)) => {
+            *raised = Some(format_error(path, Some(&prog.src), &prog.files, &e));
+            Outcome::Pass
+        }
         (true, Ok(v)) => Outcome::Fail(format!("expected an error, got {}", short(&v))),
         (false, Ok(v)) if v.as_bool() == Some(true) => Outcome::Pass,
         (false, Ok(v)) if v.as_bool() == Some(false) => {
@@ -664,6 +674,7 @@ pub fn run_examples_for(prog: &Program, engine: &Engine, only: Option<&str>) -> 
             } else {
                 Outcome::Fail(failures.join("\n      "))
             },
+            error: None,
         });
     }
     results
@@ -682,11 +693,14 @@ pub fn run_checks_with(prog: &Program, path: &Path, engine: &Engine) -> Vec<Chec
     let input = real_input(prog, path, None, 1);
     let mut it = engine.interp(prog, input.clone(), None);
     for (check, expect_error) in &prog.tests {
+        let mut error = None;
+        let outcome = run_test(&mut it, check, *expect_error, path, prog, &mut error);
         results.push(CheckResult {
             kind: if *expect_error { "test_error" } else { "test" },
             name: check.name.to_string(),
             line: line(check.span.start),
-            outcome: run_test(&mut it, check, *expect_error, path, prog),
+            outcome,
+            error,
         });
     }
 
@@ -729,6 +743,7 @@ pub fn run_checks_with(prog: &Program, path: &Path, engine: &Engine) -> Vec<Chec
                 name,
                 line: line(span.start),
                 outcome,
+                error: None,
             });
         }
     }

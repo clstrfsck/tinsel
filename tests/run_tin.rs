@@ -8,6 +8,11 @@
 //! In debug builds, a file run on the IR interpreter or natively fails if
 //! it leaks heap values (`TIN_LEAKS=1` shows the tree-walker's too).
 //!
+//! A file run on more than one engine also fails if a `test_error` raises
+//! a different error on the IR interpreter or natively than it does on the
+//! tree-walker, the reference: the message, the place and the trace must
+//! all be the same. (A `test_error` itself passes on any error, SPEC 2.6.)
+//!
 //! By default every file runs on the tree-walker, and `tests/features/` runs
 //! on the IR interpreter (`tinsel::ir`) and natively (`tinsel::native`) as
 //! well. `TIN_ENGINE=ir` runs every file on the IR interpreter only,
@@ -51,6 +56,35 @@ struct Report {
     passed: usize,
     failed: usize,
     skipped: usize,
+    /// The error each passing `test_error` raised: (line, name, error).
+    errors: Vec<(usize, String, String)>,
+}
+
+/// Fails `report`, a run on the IR interpreter or natively, for each
+/// `test_error` whose error isn't the one in `reference`, the tree-walker's
+/// run of the same file.
+fn compare_errors(rel: &Path, reference: &Report, report: &mut Report) {
+    for (line, name, error) in &report.errors {
+        let Some((_, _, expected)) = reference
+            .errors
+            .iter()
+            .find(|(l, n, _)| l == line && n == name)
+        else {
+            continue;
+        };
+        if error != expected {
+            report.failed += 1;
+            let indent = |s: &str| s.replace('\n', "\n        ");
+            let _ = writeln!(
+                report.output,
+                "FAIL {}:{line} test_error {name:?}\n      the error differs from the tree-walker's\n      \
+                 tree: {}\n      here: {}",
+                rel.display(),
+                indent(expected),
+                indent(error)
+            );
+        }
+    }
 }
 
 fn shown_path(root: &Path, run: &Run) -> PathBuf {
@@ -105,6 +139,9 @@ fn run_inner(root: &Path, run: &Run, verbose: bool) -> Report {
         match r.outcome {
             Outcome::Pass => {
                 report.passed += 1;
+                if let Some(e) = r.error {
+                    report.errors.push((r.line, r.name.clone(), e));
+                }
                 if verbose {
                     let _ = writeln!(report.output, "pass {loc} {} {:?}", r.kind, r.name);
                 }
@@ -232,8 +269,10 @@ fn main() -> ExitCode {
         // As `tinsel` itself runs a command (deeply nested values).
         tinsel::runner::on_deep_stack(|| run_one(&root, &runs[i], verbose, show_tree_leaks))
     });
-    for (run, report) in runs.iter().zip(reports) {
-        let report = match report {
+    let mut reports: Vec<Report> = runs
+        .iter()
+        .zip(reports)
+        .map(|(run, report)| match report {
             Ok(report) => report,
             Err(_) => {
                 let mut report = Report {
@@ -247,7 +286,29 @@ fn main() -> ExitCode {
                 );
                 report
             }
+        })
+        .collect();
+    // Every engine must raise the tree-walker's errors.
+    for i in 0..runs.len() {
+        if runs[i].which == "tree" {
+            continue;
+        }
+        let Some(tree) = runs
+            .iter()
+            .position(|r| r.which == "tree" && r.file == runs[i].file)
+        else {
+            continue;
         };
+        let (reference, report) = if tree < i {
+            let (a, b) = reports.split_at_mut(i);
+            (&a[tree], &mut b[0])
+        } else {
+            let (a, b) = reports.split_at_mut(tree);
+            (&b[0], &mut a[i])
+        };
+        compare_errors(&shown_path(&root, &runs[i]), reference, report);
+    }
+    for report in &reports {
         print!("{}", report.output);
         passed += report.passed;
         failed += report.failed;
