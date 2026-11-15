@@ -50,7 +50,7 @@ pub enum Heap {
     Big(Rc<BigInt>) = 0,
     /// An `i64` outside the fixnum range.
     Wide(i64) = 1,
-    Str(Rc<str>) = 2,
+    Str(Str) = 2,
     Tuple(Tup) = layout::TUPLE,
     List(List) = 4,
     Set(ValueSet) = 5,
@@ -195,6 +195,60 @@ impl std::ops::Deref for Items<'_> {
     }
 }
 
+/// A string value's text, with a note of whether it is all ASCII. Strings
+/// are indexed by character (SPEC 4.4), which on ASCII text is indexing by
+/// byte; noting it once, when the string is made, keeps `s[i]`, `s[a..b]`
+/// and `s.len` from scanning the whole string each time.
+#[derive(Clone)]
+pub struct Str {
+    text: Rc<str>,
+    ascii: bool,
+}
+
+impl Str {
+    pub fn new(text: Rc<str>) -> Str {
+        let ascii = text.is_ascii();
+        Str { text, ascii }
+    }
+
+    /// Text known to be all ASCII, such as part of an ASCII string. Only
+    /// the crate may vouch for that: a wrong flag would make indexing cut
+    /// UTF-8 characters in two. Elsewhere, use [`Str::new`], which checks.
+    pub(crate) fn ascii(text: &str) -> Str {
+        debug_assert!(text.is_ascii());
+        Str {
+            text: text.into(),
+            ascii: true,
+        }
+    }
+
+    /// Whether every character is ASCII, so characters are bytes.
+    pub fn is_ascii(&self) -> bool {
+        self.ascii
+    }
+
+    pub fn rc(&self) -> &Rc<str> {
+        &self.text
+    }
+
+    pub fn into_rc(self) -> Rc<str> {
+        self.text
+    }
+}
+
+impl fmt::Display for Str {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self)
+    }
+}
+
+impl std::ops::Deref for Str {
+    type Target = str;
+    fn deref(&self) -> &str {
+        &self.text
+    }
+}
+
 #[derive(Clone)]
 pub enum V<'a> {
     None,
@@ -202,7 +256,7 @@ pub enum V<'a> {
     /// Ints are given by value; cloning a big one copies only a pointer.
     Int(Int),
     Char(char),
-    Str(&'a Rc<str>),
+    Str(&'a Str),
     Tuple(Items<'a>),
     List(&'a List),
     Set(&'a ValueSet),
@@ -223,7 +277,7 @@ pub enum Own {
     Bool(bool),
     Int(Int),
     Char(char),
-    Str(Rc<str>),
+    Str(Str),
     Tuple(Tup),
     List(List),
     Set(ValueSet),
@@ -563,15 +617,19 @@ impl Value {
     }
 
     pub fn str(s: &str) -> Value {
-        heap(Heap::Str(s.into()))
+        heap(Heap::Str(Str::new(s.into())))
     }
 
-    pub fn from_str_rc(s: Rc<str>) -> Value {
+    pub fn of_str(s: Str) -> Value {
         heap(Heap::Str(s))
     }
 
+    pub fn from_str_rc(s: Rc<str>) -> Value {
+        heap(Heap::Str(Str::new(s)))
+    }
+
     pub fn string(s: String) -> Value {
-        heap(Heap::Str(s.into()))
+        heap(Heap::Str(Str::new(s.into())))
     }
 
     pub fn tuple(items: Vec<Value>) -> Value {
@@ -1106,7 +1164,7 @@ impl PartialEq for Value {
             (V::Bool(a), V::Bool(b)) => a == b,
             (V::Int(a), V::Int(b)) => a == b,
             (V::Char(a), V::Char(b)) => a == b,
-            (V::Str(a), V::Str(b)) => a == b,
+            (V::Str(a), V::Str(b)) => **a == **b,
             (V::List(a), V::List(b)) => a == b,
             (V::Set(a), V::Set(b)) => a == b,
             (V::Map(a), V::Map(b)) => a == b,
