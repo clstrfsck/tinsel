@@ -1370,14 +1370,18 @@ pub fn same_key_type(a: &Value, b: &Value) -> Result<(), String> {
 
 /// Inserts into a set, checking key compatibility.
 pub fn set_insert(set: &mut ValueSet, v: Value) -> Result<(), String> {
-    check_key_compatible(set.get_min(), &v)?;
+    if !set.same_kind(&v) {
+        check_key_compatible(set.get_min(), &v)?;
+    }
     set.insert(v);
     Ok(())
 }
 
 /// Inserts into a map, checking key compatibility.
 pub fn map_insert(map: &mut ValueMap, k: Value, v: Value) -> Result<(), String> {
-    check_key_compatible(map.get_min().map(|(k, _)| k), &k)?;
+    if !map.same_kind(&k) {
+        check_key_compatible(map.get_min().map(|(k, _)| k), &k)?;
+    }
     map.insert(k, v);
     Ok(())
 }

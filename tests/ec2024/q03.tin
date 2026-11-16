@@ -1,0 +1,37 @@
+quest 2024.3
+
+# Quest 3: digging ponds in the areas marked `#`.
+# Part 1: the most blocks that can be removed when neighbouring depths,
+#         side to side and top to bottom, differ by at most one.
+# Part 2: the same on a bigger map.
+# Part 3: diagonal neighbours count too, and the map is surrounded by
+#         unmarked land.
+
+example """
+..........
+..###.##..
+...####...
+..######..
+..######..
+...####...
+..........
+"""
+  part1 = 35
+  part2 = 35
+  part3 = 29
+
+answers
+  part1 = 129
+  part2 = 2789
+
+land = input.grid
+
+# The deepest a square can be dug is its distance from the nearest
+# unmarked square, counting the squares just outside the map as unmarked.
+blocks(nbrs) = bfs_from(land.where('.') | surround, nbrs(land, _)).values.sum
+  where
+    surround = {(x, y) for x in -1..land.width for y in -1..land.height if (x, y) not in land}
+
+part1 = blocks(nbrs4)
+part2 = blocks(nbrs4)
+part3 = blocks(nbrs8)
