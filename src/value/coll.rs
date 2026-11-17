@@ -161,6 +161,16 @@ impl ValueSet {
         }
     }
 
+    /// Whether `v` is known, without looking at any element, to have the
+    /// type of the elements already here: a radix set's elements all have
+    /// its kind.
+    pub fn same_kind(&self, v: &Value) -> bool {
+        match &self.0 {
+            SetRepr::Radix(kind, m) => !m.is_empty() && key_of(v).is_some_and(|(k, _)| k == *kind),
+            SetRepr::Ord(_) => false,
+        }
+    }
+
     pub fn get_min(&self) -> Option<&Value> {
         match &self.0 {
             SetRepr::Radix(_, m) => m.first().map(|(_, v)| v),
@@ -342,6 +352,17 @@ impl ValueMap {
                 )),
             },
             MapRepr::Ord(m) => Either::B(m.range::<_, Value>((Excluded(after), Unbounded))),
+        }
+    }
+
+    /// Whether `k` is known, without looking at any key, to have the type
+    /// of the keys already here: a radix map's keys all have its kind.
+    pub fn same_kind(&self, k: &Value) -> bool {
+        match &self.0 {
+            MapRepr::Radix(kind, m) => {
+                !m.is_empty() && key_of(k).is_some_and(|(kk, _)| kk == *kind)
+            }
+            MapRepr::Ord(_) => false,
         }
     }
 

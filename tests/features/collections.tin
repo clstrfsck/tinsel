@@ -228,6 +228,12 @@ test "set operators in both forms" = ({1, 2} | {big}, {1, 2, big} & {2, big}, {1
 test "iteration resumes across chunks" = list(set(-3000..3000)).len == 6001 and list(set(-3000..3000))[5000] == 2000 and list({(x, -x) for x in -2000..2000})[0] == (-2000, 2000)
 test "sets and maps hash the same in both forms" = ([{1, 2, big}.remove(big), {1, 2}].counts, [{1: 2, big: 3}.remove(big), {1: 2}].counts) == ({{1, 2}: 2}, {{1: 2}: 2})
 test_error "radix sets still reject mixed keys" = {1, 2}.add((1, 2))
+test_error "radix sets of pairs reject ints" = {(1, 2)}.add(1)
+test_error "radix maps still reject mixed keys" = {1: 0, 2: 0}.set((1, 2), 0)
+test_error "radix maps of pairs reject ints" = {(1, 2): 0}.set(1, 0)
+test_error "radix maps reject chars" = {1: 0}.set('a', 0)
+test "any int joins a radix set or map" = ({1, 2}.add(inf).add(big).len, {1: 0}.set(-inf, 1).set(big, 2).keys) == (4, [-inf, 1, big])
+test "any tuple joins a radix set or map of pairs" = ({(1, 2)}.add(far).add((1, 2, 3)).len, {(1, 2): 0}.set((1, "a"), 1).len) == (3, 2)
 test "map merge: right wins"    = ({"a": 1, "b": 2} | {"b": 9}) == {"a": 1, "b": 9}
 test "map set/remove"           = ({"a": 1}.set("b", 2), {"a": 1, "b": 2}.remove("a")) == ({"a": 1, "b": 2}, {"b": 2})
 original = {"a": 1}

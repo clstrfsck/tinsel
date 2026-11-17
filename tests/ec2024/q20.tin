@@ -1,0 +1,205 @@
+quest 2024.20
+
+# Quest 20: a glider over warm (`+`) and cold (`-`) air streams.
+# Part 1: the highest altitude after 100 seconds, starting at 1000.
+# Part 2: the shortest time to pass checkpoints A, B and C in order and
+#         come back to the start no lower than it began.
+# Part 3: the map repeats to the south for ever; how many rows south the
+#         glider can get from 384400 before its altitude reaches 0.
+
+example """
+#....S....#
+#.........#
+#---------#
+#.........#
+#..+.+.+..#
+#.+-.+.++.#
+#.........#
+"""
+  part1 = 1045
+
+example """
+####S####
+#-.+++.-#
+#.+.+.+.#
+#-.+.+.-#
+#A+.-.+C#
+#.+-.-+.#
+#.+.B.+.#
+#########
+"""
+  part2 = 24
+
+example """
+###############S###############
+#+#..-.+.-++.-.+.--+.#+.#++..+#
+#-+-.+-..--..-+++.+-+.#+.-+.+.#
+#---.--+.--..++++++..+.-.#.-..#
+#+-+.#+-.#-..+#.--.--.....-..##
+#..+..-+-.-+.++..-+..+#-.--..-#
+#.--.A.-#-+-.-++++....+..C-...#
+#++...-..+-.+-..+#--..-.-+..-.#
+#..-#-#---..+....#+#-.-.-.-+.-#
+#.-+.#+++.-...+.+-.-..+-++..-.#
+##-+.+--.#.++--...-+.+-#-+---.#
+#.-.#+...#----...+-.++-+-.+#..#
+#.---#--++#.++.+-+.#.--..-.+#+#
+#+.+.+.+.#.---#+..+-..#-...---#
+#-#.-+##+-#.--#-.-......-#..-##
+#...+.-+..##+..+B.+.#-+-++..--#
+###############################
+"""
+  part2 = 78
+
+example """
+###############S###############
+#-----------------------------#
+#-------------+++-------------#
+#-------------+++-------------#
+#-------------+++-------------#
+#-----------------------------#
+#-----------------------------#
+#-----------------------------#
+#--A-----------------------C--#
+#-----------------------------#
+#-----------------------------#
+#-----------------------------#
+#-----------------------------#
+#-----------------------------#
+#-----------------------------#
+#--------------B--------------#
+#-----------------------------#
+#-----------------------------#
+###############################
+"""
+  part2 = 206
+
+example """
+#......S......#
+#-...+...-...+#
+#.............#
+#..+...-...+..#
+#.............#
+#-...-...+...-#
+#.............#
+#..#...+...+..#
+"""
+  part3 = 768790
+
+answers
+  part1 = 1032
+  part2 = 566
+
+air = input.grid
+home = air.find('S')
+
+gain('+') = 1
+gain('-') = -2
+gain(_) = -1
+
+# A state is (position, heading, checkpoints passed).
+start = {(home, d, 0): 0 for d in DIRS4}
+
+# How many checkpoints have been passed, after flying over `c`.
+passed(n, c) = if c == "ABC".get(n) then n + 1 else n
+
+open(q) = q in air and air[q] != '#'
+
+# The states a second after a state, flying on or turning, each with the
+# height gained.
+next((p, d, n)) = [((q, e, passed(n, air[q])), gain(air[q]))
+                   for e in [d, cw(d), ccw(d)]
+                   let q = p + e
+                   if open(q)]
+
+# `best` gives the most height gained since the start for each state
+# reachable at one time. More height is never worse, so only the best is
+# kept.
+higher(best, (s, up)) = if up > (best.get(s) ?? -inf) then best.set(s, up) else best
+
+fly(best) = ((s, up + g) for (from, up) in best.items for (s, g) in next(from)).fold({}, higher)
+
+part1 = 1000 + iterate(start, fly, times: 100).values.max
+
+# Part 2 first finds a lower bound. Counting each second as 1, less the
+# height gained in it, `to_land` is the least it can cost to land from
+# each state, found by searching backwards from landing. A flight that
+# lands having lost no height takes at least that long.
+before((q, e, m)) = [((p, d, n), 1 - gain(air[q]))
+                     for d in [e, cw(e), ccw(e)]
+                     for n in [m - 1, m]
+                     if n >= 0 and passed(n, air[q]) == m
+                     let p = q - e
+                     if open(p)]
+
+to_land = dijkstra_from([(home, d, 3) for d in DIRS4], before)
+
+# Whether the glider can be back at the start, having lost no height,
+# with every checkpoint passed.
+landed(best) = DIRS4.any(d => (best.get((home, d, 3)) ?? -inf) >= 0)
+
+# The time of the first landing by `limit`, or none. A flight that lands
+# by then never has time + cost to land - height gained above `limit`,
+# so states that do are dropped, which leaves few.
+race(best, t, limit) =
+  if landed(best) then t
+  else if best.len == 0 then none
+  else race(onward, t + 1, limit)
+  where
+    onward = ((s, up + g)
+              for (from, up) in best.items
+              for (s, g) in next(from)
+              if s in to_land and t + 1 + to_land[s] - (up + g) <= limit).fold({}, higher)
+
+# The limit starts at the lower bound and rises until a flight lands.
+soonest = start.keys.filter(_ in to_land).map(to_land[_]).min
+
+part2 = (soonest..).map(race(start, 0, _)).first(_ != none)
+
+# Part 3 works a row at a time, never flying north: the warm streams are
+# too far apart for a detour back to pay. `alts` gives, for each column,
+# the best altitude on arriving in row `y` from the north (`-inf` where
+# the glider can't be). In a row it can fly on east or west and then turn
+# south; `south` gives the same for row `y + 1`. The glider stops at
+# altitude 0, so only positive altitudes fly on.
+south(alts, y) = [if h > 0 and c != '#' and h + gain(c) >= 0 then h + gain(c) else -inf
+                  for (h, c) in zip(along, strip(y + 1))]
+  where
+    row = strip(y)
+    east = sweep(alts, row)
+    west = sweep(alts.reverse, row.reverse).reverse
+    along = zip(east, west).map(max)
+
+strip(y) = strips[y % strips.len]
+strips = air.rows
+
+# The best altitude in each column after flying along a row in the
+# direction it is listed in.
+sweep(alts, row) = zip(alts, row).scan(-inf, onto).drop(1)
+onto(prev, (alt, c)) = max(alt, if prev > 0 and c != '#' then prev + gain(c) else -inf)
+
+launch(alt) = [if c == 'S' then alt else -inf for c in strips[0]]
+
+# The last row reached, flying on from `alts` in row `y`.
+glide(alts, y) = if next.all(_ == -inf) then y else glide(next, y + 1)
+  where
+    next = south(alts, y)
+
+# From high enough, the flight settles into a pattern: every `period`
+# rows the altitudes in each column are the same but for a fixed `drop`.
+# It is found by flying from a height that never runs out, comparing the
+# altitudes in each row relative to the best of them.
+high = 10 ** 12
+(settled, period, flights) = iterate((launch(high), 0), (alts, y) => (south(alts, y), y + 1))
+                               .find_cycle(key: (alts, y) => (y % strips.len, alts.map(_ - alts.max)))
+drop = flights[settled].0.max - flights[settled + period].0.max
+
+# How far south the glider gets from `alt`: the repeats of the pattern
+# are skipped, down to the last ten, and the rest is flown.
+distance(alt) = if skipped > 0 then glide(pattern.map(_ - skipped * drop), settled + skipped * period)
+                else glide(launch(alt), 0)
+  where
+    pattern = flights[settled].0.map(_ - high + alt)
+    skipped = pattern.filter(_ > -inf).min / drop - 10
+
+part3 = distance(384400)
