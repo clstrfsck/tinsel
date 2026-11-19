@@ -263,6 +263,65 @@ fn a_quest_part_without_its_input_is_skipped_with_a_note() {
     );
 }
 
+/// The steps `run --time` shows on stderr, in order, checking each line's
+/// form: `time`, the step, and seconds to six decimal places.
+fn timed_steps(err: &str) -> Vec<String> {
+    err.lines()
+        .filter(|l| l.starts_with("time "))
+        .map(|l| {
+            let words: Vec<&str> = l.split_whitespace().collect();
+            assert_eq!(words.len(), 4, "{l}");
+            assert_eq!(words[3], "s", "{l}");
+            let (whole, frac) = words[2].split_once('.').expect("a decimal point");
+            assert!(whole.parse::<u64>().is_ok() && frac.len() == 6, "{l}");
+            assert!(frac.chars().all(|c| c.is_ascii_digit()), "{l}");
+            words[1].to_string()
+        })
+        .collect()
+}
+
+#[test]
+fn run_time_shows_each_step() {
+    let path = save(
+        "timed.tin",
+        "example \"ab\"\n  part1 = 2\n\npart1 = input.trim.len\npart2 = part1 * 10\n",
+    );
+    let input = save("timed.txt", "abc\n");
+    for engine in ["--tree", "--ir", "--native"] {
+        let (ok, out, err) = tinsel(&["run", &path, "--input", &input, "--time", engine]);
+        assert!(ok, "{engine}: {err}");
+        assert_eq!(out, "part1: 3\npart2: 30\n", "{engine}");
+        let steps = ["load", "compile", "examples", "part1", "part2", "total"];
+        assert_eq!(timed_steps(&err), steps, "{engine}");
+    }
+    let (_, _, err) = tinsel(&[
+        "run",
+        &path,
+        "--input",
+        &input,
+        "--time",
+        "--no-examples",
+        "--part",
+        "2",
+    ]);
+    assert_eq!(timed_steps(&err), ["load", "compile", "part2", "total"]);
+    let (_, _, err) = tinsel(&["run", &path, "--input", &input]);
+    assert!(timed_steps(&err).is_empty(), "{err}");
+}
+
+#[test]
+fn run_time_still_times_a_part_that_fails() {
+    let path = save("timed_fail.tin", "part1 = 1 / 0\npart2 = 2\n");
+    let input = save("timed_fail.txt", "\n");
+    let (ok, out, err) = tinsel(&["run", &path, "--input", &input, "--time"]);
+    assert!(!ok);
+    assert_eq!(out, "part2: 2\n");
+    assert_eq!(
+        timed_steps(&err),
+        ["load", "compile", "examples", "part1", "part2", "total"]
+    );
+}
+
 #[test]
 fn run_part_runs_one_part() {
     let path = quest("one", QUEST, &[1, 2, 3]);

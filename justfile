@@ -63,9 +63,10 @@ ext-test: release
 run file *args: release
     ./target/release/tinsel run {{args}} {{file}}
 
-# Time a solution on its real input only, with the release build.
+# Time a solution on its real input only, with the release build: each
+# step (loading, compiling, each part) from `--time`, then the whole process.
 time file: release
-    time ./target/release/tinsel run --no-examples {{file}}
+    time ./target/release/tinsel run --no-examples --time {{file}}
 
 # Show a built-in's entry in the library reference, e.g. `just doc find_cycle`.
 doc name="": release

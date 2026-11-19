@@ -37,6 +37,7 @@ Use a release build when running full puzzle inputs or measuring performance:
 ```sh
 cargo build --release
 ./target/release/tinsel run tests/aoc2024/day01.tin
+./target/release/tinsel run --time --no-examples tests/aoc2024/day01.tin   # time each step
 ```
 
 The full suite does not require private puzzle inputs. Checks that need a
