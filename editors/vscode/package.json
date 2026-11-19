@@ -147,6 +147,11 @@
           "type": "boolean",
           "default": true,
           "description": "Check a Tinsel file when it is opened or saved (tinsel check), and show its errors in the Problems panel."
+        },
+        "tinsel.checkWhileTyping": {
+          "type": "boolean",
+          "default": true,
+          "description": "Check a Tinsel file as it is edited, a moment after typing stops (tinsel check --stdin), so errors show before saving."
         }
       }
     },

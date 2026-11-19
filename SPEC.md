@@ -142,7 +142,7 @@ test_error "length mismatch" = (1, 2) + (1, 2, 3)
 tinsel run FILE.tin [--input PATH] [--part N] [--no-examples] [--time] [--tree | --ir | --native]
 tinsel test [--tree | --ir | --native] [--json] [FILE_OR_DIR ...]   # runs tests, examples and answers
 tinsel eval FILE.tin EXPR [--example N | --input PATH | --part N] [--raw] [--tree | --ir | --native]
-tinsel check FILE.tin [--json]
+tinsel check FILE.tin [--json] [--stdin]
 tinsel doc [NAME] [--json]
 tinsel symbols FILE.tin [--json] [--stdin]
 tinsel repl [FILE.tin]             # planned, not yet implemented
@@ -200,6 +200,8 @@ tinsel eval day11.tin --example 1 'ways("svr", 0)'
 `check` reads a program and its includes, and checks that it parses and
 that every name it uses is defined, without running anything. It reports
 the first error it finds, and exits with an error status if there is one.
+With `--stdin`, it checks the text on standard input in place of the
+file's, as `symbols --stdin` does (below).
 
 `doc` prints the entries for the built-in `NAME` from the library
 reference, `docs/library.md`, which is built into the binary: each one's

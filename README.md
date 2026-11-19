@@ -99,6 +99,8 @@ they're inside, with how often each is used.
 
 `check`, `test`, `doc` and `symbols` take `--json`, for editors and other
 tools (SPEC 2.7).
+`check` and `symbols` also take `--stdin`, to read the program's text
+from standard input, such as an editor's unsaved changes.
 
 ### Where the input comes from
 
@@ -333,7 +335,8 @@ without `just`.
 `editors/vscode/` is an extension for `.tin` files. It gives:
 - highlighting, folding, auto-indentation and snippets (type `day` for a
   new solution);
-- errors underlined when a file is opened or saved (`tinsel check`);
+- errors underlined as you type, and when a file is opened or saved
+  (`tinsel check`);
 - every `test`, `example` and `answers` block in VS Code's Test Explorer,
   with a ✓ or ✗ and the failure message at the block;
 - "▶ Run" and "✓ Test" above the `day` line, and "▶ Run example N" above

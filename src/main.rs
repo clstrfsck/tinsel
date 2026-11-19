@@ -4,7 +4,7 @@
 //! tinsel run FILE.tin [--input PATH] [--part N] [--no-examples] [--time] [--tree | --ir | --native]
 //! tinsel test [--tree | --ir | --native] [FILE_OR_DIR ...]
 //! tinsel eval FILE.tin EXPR [--example N | --input PATH | --part N] [--raw] [--tree | --ir | --native]
-//! tinsel check FILE.tin [--json]
+//! tinsel check FILE.tin [--json] [--stdin]
 //! tinsel doc [NAME] [--json]
 //! tinsel symbols FILE.tin [--json] [--stdin]
 //! ```
@@ -22,16 +22,16 @@ use std::time::{Duration, Instant};
 use tinsel::error::{Error, SourceFile, Span, file_at};
 use tinsel::resolve::Program;
 use tinsel::runner::{
-    ARGUMENTS_BUDGET, EVAL_NAME, Engine, Outcome, error_json, file_name, json_string, load,
-    load_with_expr, parts, quest_input_missing, real_input, run_checks_with, run_examples_for,
-    span_json, with_arguments,
+    ARGUMENTS_BUDGET, EVAL_NAME, Engine, LoadError, Outcome, error_json, file_name, json_string,
+    load, load_with_expr, parts, quest_input_missing, real_input, run_checks_with,
+    run_examples_for, span_json, with_arguments,
 };
 
 const USAGE: &str = "usage:
   tinsel run FILE.tin [--input PATH] [--part N] [--no-examples] [--time] [--tree | --ir | --native]
   tinsel test [--tree | --ir | --native] [--json] [FILE_OR_DIR ...]
   tinsel eval FILE.tin EXPR [--example N | --input PATH | --part N] [--raw] [--tree | --ir | --native]
-  tinsel check FILE.tin [--json]
+  tinsel check FILE.tin [--json] [--stdin]
   tinsel doc [NAME] [--json]
   tinsel symbols FILE.tin [--json] [--stdin]";
 
@@ -478,7 +478,11 @@ fn eval(args: &[String]) -> ExitCode {
 /// (SPEC 2.7).
 fn check(args: &[String]) -> ExitCode {
     let json = args.iter().any(|a| a == "--json");
-    let rest: Vec<&String> = args.iter().filter(|a| *a != "--json").collect();
+    let stdin = args.iter().any(|a| a == "--stdin");
+    let rest: Vec<&String> = args
+        .iter()
+        .filter(|a| *a != "--json" && *a != "--stdin")
+        .collect();
     let [file] = rest.as_slice() else {
         eprintln!("check needs one file\n{USAGE}");
         return ExitCode::from(2);
@@ -488,7 +492,10 @@ fn check(args: &[String]) -> ExitCode {
         return ExitCode::from(2);
     }
     let file = PathBuf::from(file);
-    let error = load(&file).err();
+    let Some(loaded) = load_from(&file, stdin) else {
+        return ExitCode::FAILURE;
+    };
+    let error = loaded.err();
     if json {
         let errors = error
             .iter()
@@ -504,6 +511,22 @@ fn check(args: &[String]) -> ExitCode {
     } else {
         ExitCode::SUCCESS
     }
+}
+
+/// Loads `file`, or with `stdin`, the program's text from standard input
+/// in its place, as an editor's unsaved changes; includes are still read
+/// from their files. `None` if standard input can't be read (said on
+/// stderr).
+fn load_from(file: &Path, stdin: bool) -> Option<Result<Program, LoadError>> {
+    if !stdin {
+        return Some(load(file));
+    }
+    let mut text = String::new();
+    if let Err(e) = std::io::stdin().read_to_string(&mut text) {
+        eprintln!("Error: cannot read standard input: {e}");
+        return None;
+    }
+    Some(tinsel::runner::load_text(file, text))
 }
 
 /// `tinsel symbols`: every definition in a program and its includes, and
@@ -524,17 +547,8 @@ fn symbols(args: &[String]) -> ExitCode {
         return ExitCode::from(2);
     }
     let file = PathBuf::from(file);
-    // With --stdin, the program's text comes from standard input, as an
-    // editor's unsaved changes; includes are still read from their files.
-    let loaded = if stdin {
-        let mut text = String::new();
-        if let Err(e) = std::io::stdin().read_to_string(&mut text) {
-            eprintln!("Error: cannot read standard input: {e}");
-            return ExitCode::FAILURE;
-        }
-        tinsel::runner::load_text(&file, text)
-    } else {
-        load(&file)
+    let Some(loaded) = load_from(&file, stdin) else {
+        return ExitCode::FAILURE;
     };
     let prog = match loaded {
         Ok(p) => p,
