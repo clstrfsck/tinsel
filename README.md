@@ -1,5 +1,7 @@
 # Tinsel
 
+<img src="tinsel-logo-white-background.jpg" alt="The Tinsel logo: a green letter T wrapped in silver tinsel" width="60" align="left">
+
 Tinsel is a small, pure, dynamically typed language for solving
 [Advent of Code](https://adventofcode.com) puzzles. It is written in Rust,
 and compiles programs to machine code with
@@ -78,6 +80,7 @@ actual values and doesn't run the real input. Options:
 | --- | --- |
 | `--input PATH` | Read the puzzle input from `PATH` instead of searching for it |
 | `--no-examples` | Skip the example checks |
+| `--time` | Show on stderr how long loading, compiling, the examples and each part took |
 | `--native` | Compile to machine code (the default) |
 | `--tree` | Run on the tree-walking interpreter (the reference implementation) instead of compiling to machine code |
 | `--ir` | Run on the IR interpreter, which checks the native compiler |
@@ -128,13 +131,16 @@ isn't there yet is skipped with a note, and `--part N` runs just one part:
 
 ### Timing solutions
 
-The interpreter doesn't time itself; use the shell's `time` with the
-release build. Add `--no-examples` to time only the real input:
+Use the release build. `--time` shows each step on stderr, to the
+microsecond: loading the program, compiling it, the examples and each
+part. Add `--no-examples` to time only the real input:
 
 ```sh
-time ./target/release/tinsel run tests/aoc2024/day22.tin                 # examples, then the real input
-time ./target/release/tinsel run --no-examples tests/aoc2024/day22.tin   # the real input only
+./target/release/tinsel run --time tests/aoc2024/day22.tin                 # examples, then the real input
+./target/release/tinsel run --time --no-examples tests/aoc2024/day22.tin   # the real input only
 ```
+
+The shell's `time` gives the whole process, including starting it.
 
 To time every solution, one line each:
 

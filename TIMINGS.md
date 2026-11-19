@@ -588,3 +588,8 @@ done
 A solution whose input file is missing (see "Where the input comes from" in
 the [README](README.md)) stops with an error, so its time won't mean
 anything.
+
+The tables are wall-clock times for the whole process, as above, so they
+stay comparable with earlier measurements. To see where one solution's
+time goes, `tinsel run --time` (SPEC 2.7) splits it into loading,
+compiling, the examples and each part, to the microsecond.

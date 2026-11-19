@@ -1,7 +1,7 @@
 //! Command line (SPEC 2.7):
 //!
 //! ```text
-//! tinsel run FILE.tin [--input PATH] [--part N] [--no-examples] [--tree | --ir | --native]
+//! tinsel run FILE.tin [--input PATH] [--part N] [--no-examples] [--time] [--tree | --ir | --native]
 //! tinsel test [--tree | --ir | --native] [FILE_OR_DIR ...]
 //! tinsel eval FILE.tin EXPR [--example N | --input PATH | --part N] [--raw] [--tree | --ir | --native]
 //! tinsel check FILE.tin [--json]
@@ -18,6 +18,7 @@ use ariadne::{Color, Config, Label, Report, ReportKind};
 use std::io::{IsTerminal, Read};
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
+use std::time::{Duration, Instant};
 use tinsel::error::{Error, SourceFile, Span, file_at};
 use tinsel::resolve::Program;
 use tinsel::runner::{
@@ -27,7 +28,7 @@ use tinsel::runner::{
 };
 
 const USAGE: &str = "usage:
-  tinsel run FILE.tin [--input PATH] [--part N] [--no-examples] [--tree | --ir | --native]
+  tinsel run FILE.tin [--input PATH] [--part N] [--no-examples] [--time] [--tree | --ir | --native]
   tinsel test [--tree | --ir | --native] [--json] [FILE_OR_DIR ...]
   tinsel eval FILE.tin EXPR [--example N | --input PATH | --part N] [--raw] [--tree | --ir | --native]
   tinsel check FILE.tin [--json]
@@ -154,7 +155,54 @@ fn part_arg(v: Option<&String>) -> Result<usize, String> {
     }
 }
 
+/// `run --time`: how long each step took, on stderr as each one ends
+/// (SPEC 2.7).
+struct Timer {
+    on: bool,
+    last: Instant,
+    /// The steps shown so far.
+    sum: Duration,
+}
+
+impl Timer {
+    fn new(on: bool) -> Timer {
+        Timer {
+            on,
+            last: Instant::now(),
+            sum: Duration::ZERO,
+        }
+    }
+
+    /// Prints the time since the last step ended, as the step `what`.
+    /// The next step starts after the line is printed, so printing it
+    /// isn't counted.
+    fn step(&mut self, what: &str) {
+        let d = self.last.elapsed();
+        self.show(what, d);
+        self.sum += d;
+        self.last = Instant::now();
+    }
+
+    /// Starts the next step now, leaving out the time since the last.
+    fn skip(&mut self) {
+        self.last = Instant::now();
+    }
+
+    /// The steps shown, added up: not the time spent rerunning a failed
+    /// part for its trace, or noting a missing input.
+    fn total(&self) {
+        self.show("total", self.sum);
+    }
+
+    fn show(&self, what: &str, d: Duration) {
+        if self.on {
+            eprintln!("time {what:<9} {:>12.6} s", d.as_secs_f64());
+        }
+    }
+}
+
 fn run(args: &[String]) -> ExitCode {
+    let mut timer = Timer::new(false);
     let mut file = None;
     let mut input_path = None;
     let mut only_part = None;
@@ -174,6 +222,7 @@ fn run(args: &[String]) -> ExitCode {
                 }
             }
             "--no-examples" => examples = false,
+            "--time" => timer.on = true,
             "--part" => {
                 i += 1;
                 match part_arg(args.get(i)) {
@@ -202,6 +251,7 @@ fn run(args: &[String]) -> ExitCode {
         eprintln!("{USAGE}");
         return ExitCode::from(2);
     };
+    timer = Timer::new(timer.on);
     let prog = match load(&file) {
         Ok(p) => p,
         Err(e) => {
@@ -209,6 +259,7 @@ fn run(args: &[String]) -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
+    timer.step("load");
     let engine = match engine(&prog, choice.which()) {
         Ok(e) => e,
         Err(e) => {
@@ -216,6 +267,7 @@ fn run(args: &[String]) -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
+    timer.step("compile");
 
     let mut parts = parts(&prog);
     if parts.is_empty() {
@@ -245,6 +297,7 @@ fn run(args: &[String]) -> ExitCode {
                 ok = false;
             }
         }
+        timer.step("examples");
         if !ok {
             eprintln!("not running the real input because an example failed");
             return ExitCode::FAILURE;
@@ -259,26 +312,34 @@ fn run(args: &[String]) -> ExitCode {
     for (k, part) in &parts {
         if let Some(rel) = quest_input_missing(&prog, &file, input_override, *k) {
             eprintln!("{part}: no input yet ({})", rel.display());
+            timer.skip();
             continue;
         }
         let input = real_input(&prog, &file, input_override, *k);
-        let mut own;
+        let mut own = None;
         let it = if prog.quest {
-            own = engine.interp(&prog, input.clone(), None);
-            &mut own
+            own.insert(engine.interp(&prog, input.clone(), None))
         } else {
             shared.get_or_insert_with(|| engine.interp(&prog, input.clone(), None))
         };
-        match it.global_by_name(part, Default::default()) {
-            None => {}
-            Some(Ok(v)) => println!("{part}: {}", v.display()),
-            Some(Err(e)) => {
-                let e = with_arguments(&prog, input.clone(), None, part, e, ARGUMENTS_BUDGET);
-                report(&file, Some(&prog.src), &prog.files, &e);
-                status = ExitCode::FAILURE;
-            }
+        let result = it.global_by_name(part, Default::default());
+        if let Some(Ok(v)) = &result {
+            println!("{part}: {}", v.display());
         }
+        // A part is timed up to its answer, or its error: not freeing what
+        // it made, which a `day` program's shared interpreter does only at
+        // the end, or a failing part's run again for its trace.
+        timer.step(part);
+        let failed = result.and_then(Result::err);
+        drop(own);
+        if let Some(e) = failed {
+            let e = with_arguments(&prog, input.clone(), None, part, e, ARGUMENTS_BUDGET);
+            report(&file, Some(&prog.src), &prog.files, &e);
+            status = ExitCode::FAILURE;
+        }
+        timer.skip();
     }
+    timer.total();
     tinsel::native::prof::dump();
     status
 }

@@ -139,7 +139,7 @@ test_error "length mismatch" = (1, 2) + (1, 2, 3)
 ### 2.7 Command line
 
 ```
-tinsel run FILE.tin [--input PATH] [--part N] [--no-examples] [--tree | --ir | --native]
+tinsel run FILE.tin [--input PATH] [--part N] [--no-examples] [--time] [--tree | --ir | --native]
 tinsel test [--tree | --ir | --native] [--json] [FILE_OR_DIR ...]   # runs tests, examples and answers
 tinsel eval FILE.tin EXPR [--example N | --input PATH | --part N] [--raw] [--tree | --ir | --native]
 tinsel check FILE.tin [--json]
@@ -155,6 +155,28 @@ definition must exist. In a `quest` program, a part whose input file
 doesn't exist yet is skipped, with a note on stderr (`part2: no input yet
 (input/ec2024/q01p2.txt)`), so that solving part 1 before part 2's input
 is out gives no error.
+
+With `--time`, `run` also prints on stderr how long each step took, in
+seconds to the microsecond, as each step ends: `load` (reading, parsing
+and resolving the program and its includes), `compile` (to the IR and
+machine code; next to nothing on the tree-walker), `examples` (unless
+`--no-examples`), each part it runs, and `total`, the sum of those:
+
+```
+time load          0.000854 s
+time compile       0.005896 s
+time examples      0.374791 s
+time part1         0.407002 s
+time part2         4.713263 s
+time total         5.501807 s
+```
+
+A part's time runs from reading its input to printing its answer, or to
+its error, not counting the run again that finds a failing part's
+arguments (8.3). In a `day` program, the parts share their constants
+(2.1), so a constant both parts use is counted in the part that uses it
+first. Starting and ending the process, freeing memory after a part, and
+printing the `time` lines themselves aren't counted.
 
 `eval` prints the value of the expression `EXPR` in its display form (10),
 with strings quoted. With `--raw`, it prints the display form itself, so a
