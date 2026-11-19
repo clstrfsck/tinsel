@@ -1,7 +1,7 @@
 // Tinsel for VS Code: code lenses to run and test a program, tasks whose
 // errors land in the Problems panel, evaluating a selection with
-// `tinsel eval` (its value shown at the end of the selection), errors on
-// save from `tinsel check`, and every test, example and answers block in
+// `tinsel eval` (its value shown at the end of the selection), errors as
+// you type and on save from `tinsel check`, and every test, example and answers block in
 // the Test Explorer, run with `tinsel test --json`.
 //
 // Plain JavaScript, so the extension needs no build step.
@@ -16,6 +16,9 @@ const lib = require('./lib');
 
 /** How long `tinsel eval` may run before it is stopped. */
 const EVAL_TIMEOUT_MS = 60_000;
+
+/** How long after the last edit a file is checked while typing. */
+const CHECK_DELAY_MS = 300;
 
 let output;
 let resultDecoration;
@@ -37,7 +40,16 @@ function activate(context) {
     diagnostics,
     vscode.workspace.onDidSaveTextDocument(checkDocument),
     vscode.workspace.onDidOpenTextDocument(checkDocument),
-    vscode.workspace.onDidCloseTextDocument((doc) => diagnostics.delete(doc.uri)),
+    vscode.workspace.onDidChangeTextDocument((e) => {
+      if (e.contentChanges.length > 0) {
+        checkSoon(e.document);
+      }
+    }),
+    vscode.workspace.onDidCloseTextDocument((doc) => {
+      clearTimeout(pendingChecks.get(doc.uri.fsPath));
+      pendingChecks.delete(doc.uri.fsPath);
+      diagnostics.delete(doc.uri);
+    }),
     output,
     resultDecoration,
     vscode.languages.registerCodeLensProvider(selector, new LensProvider()),
@@ -79,24 +91,64 @@ function activate(context) {
 
 function deactivate() {}
 
-// Errors on save: `tinsel check --json`
+// Errors as you type and on save: `tinsel check --json --stdin`
 
 /** Files whose diagnostics came from checking each main file. */
 const reportedFor = new Map();
 
-async function checkDocument(doc) {
+/** The timer for each file's check after an edit. */
+const pendingChecks = new Map();
+
+/** How many checks of each file have started, so a late result is dropped. */
+const checksStarted = new Map();
+
+/** Checks `doc` once typing has paused for CHECK_DELAY_MS. */
+function checkSoon(doc) {
+  if (doc.languageId !== 'tinsel' || doc.uri.scheme !== 'file') {
+    return;
+  }
+  if (!vscode.workspace.getConfiguration('tinsel').get('checkWhileTyping', true)) {
+    return;
+  }
+  const main = doc.uri.fsPath;
+  clearTimeout(pendingChecks.get(main));
+  pendingChecks.set(main, setTimeout(() => {
+    pendingChecks.delete(main);
+    runCheck(doc);
+  }, CHECK_DELAY_MS));
+}
+
+/** Checks `doc` now, as it is opened or saved. */
+function checkDocument(doc) {
   if (doc.languageId !== 'tinsel' || doc.uri.scheme !== 'file') {
     return;
   }
   if (!vscode.workspace.getConfiguration('tinsel').get('checkOnSave', true)) {
     return;
   }
+  clearTimeout(pendingChecks.get(doc.uri.fsPath));
+  pendingChecks.delete(doc.uri.fsPath);
+  runCheck(doc);
+}
+
+/**
+ * Checks the editor's text for `doc`, saved or not; its includes are read
+ * from disk. Shows each error in its own file.
+ */
+async function runCheck(doc) {
   const main = doc.uri.fsPath;
-  const r = await tinsel(['check', '--json', main], cwdFor(doc));
+  const seq = (checksStarted.get(main) || 0) + 1;
+  checksStarted.set(main, seq);
+  const r = await tinselWithInput(['check', '--json', '--stdin', main], doc.getText(),
+    cwdFor(doc));
+  if (checksStarted.get(main) !== seq || doc.isClosed) {
+    // A later check has started, so this result is out of date.
+    return;
+  }
   const parsed = lib.parseJsonLines(r.stdout)[0];
   if (!parsed) {
-    // The binary is missing or too old to have `check`: say nothing here;
-    // running or testing reports it.
+    // The binary is missing or too old for `check --stdin`: say nothing
+    // here; running or testing reports it.
     return;
   }
   // Clear what this file reported last time (it may have been in an

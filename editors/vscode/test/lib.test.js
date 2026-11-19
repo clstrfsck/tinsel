@@ -119,9 +119,13 @@ const binary = (process.env.TINSEL_BIN
   .find((p) => fs.existsSync(p));
 
 /** Runs the CLI, which may fail; gives stdout and stderr together. */
-function cli(args) {
+function cli(args, input) {
   try {
-    return execFileSync(binary, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+    return execFileSync(binary, args, {
+      encoding: 'utf8',
+      input,
+      stdio: [input === undefined ? 'ignore' : 'pipe', 'pipe', 'pipe'],
+    });
   } catch (e) {
     return `${e.stdout}${e.stderr}`;
   }
@@ -214,6 +218,11 @@ test('tinsel check --json gives errors with ranges', { skip: !binary && 'no tins
   assert.deepStrictEqual(errors, [{
     file: bad, line: 2, column: 13, end_line: 2, end_column: 17, message: 'unknown name `nope`',
   }]);
+  // While typing, the editor's text is checked in place of the file's.
+  assert.deepStrictEqual(JSON.parse(cli(['check', '--json', '--stdin', bad], 'part1 = 1\n')),
+    { errors: [] });
+  assert.deepStrictEqual(JSON.parse(cli(['check', '--json', '--stdin', good], 'part1 = oops\n')).errors,
+    [{ file: good, line: 1, column: 9, end_line: 1, end_column: 13, message: 'unknown name `oops`' }]);
 });
 
 test('every check tinsel test --json reports is one findChecks finds', { skip: !binary && 'no tinsel build' }, () => {

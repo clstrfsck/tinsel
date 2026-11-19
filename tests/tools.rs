@@ -27,6 +27,31 @@ fn tinsel(args: &[&str]) -> (bool, String, String) {
     )
 }
 
+/// [`tinsel`], with `input` on standard input.
+fn tinsel_with_input(args: &[&str], input: &str) -> (bool, String, String) {
+    use std::io::Write;
+    use std::process::Stdio;
+    let mut child = Command::new(env!("CARGO_BIN_EXE_tinsel"))
+        .args(args)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("run tinsel");
+    child
+        .stdin
+        .take()
+        .expect("stdin")
+        .write_all(input.as_bytes())
+        .expect("write stdin");
+    let out = child.wait_with_output().expect("run tinsel");
+    (
+        out.status.success(),
+        String::from_utf8_lossy(&out.stdout).into_owned(),
+        String::from_utf8_lossy(&out.stderr).into_owned(),
+    )
+}
+
 #[test]
 fn check_reports_the_first_error_without_running() {
     // `check` doesn't run anything, so a runtime error isn't reported.
@@ -77,6 +102,36 @@ fn check_json_finds_errors_in_included_files() {
     let quoted = save("quoted.tin", "part1 = (1 +\n");
     let (_, out, _) = tinsel(&["check", "--json", &quoted]);
     assert!(out.contains("\"line\":2,\"column\":1"), "{out}");
+}
+
+#[test]
+fn check_can_read_unsaved_text() {
+    // The file on disk is fine; the editor's text isn't, and is what's
+    // checked. Includes are still read from disk, relative to the file.
+    save("stdin_lib.tin", "helper(x) = x + 1\n");
+    let main = save("check_stdin.tin", "include \"stdin_lib.tin\"\npart1 = 1\n");
+    let main_q = json_string(&main);
+    let (ok, out, _) = tinsel_with_input(
+        &["check", "--json", "--stdin", &main],
+        "include \"stdin_lib.tin\"\npart1 = helper(nope)\n",
+    );
+    assert!(!ok);
+    assert_eq!(
+        out.trim(),
+        format!(
+            "{{\"errors\":[{{\"file\":{main_q},\"line\":2,\"column\":16,\"end_line\":2,\"end_column\":20,\"message\":\"unknown name `nope`\"}}]}}"
+        )
+    );
+    // And the other way round: a broken file, fixed in the editor.
+    let broken = save("check_stdin_broken.tin", "part1 = (1 +\n");
+    assert_eq!(
+        tinsel_with_input(&["check", "--json", "--stdin", &broken], "part1 = 1\n"),
+        (true, "{\"errors\":[]}\n".into(), String::new())
+    );
+    // Without --json, the report quotes the text it was given.
+    let (ok, out, err) = tinsel_with_input(&["check", "--stdin", &main], "part1 = oops\n");
+    assert!(!ok && out.is_empty());
+    assert!(err.contains("part1 = oops"), "{err}");
 }
 
 #[test]
@@ -620,23 +675,9 @@ fn symbols_link_each_use_to_its_definition() {
 #[test]
 fn symbols_can_read_unsaved_text() {
     let main = save("sym_stdin.tin", "old = 1\n");
-    let out = Command::new(env!("CARGO_BIN_EXE_tinsel"))
-        .args(["symbols", "--stdin", &main])
-        .stdin(std::process::Stdio::piped())
-        .stdout(std::process::Stdio::piped())
-        .spawn()
-        .and_then(|mut child| {
-            use std::io::Write;
-            child
-                .stdin
-                .take()
-                .expect("stdin")
-                .write_all(b"new = 2\nused = new + 1\n")?;
-            child.wait_with_output()
-        })
-        .expect("run tinsel");
-    let text = String::from_utf8_lossy(&out.stdout);
-    assert!(out.status.success());
+    let (ok, text, _) =
+        tinsel_with_input(&["symbols", "--stdin", &main], "new = 2\nused = new + 1\n");
+    assert!(ok);
     assert!(text.contains(":1:1: constant new (1 use)"), "{text}");
     assert!(!text.contains("old"), "{text}");
 }

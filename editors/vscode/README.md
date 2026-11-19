@@ -33,10 +33,11 @@ Support for Tinsel (`.tin` files), a small language for Advent of Code.
   breadcrumbs) show the file's functions and constants, with their `where`
   definitions inside. This comes from `tinsel symbols --json --stdin`
   (SPEC 2.7), given the editor's text, so it works on unsaved changes too.
-- **Errors on save:** when a file is opened or saved, `tinsel check`
-  reads it (without running it) and its first error, such as a syntax
-  error or an unknown name, is underlined and listed in the Problems panel.
-  An error in an included file is shown in that file.
+- **Errors as you type:** a moment after you stop typing, and when a file
+  is opened or saved, `tinsel check --stdin` reads the editor's text
+  (without running it), and its first error, such as a syntax error or an
+  unknown name, is underlined and listed in the Problems panel. Included
+  files are read as saved, and an error in one is shown in that file.
 - **Test Explorer:** the Testing view lists every `.tin` file in the
   workspace, by folder, with its `test`, `test_error`, `example` and
   `answers` blocks. Run all of them, a folder, a file or one block from the
@@ -74,6 +75,7 @@ Support for Tinsel (`.tin` files), a small language for Advent of Code.
 | `tinsel.path` | empty | The `tinsel` binary. If empty: `target/release/tinsel` in the workspace, then `target/debug/tinsel`, then `tinsel` on the `PATH`. |
 | `tinsel.engine` | `native` | Which engine runs programs: `native`, `tree` or `ir`. |
 | `tinsel.checkOnSave` | `true` | Check a file with `tinsel check` when it is opened or saved. |
+| `tinsel.checkWhileTyping` | `true` | Check a file a moment after typing stops, before it is saved. |
 
 Build the interpreter first (`cargo build --release` in this repository),
 since the lenses and evaluation run it. The file is saved before it is run.
