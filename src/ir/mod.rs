@@ -893,6 +893,31 @@ mod tests {
     }
 
     #[test]
+    fn destructured_where_constants_build_no_tuple() {
+        // The inlined constant hands its bindings on through a block with
+        // one way in; the tuple of them isn't built.
+        let src = "f(m, k) = a + b * c\n  where\n    (a, b, c) = m[k]\n";
+        let m = module(src);
+        let tuples = func(&m, "f")
+            .blocks
+            .iter()
+            .flat_map(|b| &b.insts)
+            .filter(|i| matches!(i.op, Op::Tuple(_)))
+            .count();
+        assert_eq!(tuples, 0);
+        // Same results, and the same error when the pattern doesn't match.
+        for part in [
+            "part1 = f({1: (2, 3, 4)}, 1)",
+            "part1 = f({1: (2, 3)}, 1)",
+            "part1 = f({1: (2, 3, 4)}, 2)",
+        ] {
+            let src = format!("{src}{part}");
+            assert_eq!(run(&src), run_tree(&src), "IR: {src}");
+            assert_eq!(run_native(&src), run_tree(&src), "native: {src}");
+        }
+    }
+
+    #[test]
     fn cse_keeps_results() {
         // Reusing results must never show: calls (which may give a fresh,
         // single-pass generator) and closures (compared by identity) are

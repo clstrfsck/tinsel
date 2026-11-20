@@ -5,7 +5,9 @@ revised the same day after its last round of fixes, on 2026-11-12
 after a round of profiling and the radix tree (items 1 and 2), and on
 2026-11-13 after `where` constants as locals and faster comparisons of
 small values (items 3 and 4), found by converting AoC 2017, and on
-2026-11-14 after profiling two slow 2016 solutions (item 5). Native code is
+2026-11-14 after profiling two slow 2016 solutions (item 5), and on
+2026-11-20 after measuring what allocation costs (item 8, and "Not
+candidates"). Native code is
 the default for `tinsel run` and `tinsel test`. This note records where
 things stand and what could come next, so that another round (if there
 is one) can start from it.
@@ -76,7 +78,21 @@ From the profiles taken during phase 4, updated with those of
   the radix tree; those keyed by strings or longer tuples still walk a
   B-tree.
 - **Allocation, copying and freeing:** a fifth to a third everywhere:
-  tuples, argument vectors for library calls, lists.
+  tuples, argument vectors for library calls, lists. Measured on
+  2026-11-20, little of this is the allocator itself. A small allocation
+  and its free cost about 5 ns in mimalloc (a one-item `Vec` built and
+  dropped, 50 million times, against 0.7 ns for an inline array), and
+  the slow solutions make tens of millions of them (2018 day 15: 104
+  million; 2019 day 18: 37 million): about 0.2 s and 0.09 s of their
+  run times. The rest is making and destroying values: reference
+  counts, drop glue, copying items. That is only saved by not making the
+  values (items 10 and 13), not by allocating them differently.
+  Where the allocations come from (sampled stack traces in the
+  allocator): argument vectors for library calls (`rt_builtin`; half of
+  2019 day 18's), closures (three allocations each: captures, the
+  closure, its heap object; most of 2022 day 23's), comprehension
+  accumulators and their final lists (`rt_acc`, `rt_done`), and library
+  code that builds a `Vec` only to make a tuple of it (`pairs`, `zip`).
 - **Hashing and comparing search states:** about a third of 2019 day 18
   (`dijkstra`'s table of states); half of its time is the solution's own
   `next` function.
@@ -238,13 +254,26 @@ closure and its code would skip that.
 
 - **Expected gain:** a few percent on closure-heavy code.
 
-### 8. Library calls without a heap-allocated argument vector (runtime)
+### 8. Library calls without a heap-allocated argument vector (runtime): tried, slower
 
 Every library call that has no direct entry builds a `Vec` for its
-arguments. A small inline array would avoid the allocation, but touches
-the signature of every library function.
+arguments. On 2026-11-20, `Args.pos` became an `ArgVec`: up to four
+arguments inline (the unused slots `none`), else a `Vec`, dereferencing
+to a slice, so most of the library's 173 uses of `args.pos` were
+unchanged and the change took about 15 edits. Built straight from
+compiled code's argument words (`Words` given a `size_hint`), with its
+methods inlined, it was **2–10% slower** on the five solutions that make
+the most library calls (2019 day 18: 1.354 s to 1.398 s; 2017 day 25:
+1.772 s to 1.942 s). The 18 million vectors of 2019 day 18 cost about
+0.09 s at 5 ns each, and dropping the four-slot array on every call,
+moving the larger `Args` and the extra branches in `push` and `deref`
+cost more than that. Reverted.
 
-- **Expected gain:** 2–5%, broadly, on both engines.
+- **If tried again:** only with something that avoids dropping unused
+  slots and passes the arguments by reference, such as a slice of
+  compiled code's own argument words. That changes the signature of
+  every library function, and the most it could save is about 5 ns a
+  call.
 
 ### 9. Small lists without the final copy (runtime)
 
@@ -252,7 +281,9 @@ A comprehension's result is accumulated in a growable vector and then
 copied into a small list's single allocation. Adopting the vector as it
 is would change how lists are stored.
 
-- **Expected gain:** a few percent on comprehension-heavy code.
+- **Expected gain:** a few percent on comprehension-heavy code, at most:
+  it saves one allocation (about 5 ns) and one copy per comprehension.
+  Item 8 suggests measuring a prototype before committing to it.
 
 ### 10. Local type inference (compiler; the plan's original first item)
 
@@ -333,6 +364,75 @@ thing, so the difference is easy to trip over.
   same survey) now takes away its cost: a growing state passed through
   `and` is no longer hashed. What remains is stack depth.
 
+### 13. Fewer intermediate values (compiler)
+
+What 2026-11-20 found the "allocation" share to be (item 8): making and
+destroying values, not the allocator. The values compiled code makes
+only to take apart again needn't exist.
+
+**How many there are** (measured 2026-11-20 by recording when each heap
+object was made and freed, in all 262 solutions): 199 million values die
+at age 0 or 1, that is, before more than one other heap object is made,
+counting every comprehension accumulator. By kind: lists 83 million,
+tuples 53 million, accumulators 32 million, closures 31 million.
+
+**What each costs** (3 million calls, native, per call, against plain
+arithmetic at 4.0 ns):
+
+| Intermediate | Extra |
+|---|---|
+| A 3-tuple, built and read with `.0`, `.1`, `.2` | 18 ns |
+| The same tuple through `(a, b, c) = ...` in a `where` block | 36 ns (rebuilt; see 13a) |
+| A closure capturing a variable, against one that doesn't | 24 ns |
+| `[i, i + 1, i + 2, i + 3].sum` | 69 ns |
+| `[x + i for x in 0..<4].sum` | 125 ns |
+
+At those costs, the upper bound over the corpus is about 6–7 s of 59 s
+(10–12%), and 10–25% on the solutions that make the most (2019 day 12,
+2017 days 24 and 25, 2020 day 23, 2015 day 15, 2022 day 23). Most of it
+needs large changes; what is realistic is about 5–10% in all.
+
+#### 13a. No tuple rebuilt after a `where` destructuring: done
+
+A destructuring `where` constant, `(a, b, c) = rhs`, compiled to: take
+the items of `rhs`, build a new tuple of them (what the constant's thunk
+returns), and take the items of that again. When `wheres` inlines the
+thunk as a local, the new tuple reaches its items through a block
+parameter, so `simplify`'s removal of tuples only taken apart didn't see
+it. `simplify` now first replaces the parameters of a block entered by a
+single `jump` with that jump's arguments (2026-11-20).
+
+- **Result:** 2017 day 25 from 1.764 s to 1.536 s (13% faster); 2019
+  days 19, 21 and 25 about 5% faster. Over the corpus, 58.85 s to
+  58.63 s (0.4%): the pattern is in 106 of the 262 files (230 places),
+  but mostly in constants computed once, and only a few solutions
+  destructure inside their hot functions. 2017 day 13 measured 4% slower,
+  but its hot lambda compiles exactly as before (only `part1`'s thunk
+  changed), so that is the binary's layout, not this change.
+
+#### 13b. Comprehensions fused into what consumes them
+
+A comprehension whose list is only summed, counted, folded or given to
+`min` or `max` could be the loop that does that, with no accumulator and
+no list (item 11 is the lazy form of this).
+
+- **Expected gain:** up to about 2–3 s over the corpus (32 million
+  comprehensions at about 100 ns), perhaps half that in practice, since
+  the loop still does the work per item.
+- **Cost:** medium to large.
+
+#### 13c. Library calls with a literal lambda compiled as loops
+
+`filter`, `map`, `any`, `all`, `count` and `min_by` given a literal
+lambda could be compiled as a loop in the caller: no closure, and no call
+through the runtime per item (about 12 ns each). This is where 2018 day
+15 and 2022 day 23 make their closures.
+
+- **Expected gain:** about 0.7 s over the corpus for the closures, plus
+  the per-item calls; more if the lists these calls return (as in
+  `nbrs4(p).filter(...)`) then needn't be made either.
+- **Cost:** large; it overlaps item 11.
+
 ## Not candidates
 
 - **Hashed maps and sets with sorted views** (branch `hash-proto`):
@@ -342,6 +442,16 @@ thing, so the difference is easy to trip over.
   function.
 - **A priority-queue type:** the corpus barely uses sets as priority
   queues, and the searches already have their own.
+- **Smaller heap objects** (2026-11-20): every `Rc<Heap>` is 136 bytes,
+  because a `where` record (104 bytes) is stored inline; the next largest
+  variant, a map, is 48. Boxing the record took objects to 80 bytes.
+  Over the corpus: 58.93 s against 59.08 s, no change, and 2020 day 19
+  went from 0.152 s to 0.216 s, since it makes a record on nearly every
+  call and each now costs a second allocation. mimalloc's cost per
+  allocation hardly depends on its size.
+- **Tuples from compiled code without a temporary `Vec`** (`rt_tuple`
+  building `Tup::Two` and `Tup::Three` directly, 2026-11-20): 0.8% over
+  the corpus, within the noise.
 
 ## Known loose ends
 
