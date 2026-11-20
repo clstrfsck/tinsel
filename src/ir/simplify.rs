@@ -1,10 +1,15 @@
-//! Three clean-ups after common-subexpression elimination (`cse`), before
+//! Four clean-ups after common-subexpression elimination (`cse`), before
 //! liveness (`live`):
 //!
 //! - **`x in xs.indices`.** A call to `indices` whose only use is an `in`
 //!   or `not in` right after it becomes one [`Op::InIndices`], which for a
 //!   list or tuple is a bounds check rather than a range built and then
 //!   searched (as in an interpreter's `pc not in program.indices`).
+//! - **Parameters of a block with one way in.** A block entered only by
+//!   one `jump` gets the same arguments every time, so its parameters are
+//!   replaced by them. This lets the next step see through the jump, as
+//!   when a destructuring `where` constant, inlined as a local (`wheres`),
+//!   hands its bindings on as a tuple.
 //! - **Tuples only taken apart.** A tuple built only to be matched, as in
 //!   `match (a, b)`, whose every use is a size test or an item, isn't
 //!   built: each test is known, and each item is the value it was built
@@ -16,11 +21,12 @@
 //! are removed, the fused `in` fails only as the call would (with its
 //! span), and nothing else moves.
 
-use super::{Function, Op, Use, Value, Var};
+use super::{Function, Op, Term, Use, Value, Var};
 use crate::ast::CmpOp;
 
 pub fn function(f: &mut Function) {
     in_indices(f);
+    forward_params(f);
     tuples(f);
     unused(f);
 }
@@ -85,6 +91,86 @@ fn in_indices(f: &mut Function) {
             }
             i += 1;
         }
+    }
+}
+
+/// A block (other than the entry, which calls and self tail calls also
+/// enter) whose only predecessor is one `jump` from another block: its
+/// parameters are always that jump's arguments, which are defined on the
+/// only path into it, so every use of a parameter can read its argument
+/// instead.
+///
+/// Only blocks reachable from the entry are changed: there the one
+/// predecessor dominates the block, so no argument can depend on the
+/// block's own parameters.
+fn forward_params(f: &mut Function) {
+    let n = f.blocks.len();
+    let mut reached = vec![false; n];
+    let mut stack = vec![0usize];
+    while let Some(b) = stack.pop() {
+        if n == 0 || std::mem::replace(&mut reached[b], true) {
+            continue;
+        }
+        stack.extend(
+            f.blocks[b]
+                .term
+                .successors()
+                .into_iter()
+                .map(|s| s as usize),
+        );
+    }
+    let mut preds = vec![0u32; n];
+    for (b, block) in f.blocks.iter().enumerate() {
+        if reached[b] {
+            for s in block.term.successors() {
+                preds[s as usize] += 1;
+            }
+        }
+    }
+    let edges: Vec<(usize, usize)> = f
+        .blocks
+        .iter()
+        .enumerate()
+        .filter_map(|(from, block)| match &block.term {
+            Term::Jump(to, args)
+                if reached[from]
+                    && *to != 0
+                    && *to as usize != from
+                    && preds[*to as usize] == 1
+                    && !args.is_empty() =>
+            {
+                Some((from, *to as usize))
+            }
+            _ => None,
+        })
+        .collect();
+    if edges.is_empty() {
+        return;
+    }
+    let mut subst: Vec<Option<Var>> = vec![None; f.nvars as usize];
+    for (from, to) in edges {
+        let Term::Jump(_, args) = &mut f.blocks[from].term else {
+            continue;
+        };
+        let args = std::mem::take(args);
+        let params = std::mem::take(&mut f.blocks[to].params);
+        for (p, a) in params.into_iter().zip(args) {
+            subst[p as usize] = Some(a.var);
+        }
+    }
+    let resolve = |mut v: Var| {
+        while let Some(w) = subst[v as usize] {
+            v = w;
+        }
+        v
+    };
+    for block in &mut f.blocks {
+        for inst in &mut block.insts {
+            inst.op.uses_mut(&mut |u: &mut Use| u.var = resolve(u.var));
+        }
+        block
+            .term
+            .uses_mut(&mut |u: &mut Use| u.var = resolve(u.var));
     }
 }
 
