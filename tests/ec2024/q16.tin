@@ -1,0 +1,87 @@
+quest 2024.16
+
+# Quest 16: a slot machine of cat faces on wheels. The first line gives
+# how far each wheel turns per pull; below it, each wheel's faces are a
+# column of three-character strips, four characters apart.
+# Part 1: the faces showing after 100 pulls.
+# Part 2: only the eyes count. Each pull wins one coin for three of a
+#         kind, and one more for each extra; the total over 202420242024
+#         pulls. The faces repeat every lcm-of-the-wheel-lengths pulls, so
+#         add up one cycle and the pulls left over.
+# Part 3: before each pull, a second lever may move every wheel one step
+#         either way, or not at all. The most and the fewest coins over 256
+#         pulls. After k pulls the net shift is between -k and k, so keep
+#         the best and worst totals for each shift, a pull at a time.
+
+example """
+1,2,3
+
+^_^ -.- ^,-
+>.- ^_^ >.<
+-_- -.- >.<
+    -.^ ^_^
+    >.>
+"""
+  part1 = ">.- -.- ^,-"
+  part2 = 280014668134
+
+example """
+1,2,3
+
+^_^ -.- ^,-
+>.- ^_^ >.<
+-_- -.- ^.^
+    -.^ >.<
+    >.>
+"""
+  part3 = "627 128"
+
+answers
+  part1 = "^:* *.* -:< <_*"
+  part2 = 137979424324
+  part3 = "616 83"
+
+# The turn per pull for each wheel, and each wheel's faces.
+machine(text) = (steps, wheels)
+  where
+    [top, rest] = text.blocks
+    steps  = top.ints
+    rows   = rest.lines
+    wheels = [[r[4 * i..<4 * i + 3] for r in rows if r[4 * i..<4 * i + 3].trim != ""]
+              for i in 0..<steps.len]
+
+# The faces showing after n pulls, with the wheels shifted by `shift`.
+faces(steps, wheels, n, shift) =
+  [w[(n * s + shift) % w.len] for (s, w) in zip(steps, wheels)]
+
+show(text, n) = faces(steps, wheels, n, 0).join(" ")
+  where
+    (steps, wheels) = machine(text)
+
+# The coins won by one pull: the eyes of three or more of a kind.
+coins(fs) = sum(k - 2 for k in eyes.counts.values if k >= 3)
+  where
+    eyes = [c for f in fs for c in [f[0], f[2]]]
+
+# The total coins won over n pulls.
+winnings(text, n) = n / cycle * total[cycle] + total[n % cycle]
+  where
+    (steps, wheels) = machine(text)
+    cycle = wheels.map(.len).fold(1, lcm)
+    total = (1..cycle).scan(0, (a, k) => a + coins(faces(steps, wheels, k, 0)))
+
+# The most and the fewest coins over n pulls, as "most fewest". Maps from
+# each possible shift to the best (and worst) total so far.
+extremes(text, n) = [hi.values.max, lo.values.min].join(" ")
+  where
+    (steps, wheels) = machine(text)
+    (hi, lo) = (1..n).fold(({ 0: 0 }, { 0: 0 }), pull)
+    pull((hi, lo), k) = (next(hi, max), next(lo, min))
+      where
+        won = { o: coins(faces(steps, wheels, k, o)) for o in -k..k }
+        next(prev, pick) =
+          { o: won[o] + pick(prev[p] for p in o - 1..o + 1 if p in prev) for o in -k..k }
+
+part1 = show(input, 100)
+part2 = winnings(input, 202420242024)
+part3 = extremes(input, 256)

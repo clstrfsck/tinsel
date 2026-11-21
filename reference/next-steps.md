@@ -7,7 +7,8 @@ after a round of profiling and the radix tree (items 1 and 2), and on
 small values (items 3 and 4), found by converting AoC 2017, and on
 2026-11-14 after profiling two slow 2016 solutions (item 5), and on
 2026-11-20 after measuring what allocation costs (item 8, and "Not
-candidates"). Native code is
+candidates"), and on 2026-11-21 with a first library idea ("Library
+ideas, for after December"). Native code is
 the default for `tinsel run` and `tinsel test`. This note records where
 things stand and what could come next, so that another round (if there
 is one) can start from it.
@@ -452,6 +453,49 @@ through the runtime per item (about 12 ns each). This is where 2018 day
 - **Tuples from compiled code without a temporary `Vec`** (`rt_tuple`
   building `Tup::Two` and `Tup::Three` directly, 2026-11-20): 0.8% over
   the corpus, within the noise.
+
+## Library ideas, for after December
+
+Not native-backend work, but recorded here so the next round can find
+them. Each needs a spec entry proposed first, and a measurement against
+the hand-written code it would replace.
+
+### Kruskal-style `joins(nodes, edges)` (added 2026-11-21)
+
+- **What:** a library function in SPEC 9.7, next to `components`. Given
+  the nodes and an ordered sequence of `(a, b)` edges, it lazily yields
+  the edges that join two separate groups (Kruskal's accepted edges).
+  Inside, a mutable union-find with path compression, which programs
+  never see, so values stay pure.
+- **Why not a union-find type:** that would be a new SPEC 4 type, with
+  equality, hashing, ordering and a display form that three engines
+  must agree on, and its fast path (path compression) mutates, which
+  works against persistent values. Puzzles that mix connectivity
+  questions into other logic are rare, and `bfs` and `components`
+  usually serve them better.
+- **Motivation:** two hand-written versions in the corpus:
+  - AoC 2025 day 8: union-find as a fold over two persistent maps,
+    about 15 lines;
+  - Everybody Codes 2024 quest 17: Prim's algorithm, about 8 lines.
+- **Uses:**
+  - A spanning tree's size: `stars.len + joins(stars, by_dist).map(dist).sum`.
+  - The last link that makes one group (2025 day 8 part 2):
+    `joins(boxes.indices, edges).last`.
+  - A distance limit (quest 17 part 3): pass only the short edges, or
+    use `take_while` on the edge sequence.
+  - Groups after the first n candidate pairs, rejected pairs included
+    (2025 day 8 part 1), stay a `components` job.
+- **Open questions:**
+  - **Name:** `joins` (the result), `kruskal` (the algorithm, like
+    `bfs` and `dijkstra`) or `spanning` (the outcome).
+  - **Weights:** pairs only, with sorting and weights left to the
+    caller (preferred: "connect in this order" puzzles have no
+    weights), or `(a, b, w)` triples as well.
+  - **`nodes`:** whether it is required. It is needed when isolated
+    nodes count, as in "until everything is one group".
+- **Gain:** about 10 lines in each of two puzzles out of nearly 300;
+  both hand-written versions worked first time. Small, so only after
+  December.
 
 ## Known loose ends
 
