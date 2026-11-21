@@ -120,6 +120,26 @@ The `input/` directory is gitignored, because Advent of Code asks that
 puzzle inputs not be published. Download your own inputs from the site
 while logged in, and save each one under the name above.
 
+With [`just`](https://github.com/casey/just) and `curl`, two recipes do
+this for a new day, and `just go` does both:
+
+```sh
+just new 2026 1     # creates tests/aoc2026/day01.tin from a template
+just input 2026 1   # downloads input/2026/y26d01.txt
+just go 2026 1      # both: the input, then the file if that worked
+```
+
+`just go` creates the solution file only once the input is downloaded,
+so a failed download (before the puzzle unlocks, say) leaves nothing
+behind. Neither recipe replaces a file that's already there, so it is
+safe to run again.
+
+`just input` needs your session cookie: copy the value of the `session`
+cookie from the browser while logged in to the site, and put it in a file
+named `.aoc-session` at the top of the repository (it is gitignored), or
+in the `AOC_SESSION` environment variable. It never downloads an input it
+already has, and doesn't ask for one before the puzzle unlocks.
+
 Everybody Codes quests have three parts, each with its own input. A
 program that starts with `quest 2024.1` (event 2024, quest 1) reads
 `input/ec2024/q01p1.txt` for `part1`, `q01p2.txt` for `part2` and
