@@ -58,7 +58,7 @@ tour(g, start, cells, targets) = bfs((start, 0), next, goal: (start, full)).0
     next((p, held)) = [(q, held | bit.get(q, 0)) for q in step(g, p) if q in cells]
 
 # The plants of each kind among cells, one set per kind.
-plants(g, cells) = [set(ps) for ps in cells.filter(p => 'A' <= g[p] <= 'Z').group_by(g[_]).values]
+plants(g, cells) = [set(ps) for ps in cells.filter(g[_].is_upper).group_by(g[_]).values]
 
 # One plant of the kind h, and back.
 fetch(g, h) = tour(g, entry(g), set(g.positions), [set(g.where(h))])
