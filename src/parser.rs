@@ -393,7 +393,13 @@ impl Parser {
                     span: start.to(self.prev_span()),
                 }))
             }
-            _ => Err(self.unexpected("a definition")),
+            other => Err(Error::new(
+                format!(
+                    "expected a definition, found {}",
+                    other.0.describe_as_name()
+                ),
+                self.span(),
+            )),
         }
     }
 
@@ -604,7 +610,7 @@ impl Parser {
             }
             other => {
                 return Err(Error::new(
-                    format!("expected a pattern, found {}", other.describe()),
+                    format!("expected a pattern, found {}", other.describe_as_name()),
                     start,
                 ));
             }
@@ -1064,10 +1070,19 @@ impl Parser {
                 }
                 Ok(Expr::new(ExprKind::Set(items), start.to(self.prev_span())))
             }
-            other => Err(Error::new(
-                format!("expected an expression, found {}", other.describe()),
-                start,
-            )),
+            other => {
+                // A keyword followed by `=>`, `,` or `)` was probably meant as
+                // a lambda's parameter, as in `then => ...`.
+                let found = if matches!(self.peek(), Tok::Arrow | Tok::Comma | Tok::RParen) {
+                    other.describe_as_name()
+                } else {
+                    other.describe()
+                };
+                Err(Error::new(
+                    format!("expected an expression, found {found}"),
+                    start,
+                ))
+            }
         }
     }
 

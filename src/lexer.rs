@@ -278,6 +278,45 @@ pub enum Tok {
 }
 
 impl Tok {
+    /// Whether this is one of the words that are always keywords (SPEC 3),
+    /// and so can't be a name.
+    pub fn is_keyword(&self) -> bool {
+        matches!(
+            self,
+            Tok::Where
+                | Tok::Match
+                | Tok::When
+                | Tok::If
+                | Tok::Then
+                | Tok::Else
+                | Tok::For
+                | Tok::Let
+                | Tok::In
+                | Tok::And
+                | Tok::Or
+                | Tok::Not
+                | Tok::Xor
+                | Tok::True
+                | Tok::False
+                | Tok::None
+                | Tok::Inf
+        )
+    }
+
+    /// Like [`Tok::describe`], for a place where a name could have been
+    /// meant: a keyword is described as one that can't be used as a name,
+    /// as in `then(a, b) = ...`.
+    pub fn describe_as_name(&self) -> String {
+        if self.is_keyword() {
+            format!(
+                "the keyword `{}`, which can't be used as a name",
+                self.text()
+            )
+        } else {
+            self.describe()
+        }
+    }
+
     pub fn describe(&self) -> String {
         match self {
             Tok::Ident(n) => format!("identifier `{n}`"),

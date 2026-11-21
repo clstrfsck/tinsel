@@ -558,6 +558,57 @@ fn a_pattern_definition_must_bind_a_name() {
 }
 
 #[test]
+fn a_keyword_used_as_a_name_is_named_as_a_keyword() {
+    // Keywords (SPEC 3) can't be names; where a name could have been meant,
+    // the error says so instead of only that something else was expected.
+    let not_a_name = "which can't be used as a name";
+    for (name, src, expected) in [
+        (
+            "kw_def.tin",
+            "then(a, b) = a\n",
+            "a definition, found the keyword `then`",
+        ),
+        (
+            "kw_where.tin",
+            "f(x) = y\n  where\n    in = 1\n",
+            "a definition, found the keyword `in`",
+        ),
+        (
+            "kw_param.tin",
+            "f(match) = 1\n",
+            "a pattern, found the keyword `match`",
+        ),
+        (
+            "kw_for.tin",
+            "xs = [x for if in [1]]\n",
+            "a pattern, found the keyword `if`",
+        ),
+        (
+            "kw_lambda.tin",
+            "f = g(when => 1)\n",
+            "an expression, found the keyword `when`",
+        ),
+    ] {
+        let path = save(name, src);
+        let (ok, _, err) = tinsel(&["check", &path]);
+        assert!(!ok, "{name}");
+        assert!(
+            err.starts_with(&format!("Error: expected {expected}, {not_a_name}\n")),
+            "{name}: {err}"
+        );
+    }
+    // A keyword in its own place, with something missing before it, keeps
+    // the plain message.
+    let path = save("kw_missing.tin", "x = if c then else 2\n");
+    let (ok, _, err) = tinsel(&["check", &path]);
+    assert!(!ok);
+    assert!(
+        err.starts_with("Error: expected an expression, found `else`\n"),
+        "{err}"
+    );
+}
+
+#[test]
 fn an_include_path_keeps_its_braces() {
     // Not interpolated (SPEC 3), so a lone `{` in the path is plain text.
     save("lone{brace.tin", "helper = 41\n");
