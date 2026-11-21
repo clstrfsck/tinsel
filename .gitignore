@@ -1,6 +1,8 @@
 # Advent of Code puzzle inputs. AoC asks that these not be published.
 /input/
 aocdl
+# The Advent of Code session cookie read by `just input`.
+/.aoc-session
 
 # Rust build output
 /target/
