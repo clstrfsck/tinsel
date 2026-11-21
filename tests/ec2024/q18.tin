@@ -1,0 +1,68 @@
+quest 2024.18
+
+# Quest 18: water enters a farm of channels (`.`) and palm trees (`P`)
+# where a channel meets the edge, and spreads one cell a minute through
+# channels and trees, but not walls (`#`).
+# Part 1: the minutes until the last palm tree is watered.
+# Part 2: the same, with water entering at two points on the edge.
+# Part 3: no entry points; dig a well in one channel cell so that the sum
+#         of the minutes to each palm tree is smallest, and give that sum.
+#         Distances are symmetric, so search once from each palm tree and
+#         add up their distances to each channel cell.
+
+example """
+##########
+..#......#
+#.P.####P#
+#.#...P#.#
+##########
+"""
+  part1 = 11
+
+example """
+#######################
+...P..P...#P....#.....#
+#.#######.#.#.#.#####.#
+#.....#...#P#.#..P....#
+#.#####.#####.#########
+#...P....P.P.P.....P#.#
+#.#######.#####.#.#.#.#
+#...#.....#P...P#.#....
+#######################
+"""
+  part2 = 21
+
+example """
+##########
+#.#......#
+#.P.####P#
+#.#...P#.#
+##########
+"""
+  part3 = 12
+
+answers
+  part1 = 109
+  part2 = 1597
+  part3 = 225331
+
+# Where water can go from p in a minute.
+flow(g, p) = g.nbrs4(p).filter(g[_] != '#')
+
+# The minutes until the last palm tree is watered, from every entry point
+# on the edge at once.
+fill(g) = g.where('P').map(dist[_]).max
+  where
+    edge(x, y) = x == 0 or y == 0 or x == g.width - 1 or y == g.height - 1
+    starts = g.where('.').filter(edge)
+    dist   = bfs_from(starts, flow(g, _))
+
+# The smallest sum of the minutes to every palm tree, over the channel
+# cells a well could be dug in. A cell some tree can't reach sums to inf.
+well(g) = min(sum(d.get(c, inf) for d in dists) for c in g.where('.'))
+  where
+    dists = [bfs(p, flow(g, _)) for p in g.where('P')]
+
+part1 = fill(input.grid)
+part2 = fill(input.grid)
+part3 = well(input.grid)
