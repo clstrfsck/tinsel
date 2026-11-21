@@ -1,0 +1,89 @@
+quest 2024.15
+
+# Quest 15: a walled map of herbs (capital letters), poison bushes (`#`)
+# and open ground, with one entry on the top edge.
+# Part 1: the fewest steps to reach an `H` and come back.
+# Part 2: a lake (`~`) can't be entered either; collect one plant of every
+#         kind on the map and come back. Search over (place, kinds held),
+#         with the kinds held as bits.
+# Part 3: the same, on a map three panels wide with 15 kinds: too many
+#         states for one search. Each side panel has its own kinds and
+#         meets the middle panel (with the entry) at one door, so the
+#         route is a tour of the middle that also touches both doors, plus
+#         a round trip into each side panel from its door.
+
+example """
+#####.#####
+#.........#
+#.######.##
+#.........#
+###.#.#####
+#H.......H#
+###########
+"""
+  part1 = 26
+
+example """
+##########.##########
+#...................#
+#.###.##.###.##.#.#.#
+#..A#.#..~~~....#A#.#
+#.#...#.~~~~~...#.#.#
+#.#.#.#.~~~~~.#.#.#.#
+#...#.#.B~~~B.#.#...#
+#...#....BBB..#....##
+#C............#....C#
+#####################
+"""
+  part2 = 38
+
+answers
+  part1 = 180
+  part2 = 532
+  part3 = 1502
+
+# Where one step from p can go.
+step(g, p) = g.nbrs4(p).filter(q => q in g and g[q] not in "#~")
+
+# The entry on the top edge.
+entry(g) = g.where('.').first((_, y) => y == 0)
+
+# The fewest steps from start that visit at least one position in each
+# set of targets and come back, moving only within cells. Searches over
+# (position, targets reached), with the targets reached as bits.
+tour(g, start, cells, targets) = bfs((start, 0), next, goal: (start, full)).0
+  where
+    bit  = { p: 1 << i for (i, ps) in targets.enumerate for p in ps }
+    full = (1 << targets.len) - 1
+    next((p, held)) = [(q, held | bit.get(q, 0)) for q in step(g, p) if q in cells]
+
+# The plants of each kind among cells, one set per kind.
+plants(g, cells) = [set(ps) for ps in cells.filter(p => 'A' <= g[p] <= 'Z').group_by(g[_]).values]
+
+# One plant of the kind h, and back.
+fetch(g, h) = tour(g, entry(g), set(g.positions), [set(g.where(h))])
+
+# One plant of every kind on the map, and back.
+collect(g) = tour(g, entry(g), cells, plants(g, cells))
+  where
+    cells = set(g.positions)
+
+# The map in three panels, with the entry in the middle one.
+panels(g) = tour(g, entry(g), mid, plants(g, mid) ++ [{ a }, { b }])
+          + tour(g, a, left | { a }, plants(g, left))
+          + tour(g, b, right | { b }, plants(g, right))
+  where
+    w = g.width / 3
+    panel(i) = set(p for p in g.positions if i * w <= p.0 < (i + 1) * w)
+    [left, mid, right] = [panel(i) for i in 0..<3]
+    open(p) = g[p] not in "#~"
+    # The middle panel's cell in column x at its one door to the panel dx away.
+    door(x, dx) = p
+      where
+        [p] = [(x, y) for y in 0..<g.height if open((x, y)) and open((x + dx, y))]
+    a = door(w, -1)
+    b = door(2 * w - 1, 1)
+
+part1 = fetch(input.grid, 'H')
+part2 = collect(input.grid)
+part3 = panels(input.grid)
