@@ -1,0 +1,82 @@
+quest 2024.19
+
+# Quest 19: a message hidden on a grid. Every cell with eight neighbours is
+# a rotation point; in row order, each one turns its ring of neighbours one
+# step right (R, clockwise) or left (L), following the key, repeated as
+# needed. The message is what lies between `>` and `<` afterwards.
+# Part 1: decode the message after one round.
+# Part 2: after 100 rounds, each starting again from the top left and the
+#         start of the key.
+# Part 3: after 1048576000 rounds.
+#
+# Every round moves the cells the same way, so one round run on a board of
+# positions gives a permutation, and n rounds are that permutation to the
+# power n, found by repeated squaring.
+
+example """
+LR
+
+>-IN-
+-----
+W---<
+"""
+  part1 = "WIN"
+
+example """
+RRLL
+
+A.VI..>...T
+.CC...<...O
+.....EIB.R.
+.DHB...YF..
+.....F..G..
+D.H........
+"""
+  part2 = "VICTORY"
+
+answers
+  part1 = "7783419283416676"
+  part2 = "4685625833889918"
+  part3 = "3822971118379645"
+
+# The neighbours of a point, clockwise from the top left.
+ring = [(-1, -1), (0, -1), (1, -1), (1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0)]
+
+# Clockwise, each cell takes the value of the one before it in the ring.
+# `b` is a grid or a map from positions.
+turn(b, p, op) = zip(cells, vals.rotate(k)).fold(b, (b, (q, v)) => b.set(q, v))
+  where
+    cells = ring.map(p + _)
+    vals  = cells.map(b[_])
+    k     = if op == 'R' then -1 else 1
+
+# One round: every rotation point in row order, with the key repeating.
+round(b, points, key) =
+  points.enumerate.fold(b, (b, (i, p)) => turn(b, p, key[i % key.len]))
+
+# `compose(a, b)` is a followed by b, for permutations that map each position
+# to the position its value comes from.
+compose(a, b) = { q: a[b[q]] for q in b }
+
+power(p, 1) = p
+power(p, n) = if n % 2 == 0 then h else compose(h, p)
+  where
+    half = power(p, n / 2)
+    h    = compose(half, half)
+
+message(m) = [m[(x, y)] for x in a + 1..<b].join
+  where
+    (a, y) = m.first(m[_] == '>')
+    (b, _) = m.first(m[_] == '<')
+
+decode(text, rounds) = message({ q: g[from[q]] for q in from })
+  where
+    [key, grid] = text.blocks
+    g      = grid.grid
+    points = [(x, y) for y in 1..<g.height - 1 for x in 1..<g.width - 1]
+    once   = round({ p: p for p in g.positions }, points, key)
+    from   = power(once, rounds)
+
+part1 = decode(input, 1)
+part2 = decode(input, 100)
+part3 = decode(input, 1048576000)
