@@ -1,0 +1,62 @@
+quest 2024.17
+
+# Quest 17: stars (`*`) joined into a constellation by a minimum spanning
+# tree, with Manhattan distances. Its size is the number of stars plus the
+# total length of the connections.
+# Part 1: the size of the constellation of all the stars.
+# Part 2: the same, for a larger sky (288 stars).
+# Part 3: "brilliant" constellations link only stars less than 6 apart, so
+#         the sky splits into groups; multiply the three largest sizes.
+#         Within a group, the spanning tree over all distances still uses
+#         only links under 6: each step takes the shortest link out of the
+#         stars joined so far, and the group is connected by such links.
+
+example """
+*...*
+..*..
+.....
+.....
+*.*..
+"""
+  part1 = 16
+
+example """
+.......................................
+..*.......*...*.....*...*......**.**...
+....*.................*.......*..*..*..
+..*.........*.......*...*.....*.....*..
+......................*........*...*...
+..*.*.....*...*.....*...*........*.....
+.......................................
+"""
+  part3 = 15624
+
+answers
+  part1 = 134
+  part2 = 1241
+  part3 = 4373539548
+
+# The total length of a minimum spanning tree (Prim's algorithm). Each star
+# not yet joined keeps its distance to the nearest joined star; the nearest
+# of all joins next.
+span(stars) = grow([(s, manhattan(s, stars[0])) for s in stars.drop(1)], 0)
+  where
+    grow([], total) = total
+    grow(rest, total) = grow(left, total + d)
+      where
+        (p, d) = rest.min_by(.1)
+        left   = [(s, min(e, manhattan(s, p))) for (s, e) in rest if s != p]
+
+size(stars) = stars.len + span(stars)
+
+# The steps to the cells less than 6 away.
+near = [(dx, dy) for dx in -5..5 for dy in -5..5 if 0 < abs(dx) + abs(dy) < 6]
+
+brilliant(stars) = groups.map(g => size(list(g))).sort(desc: true).take(3).product
+  where
+    sky    = set(stars)
+    groups = components(sky, p => near.map(p + _).filter(_ in sky))
+
+part1 = size(list(input.grid.where('*')))
+part2 = size(list(input.grid.where('*')))
+part3 = brilliant(input.grid.where('*'))
