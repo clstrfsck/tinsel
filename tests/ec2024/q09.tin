@@ -1,0 +1,54 @@
+quest 2024.9
+
+# Quest 9: beetles stamped with dots, one stamp each, make up sparkballs
+# of a given brightness (the total of their dots).
+# Part 1: with stamps of 1, 3, 5 and 10 dots, the fewest beetles for all
+#         the sparkballs in the list.
+# Part 2: the same, with stamps of 1, 3, 5, 10, 15, 16, 20, 24, 25 and 30.
+# Part 3: more stamps, and each sparkball is two tied together, whose
+#         brightnesses add up to the target and differ by at most 100.
+
+example """
+2
+4
+7
+16
+"""
+  part1 = 10
+
+example """
+33
+41
+55
+99
+"""
+  part2 = 10
+
+example """
+156488
+352486
+546212
+"""
+  part3 = 10449
+
+answers
+  part1 = 13882
+  part2 = 4910
+  part3 = 148710
+
+# The fewest beetles for each brightness, with these stamps. Memoized; the
+# cache lives as long as the function returned.
+fewest(stamps) = go
+  where
+    go(0) = 0
+    go(n) = 1 + min(go(n - s) for s in stamps if s <= n)
+
+# Two sparkballs a and b - a, with a the dimmer, at most 100 apart.
+pair(f, b) = min(f(a) + f(b - a) for a in (b - 99) / 2..b / 2)
+
+part1 = input.ints.map(fewest([1, 3, 5, 10])).sum
+part2 = input.ints.map(fewest([1, 3, 5, 10, 15, 16, 20, 24, 25, 30])).sum
+part3 = input.ints.map(pair(f, _)).sum
+  where
+    f = fewest([1, 3, 5, 10, 15, 16, 20, 24, 25, 30, 37, 38, 49, 50, 74,
+                75, 100, 101])
