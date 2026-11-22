@@ -1,0 +1,49 @@
+quest 2024.6
+
+# Quest 6: a tree, as lines `branch:child,child,...`, with the root `RR`
+# and fruits `@`. Exactly one fruit is at a distance from the root that no
+# other fruit shares: the most powerful one.
+# Part 1: the path from the root to that fruit, its names joined.
+# Part 2: a bigger tree; the path by the first letters of its names.
+# Part 3: the same, with pests (`BUG` and `ANT`) disguised as branches,
+#         which loop back on themselves and carry fruits of their own;
+#         paths through them don't count.
+
+example """
+RR:A,B,C
+A:D,E
+B:F,@
+C:G,H
+D:@
+E:@
+F:@
+G:@
+H:@
+"""
+  part1 = "RRB@"
+
+answers
+  part1 = "RRWWVMMQDMMC@"
+  part2 = "RHWHKQMMPV@"
+  part3 = "RPMNGXRKWBMF@"
+
+tree(text) = { k: vs.split(",") for "{k}:{vs}" in text.lines }
+
+# Every path from the root to a fruit, as a list of names, not through a
+# pest.
+fruits(text) = walk(["RR"])
+  where
+    t = tree(text)
+    walk(path) =
+      if path.last == "@" then [path]
+      else [p for n in t.get(path.last, []) if n not in ["BUG", "ANT"]
+              for p in walk(path ++ [n])]
+
+# The one path whose length no other path shares.
+powerful(text) = only
+  where
+    [only] = fruits(text).group_by(.len).values.first(_.len == 1)
+
+part1 = powerful(input).join
+part2 = powerful(input).map(.first).join
+part3 = powerful(input).map(.first).join
