@@ -8,9 +8,10 @@ small values (items 3 and 4), found by converting AoC 2017, and on
 2026-11-14 after profiling two slow 2016 solutions (item 5), and on
 2026-11-20 after measuring what allocation costs (item 8, and "Not
 candidates"), and on 2026-11-21 with a first library idea ("Library
-ideas, for after December"), and on 2026-11-22 with two error message
-ideas ("Error message ideas, for after December") and a second library
-idea (`xs.insert`). Native code is
+ideas, for after December"), and on 2026-11-22 with four error message
+ideas ("Error message ideas, for after December"), a second library
+idea (`xs.insert`) and more slow IR interpreter cases ("Known loose
+ends"). Native code is
 the default for `tinsel run` and `tinsel test`. This note records where
 things stand and what could come next, so that another round (if there
 is one) can start from it.
@@ -535,9 +536,11 @@ the hand-written code it would replace.
 
 ## Error message ideas, for after December
 
-Changes to messages only, with no change to what programs mean. Like the
-"keyword used as a name" message (added 2026-11-21 after Everybody Codes
-quest 19), each should come with a test that pins the new wording.
+Changes to messages only, with no change to what programs mean, except
+the last entry, which turns a useless program into a compile error and
+so needs a spec change. Like the "keyword used as a name" message (added
+2026-11-21 after Everybody Codes quest 19), each should come with a test
+that pins the new wording.
 
 ### A hint when a method is passed as a function (added 2026-11-22)
 
@@ -594,6 +597,74 @@ quest 19), each should come with a test that pins the new wording.
 - **Gain:** small and rare, but when it happens the error is reported at
   the wrong place, possibly far from the new definition.
 
+### A hint when a `_` makes a smaller lambda than intended (added 2026-11-22)
+
+- **Seen in:** two Everybody Codes 2024 quests.
+  - Quest 17: `groups.map(size(list(_)))` failed with "`len` expects a
+    collection, found function".
+  - Quest 7: `ps.keys.sort_by(essence(ps[_], segments), desc: true)`
+    failed with the same message, inside `essence`.
+
+  Both times the intent was a lambda over the whole call
+  (`k => essence(ps[k], segments)`), but SPEC 5.4 makes `_` cover only
+  the argument it is in (unless that argument is `_` alone), so the
+  calls became `size(x => list(x))` and `essence(x => ps[x], segments)`.
+  The rule is right, since passing `ps[_]` as a function is sometimes
+  what's wanted, so it can't be a compile error. But the error appears
+  inside the called function, away from the `_`, and says nothing about
+  it.
+- **What:** when a runtime error reports a function where it expected
+  something else, and that function was made from a `_` placeholder, add
+  a hint at the `_`'s place, such as: "the `_` in `ps[_]` (line 31)
+  made `ps[_]` the function; for a function of the whole call, write
+  `k => essence(ps[k], segments)`". Other "found function" errors stay
+  as they are.
+- **To find out first:** whether a placeholder lambda's value records
+  that it came from `_` and keeps the span of the argument it covers, on
+  all three engines (the native lambda may keep only a code pointer and
+  a span), and which errors say "found function" (`len`, arithmetic,
+  comparisons, indexing).
+- **All three engines** must give the same message and trace.
+- **Test:** in `tests/tools.rs`, the quest 7 shape expecting the hint,
+  and a "found function" error from an ordinary `x => ...` lambda
+  expecting none.
+- **Gain:** small, but it has come up twice in 18 quests, and each time
+  the error pointed at the wrong function.
+
+### A compile error for a leading-dot lambda used as an operand (added 2026-11-22)
+
+- **Seen in:** Everybody Codes 2024 quest 6, where
+  `groups.first(.len == 1)` failed at run time with "expected a function
+  to call, found a bool". SPEC 5.4 documents why: a leading-dot lambda
+  covers only its postfix chain, so `.len == 1` compares a function with
+  `1`, which is `false` (equality across types), and `first` then tries
+  to call `false`. The fix is `_.len == 1`. The spec warns about this,
+  but the error appears away from the cause and doesn't mention the dot.
+- **What:** a compile error when a leading-dot lambda is an operand of a
+  binary operator (`==`, `!=`, `<` and the other comparisons, arithmetic,
+  `and`, `or`, `in`, `++`), such as "`.len == 1` compares a function with
+  1; for a predicate, write `_.len == 1`". The suggested fix replaces the
+  leading `.` with `_.`.
+- **Unlike the other ideas here, this changes the spec:** a program that
+  compiles today becomes an error, so it needs the user's agreement and
+  new wording for SPEC 5.4's paragraph, for example: "`.len == 2` is a
+  compile error: the lambda covers only the chain, so it would compare a
+  function with `2`. For a predicate, write `_.len == 2`." No useful
+  program is lost: comparing a function with a value is always `false`,
+  and ordering or arithmetic on a function is already a runtime error.
+- **To find out first:** whether any `.tin` file in `tests/` uses a
+  leading-dot lambda as an operand on purpose (none expected), and
+  whether a parenthesised `(.len) == 1` should be exempt (probably not:
+  it is just as useless).
+- **Engines:** the check is in the front end (parser or resolver), so all
+  three engines report the same error with no engine work.
+- **Test:** a `test_error` in `tests/features/` for `xs.first(.len == 1)`
+  pinning the message, and checks that `xs.map(.len)` and
+  `xs.filter(_.len == 1)` still compile.
+- **Gain:** small but certain: it turns a confusing runtime error far from
+  the cause into a compile error on the line that has the mistake, with
+  the fix in the message. Cheap and low risk.
+
 ## Known loose ends
 
 - Leak reporting on the tree-walker has a known exception (a lambda
@@ -601,4 +672,19 @@ quest 19), each should come with a test that pins the new wording.
   with `TIN_LEAKS=1`.
 - The IR interpreter is slow on some programs (3.4 s on 2019 day 25,
   against 1.9 s on the tree-walker); it exists to check the compiler,
-  not for speed.
+  not for speed. More cases where it is slower than the tree-walker,
+  from `tinsel test` on the whole file (added 2026-11-22):
+  - AoC 2025 day 9: 3.6 s against 0.9 s (4×); comprehensions and `any`
+    over a list of edges for each of many pairs.
+  - Everybody Codes 2024 quest 7: 17.5 s against 10.5 s (1.7×); part 3
+    runs 35 million `scan` steps with a two-argument lambda calling a
+    small function.
+  - Everybody Codes 2024 quest 9: 1.06 s against 0.84 s (1.25×);
+    memoized recursion about 273,000 calls deep.
+
+  For contrast, quest 5 is faster on the IR interpreter (6.0 s against
+  7.6 s), with list slicing and joining doing most of the work. The slow
+  cases all spend their time in calls to small functions or lambdas, so
+  the IR interpreter's call path is the first place to look. Worth a
+  profile only if the IR interpreter's speed starts to matter, for
+  example if `just check` gets slow.
