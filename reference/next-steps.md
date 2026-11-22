@@ -9,7 +9,8 @@ small values (items 3 and 4), found by converting AoC 2017, and on
 2026-11-20 after measuring what allocation costs (item 8, and "Not
 candidates"), and on 2026-11-21 with a first library idea ("Library
 ideas, for after December"), and on 2026-11-22 with two error message
-ideas ("Error message ideas, for after December"). Native code is
+ideas ("Error message ideas, for after December") and a second library
+idea (`xs.insert`). Native code is
 the default for `tinsel run` and `tinsel test`. This note records where
 things stand and what could come next, so that another round (if there
 is one) can start from it.
@@ -497,6 +498,40 @@ the hand-written code it would replace.
 - **Gain:** about 10 lines in each of two puzzles out of nearly 300;
   both hand-written versions worked first time. Small, so only after
   December.
+
+### `xs.insert(i, x)`, in place when the list is unshared (added 2026-11-22)
+
+- **Seen in:** Everybody Codes 2024 quest 5 part 2: four columns of about
+  99 dancers, and each of 1,564,772 rounds removes the front of one column
+  and inserts it in the middle of the next. Tinsel takes 3.6 s native
+  (7.6 s tree-walker, 6.0 s IR); an idiomatic Python version with
+  `pop(0)` and `insert` takes 1.3 s for both parts. Moving dancers is
+  2.7 s of Tinsel's time, about 1.7 µs a round; the shouted number and
+  the count map are the rest.
+- **Why it's slow:** the insert is written `line[..<at] ++ [c] ++
+  line[at..]`, and `line` is still held by `cols`, so it is shared, takes
+  the persistent tree form (`src/list.rs`), and each round pays a tree
+  split and two joins, plus `drop(1)` on the other column. Python's
+  `insert` on a 99-element list is a memmove of under a kilobyte.
+  Writing the join as `line[..<at] ++ ([c] ++ line[at..])` made no
+  difference.
+- **What:** a library `xs.insert(i, x)` (and perhaps `xs.remove_at(i)`),
+  with the same result as the slices, covered by SPEC 4.1's "Updates in
+  place": a `Vec::insert` when nothing else refers to the list, O(log n)
+  on the tree form otherwise. It needs a spec entry in SPEC 9 and the
+  usual errors (an index out of range).
+- **The hard part:** the function alone isn't enough. In
+  `cols.set(j, cols[j].insert(at, c))`, the column is still referred to
+  by `cols` while `insert` runs, so it is never unshared. Getting the
+  in-place path needs the compiler to see that the old `cols` is dead
+  and move the column out of it first (take, update, put back), which
+  goes beyond today's last-use fast path for a local. Find out first
+  whether that analysis is feasible in the IR, and measure a prototype
+  on this quest before writing the spec entry.
+- **Gain:** uncertain. Inserting into the middle of a long list each
+  step is uncommon in puzzles, and 3.6 s is acceptable; the payoff is
+  only if the move-out analysis also helps other nested updates (a list
+  of lists or a map of lists changed at one element each step).
 
 ## Error message ideas, for after December
 
