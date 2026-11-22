@@ -1,0 +1,44 @@
+quest 2024.4
+
+# Quest 4: nails of different lengths stick out of a log; each hammer
+# strike drives one a unit deeper.
+# Part 1: the fewest strikes to level them all, down to the shortest.
+# Part 2: the same, for many more nails.
+# Part 3: strikes can now pull a nail out a unit too; the fewest strikes
+#         to level the nails at any height. The total distance to a height
+#         is least at the median.
+
+example """
+3
+4
+7
+8
+"""
+  part1 = 10
+
+example """
+2
+4
+5
+6
+8
+"""
+  part3 = 8
+
+answers
+  part1 = 65
+  part2 = 865607
+  part3 = 127030805
+
+# The strikes to bring every nail down to the shortest.
+strikes(nails) = nails.sum - nails.len * nails.min
+
+part1 = strikes(input.ints)
+part2 = strikes(input.ints)
+
+# The strikes to bring every nail, up or down, to the median.
+level(nails) = sum(abs(n - median) for n in nails)
+  where
+    median = nails.sort[nails.len / 2]
+
+part3 = level(input.ints)
