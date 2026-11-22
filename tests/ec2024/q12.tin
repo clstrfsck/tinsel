@@ -1,0 +1,82 @@
+quest 2024.12
+
+# Quest 12: catapults with segments A, B and C stacked up from the ground.
+# A shot of power p rises diagonally for p cells, flies level for p more,
+# then falls diagonally to the ground. A shot's ranking is its segment
+# number (A 1, B 2, C 3) times its power.
+# Part 1: each target `T` is hit by exactly one shot; the sum of their
+#         rankings.
+# Part 2: hard rocks (`H`) take two shots each.
+# Part 3: meteors at (x, y) from A fall diagonally towards the catapults, a
+#         cell a turn, and shots may wait before launching. Hit each one as
+#         high as possible, by the cheapest shot at that height; the sum of
+#         their rankings. A shot launched after waiting d turns meets the
+#         meteor k = (x - d) / 2 steps out, so d has x's parity; waiting
+#         longer only meets it lower, so the first d with a shot wins.
+
+example """
+.............
+.C...........
+.B......T....
+.A......T.T..
+=============
+"""
+  part1 = 13
+
+example """
+.............
+.C...........
+.B......H....
+.A......T.H..
+=============
+"""
+  part2 = 22
+
+example """
+6 5
+6 7
+10 5
+"""
+  part3 = 11
+
+example "5 5"
+  part3 = 2
+
+answers
+  part1 = 211
+  part2 = 19613
+  part3 = 746392
+
+# The power of the shot that is `up` cells above its segment after k steps
+# out, or none. At most one power fits each phase: rising (the smallest
+# power still rising there), level, or falling.
+power(k, up) =
+  if up == k > 0 then k
+  else if up < k <= 2 * up then up
+  else if (k + up) % 3 == 0 and 0 < p and 2 * p < k then p
+  else none
+  where
+    p = (k + up) / 3
+
+# The total ranking of the shots that destroy every block.
+score(g) = sum(ranking(t) for t in g.where('T'))
+         + sum(2 * ranking(t) for t in g.where('H'))
+  where
+    segments = "ABC".map(g.find(_))
+    # The ranking of the shot that hits target t.
+    ranking((x, y)) = [(i + 1) * p for (i, (x0, y0)) in segments.enumerate
+                       let p = power(x - x0, y0 - y) if p != none][0]
+
+# The ranking of the cheapest shot that hits the meteor at (x, y) as high
+# as possible. Segments A, B and C are at heights 0, 1 and 2.
+intercept(x, y) = aim(x % 2)
+  where
+    aim(d) = if shots == [] then aim(d + 2) else shots.min
+      where
+        k = (x - d) / 2
+        h = y - d - k
+        shots = [(s + 1) * p for s in 0..2 let p = power(k, h - s) if p != none]
+
+part1 = score(input.grid)
+part2 = score(input.grid)
+part3 = sum(intercept(x, y) for [x, y] in input.lines.map(.ints))
