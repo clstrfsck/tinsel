@@ -1,0 +1,48 @@
+quest 2024.11
+
+# Quest 11: termites of several categories; each day every termite turns
+# into the next generation listed for its category (`A:B,C`).
+# Part 1: the population after 4 days, starting from one A.
+# Part 2: after 10 days, from one Z, with other rules.
+# Part 3: after 20 days, from one termite of each category in turn; the
+#         largest population less the smallest.
+
+example """
+A:B,C
+B:C,A
+C:A
+"""
+  part1 = 8
+
+example """
+A:B,C
+B:C,A,A
+C:A
+"""
+  part3 = 268815
+
+answers
+  part1 = 38
+  part2 = 176161
+  part3 = 1246111506668
+
+# What each category turns into.
+rules(text) = { k: vs.split(",") for "{k}:{vs}" in text.lines }
+
+# The population after the given days, from one termite of category start.
+# Only the number of each category matters, not their order.
+population(text, start, days) = iterate({ start: 1 }, day, times: days).values.sum
+  where
+    next = rules(text)
+    day(pop) = [(c, n) for (k, n) in pop.items for c in next[k]].tally
+
+part1 = population(input, "A", 4)
+part2 = population(input, "Z", 10)
+
+# The largest population after the given days, less the smallest, over
+# every starting category.
+spread(text, days) = sizes.max - sizes.min
+  where
+    sizes = rules(text).keys.map(population(text, _, days))
+
+part3 = spread(input, 20)

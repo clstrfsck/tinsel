@@ -8,7 +8,8 @@ small values (items 3 and 4), found by converting AoC 2017, and on
 2026-11-14 after profiling two slow 2016 solutions (item 5), and on
 2026-11-20 after measuring what allocation costs (item 8, and "Not
 candidates"), and on 2026-11-21 with a first library idea ("Library
-ideas, for after December"). Native code is
+ideas, for after December"), and on 2026-11-22 with an error message
+idea ("Error message ideas, for after December"). Native code is
 the default for `tinsel run` and `tinsel test`. This note records where
 things stand and what could come next, so that another round (if there
 is one) can start from it.
@@ -496,6 +497,34 @@ the hand-written code it would replace.
 - **Gain:** about 10 lines in each of two puzzles out of nearly 300;
   both hand-written versions worked first time. Small, so only after
   December.
+
+## Error message ideas, for after December
+
+Changes to messages only, with no change to what programs mean. Like the
+"keyword used as a name" message (added 2026-11-21 after Everybody Codes
+quest 19), each should come with a test that pins the new wording.
+
+### A hint when a method is passed as a function (added 2026-11-22)
+
+- **Seen in:** Everybody Codes 2024 quest 12, where `"ABC".map(g.find)`
+  failed with "`find` takes 2 arguments, but was given 1". With UFCS
+  (SPEC 5.2), `g.find` with no parentheses is the call `find(g)`, not a
+  reference to the method; the fix is `g.find(_)` (SPEC 5.4). The message
+  is accurate but doesn't point to the fix.
+- **What:** when a call written in method form without parentheses,
+  `x.name`, gets too few arguments, add a hint such as "to pass `find`
+  as a function, write `g.find(_)`". Other arity errors stay as they are.
+- **To find out first:** where the arity error is raised (the resolver,
+  for library functions whose arity is known, or at run time), and
+  whether the call's syntax (method form, no parentheses) is still known
+  there or needs recording in the AST.
+- **All three engines** must give the same message, since the harness
+  compares `test_error` output with the tree-walker's.
+- **Test:** beside `a_keyword_used_as_a_name_is_named_as_a_keyword` in
+  `tests/tools.rs`, with a case that must keep the plain message (a
+  method call with parentheses and too few arguments).
+- **Gain:** small, but it comes up whenever a solution passes a method to
+  `map` or `filter`, and the change is low risk.
 
 ## Known loose ends
 
