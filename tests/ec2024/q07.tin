@@ -1,0 +1,125 @@
+quest 2024.7
+
+# Quest 7: chariot races. Each device starts with power 10, and before
+# each segment of the track applies the next action of its plan, repeating
+# the plan as needed: `+` raises the power by one, `-` lowers it (never
+# below 0) and `=` keeps it. A segment gathers the power as essence.
+# Part 1: rank the plans by essence over 10 segments, most first.
+# Part 2: the race is 10 laps of a closed track, given in the puzzle's
+#         text, starting from `S` and going clockwise; `S` is the last
+#         segment of a lap. A `+` or `-` segment overrides the plan's
+#         action there.
+# Part 3: a winding track (also in the puzzle's text) and 2024 laps. Of
+#         all the plans of 5 `+`, 3 `-` and 3 `=`, how many gather more
+#         than the rival's plan? A plan's 11 actions and the 340 segments
+#         share no factor, so every 11 laps each action meets each segment
+#         once, the state is back where it started except for the power,
+#         and the power has risen by the same amount for every plan. The
+#         power never reaches 0 (checked in Python for every plan), so
+#         each later 11-lap block repeats the first with that same rise,
+#         and comparing the first 11 laps compares the whole race.
+
+example """
+A:+,-,=,=
+B:+,=,-,+
+C:=,-,+,+
+D:=,=,=,+
+"""
+  part1 = "BDCA"
+
+example """
+A:+,-,=,=
+B:+,=,-,+
+C:=,-,+,+
+D:=,=,=,+
+"""
+  with racetrack = "S+===\n-   +\n=+=-+"
+  part2 = "DCBA"
+
+answers
+  part1 = "KDJABECGH"
+  part2 = "JBDAHGIKE"
+  part3 = 5797
+
+# Each plan as a string of actions.
+plans(text) = { k: vs.replace(",", "") for "{k}:{vs}" in text.lines }
+
+act(power, a) =
+  if a == '+' then power + 1
+  else if a == '-' then max(power - 1, 0)
+  else power
+
+# The essence a plan gathers over some laps of a track, a string of the
+# segments in order, the plan's action applying where the track has `=`
+# or `S`.
+essence(plan, track, laps) =
+  (0..<laps * track.len).scan(10, (p, i) => act(p, step(i))).drop(1).sum
+  where
+    step(i) = if track[i % track.len] in "+-" then track[i % track.len]
+              else plan[i % plan.len]
+
+ranking(text, track, laps) =
+  ps.keys.sort_by(k => essence(ps[k], track, laps), desc: true).join
+  where
+    ps = plans(text)
+
+part1 = ranking(input, "=".repeat(10), 1)
+
+# The track's segments in race order, from the one after `S` round to
+# `S`: clockwise from `S` (top left) means starting to its right, then
+# following the only way on that doesn't go back. The lines can differ in
+# length, so the track is a map of its cells rather than a grid.
+lap(text) = trace(start + (1, 0), start, [])
+  where
+    cells = { (x, y): c for (y, row) in text.lines.enumerate
+                        for (x, c) in row.enumerate if c != ' ' }
+    [start] = cells.keys.filter(cells[_] == 'S')
+    trace(p, prev, seen) =
+      if cells[p] == 'S' then (seen ++ ['S']).join
+      else trace(next, p, seen ++ [cells[p]])
+      where
+        [next] = [p + d for d in DIRS4 if p + d != prev and p + d in cells]
+
+racetrack = """
+S-=++=-==++=++=-=+=-=+=+=--=-=++=-==++=-+=-=+=-=+=+=++=-+==++=++=-=-=--
+-                                                                     -
+=                                                                     =
++                                                                     +
+=                                                                     +
++                                                                     =
+=                                                                     =
+-                                                                     -
+--==++++==+=+++-=+=-=+=-+-=+-=+-=+=-=+=--=+++=++=+++==++==--=+=++==+++-
+"""
+
+part2 = ranking(input, lap(racetrack), 10)
+
+duel = """
+S+= +=-== +=++=     =+=+=--=    =-= ++=     +=-  =+=++=-+==+ =++=-=-=--
+- + +   + =   =     =      =   == = - -     - =  =         =-=        -
+= + + +-- =-= ==-==-= --++ +  == == = +     - =  =    ==++=    =++=-=++
++ + + =     +         =  + + == == ++ =     = =  ==   =   = =++=
+= = + + +== +==     =++ == =+=  =  +  +==-=++ =   =++ --= + =
++ ==- = + =   = =+= =   =       ++--          +     =   = = =--= ==++==
+=     ==- ==+-- = = = ++= +=--      ==+ ==--= +--+=-= ==- ==   =+=    =
+-               = = = =   +  +  ==+ = = +   =        ++    =          -
+-               = + + =   +  -  = + = = +   =        +     =          -
+--==++++==+=+++-= =-= =-+-=  =+-= =-= =--   +=++=+++==     -=+=++==+++-
+"""
+
+# Every plan of 5 `+`, 3 `-` and 3 `=`: the places of the `+`, then of the
+# `-` among the rest.
+choices = [[if i in ups then '+' else if i in downs then '-' else '='
+            for i in 0..<11].join
+           for ups in list(0..<11).combos(5)
+           let rest = [i for i in 0..<11 if i not in ups]
+           for downs in rest.combos(3)]
+
+# The plans that beat the rival's, over the first 11 laps.
+winners(text) = choices.count(essence(_, track, 11) > rival)
+  where
+    track    = lap(duel)
+    [(_, p)] = plans(text).items
+    rival    = essence(p, track, 11)
+
+part3 = winners(input)
