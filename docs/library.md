@@ -1111,6 +1111,9 @@ predicate or a plain value, or `none` if none is reachable. With
 `all_paths: true` as well, `(steps, states)`, where `states` is the set of
 every state on some shortest path.
 
+See also: `bfs_from` (several starts), `dijkstra` (steps with costs),
+`components`.
+
 ```tinsel
 bfs(0, n => [n + 1, n + 2].filter(_ <= 4)) == {0: 0, 1: 1, 2: 1, 3: 2, 4: 2}
 bfs(1, n => [n + 1, n * 2], goal: 10) == (4, [1, 2, 4, 5, 10])
@@ -1120,35 +1123,67 @@ bfs(0, n => [n + 1, n + 2].filter(_ <= 2), goal: 2, all_paths: true) == (1, {0, 
 ```
 
 ### dijkstra(start, next), dijkstra(start, next, goal: g) → map or tuple
-As `bfs`, where `next(state)` gives `(state, cost)` pairs and distances
-are total costs. Costs must be 0 or more.
+Cheapest paths (Dijkstra's algorithm). `next(state)` gives `(state, cost)`
+pairs for the states one step away; costs are ints of 0 or more, and a
+negative cost is an error. Without `goal:`, a map from every reachable
+state to its least total cost. With it, `(cost, path)` for the cheapest
+state matching `g`, which is a predicate or a plain value, or `none` if
+none is reachable. With `all_paths: true` as well, `(cost, states)`, where
+`states` is the set of every state on some cheapest path.
+
+See also: `bfs` (every step costs 1), `dijkstra_from` (several starts).
 
 ```tinsel
 dijkstra("a", s => {"a": [("b", 5), ("c", 1)], "c": [("b", 1)]}.get(s, [])) == {"a": 0, "b": 2, "c": 1}
 dijkstra("a", s => {"a": [("b", 5), ("c", 1)], "c": [("b", 1)]}.get(s, []), goal: "b") == (2, ["a", "c", "b"])
+dijkstra("a", s => {"a": [("b", 2), ("c", 1)], "c": [("b", 1)]}.get(s, []), goal: "b", all_paths: true) == (2, {"a", "b", "c"})
 dijkstra(0, n => [(n + 1, -1)], goal: 5) # error
 ```
 
-### bfs_from(starts, next) → map or tuple
-As `bfs`, searching from every state in `starts` at once, each at
-distance 0. With `goal:`, the path begins at whichever start it came from.
+### bfs_from(starts, next), bfs_from(starts, next, goal: g) → map or tuple
+Breadth-first search from every state in `starts` at once, each at
+distance 0. `next(state)` gives the states one step away. Without `goal:`,
+a map from every reachable state to its number of steps from the nearest
+start. With it, `(steps, path)` for the nearest state matching `g`, which
+is a predicate or a plain value, or `none` if none is reachable; the path
+begins at whichever start it came from. With `all_paths: true` as well,
+`(steps, states)`, where `states` is the set of every state on some
+shortest path. With no starts, an empty map, or `none` with `goal:`.
+
+See also: `bfs` (one start), `dijkstra_from` (steps with costs).
 
 ```tinsel
 bfs_from([0, 10], n => [n - 1, n + 1].filter(_ in 0..10))[7] == 3
 bfs_from([0, 10], n => [n - 1, n + 1].filter(_ in 0..10), goal: 8) == (2, [10, 9, 8])
+bfs_from([], n => [n + 1]) == {}
 ```
 
-### dijkstra_from(starts, next) → map or tuple
-As `dijkstra`, searching from every state in `starts` at once.
+### dijkstra_from(starts, next), dijkstra_from(starts, next, goal: g) → map or tuple
+Cheapest paths (Dijkstra's algorithm) from every state in `starts` at
+once, each at cost 0. `next(state)` gives `(state, cost)` pairs for the
+states one step away; costs are ints of 0 or more, and a negative cost is
+an error. Without `goal:`, a map from every reachable state to its least
+total cost from any start. With it, `(cost, path)` for the cheapest state
+matching `g`, which is a predicate or a plain value, or `none` if none is
+reachable; the path begins at whichever start it came from. With
+`all_paths: true` as well, `(cost, states)`, where `states` is the set of
+every state on some cheapest path. With no starts, an empty map, or `none`
+with `goal:`.
+
+See also: `dijkstra` (one start), `bfs_from` (every step costs 1).
 
 ```tinsel
+dijkstra_from(["a", "b"], s => {"a": [("c", 5)], "b": [("c", 2)]}.get(s, [])) == {"a": 0, "b": 0, "c": 2}
 dijkstra_from(["a", "b"], s => {"a": [("c", 5)], "b": [("c", 2)]}.get(s, []), goal: "c") == (2, ["b", "c"])
+dijkstra_from([], n => [(n + 1, 1)], goal: 3) == none
 ```
 
 ### components(nodes, next) → list
 The connected components of `nodes`, as a list of sets. `next` is followed
 only between members of `nodes`, and should be symmetric. The sets are in
 the order of their smallest members.
+
+See also: `bfs`, for the states reachable from one start.
 
 ```tinsel
 components([1, 2, 3, 10, 11], n => [n - 1, n + 1]) == [{1, 2, 3}, {10, 11}]
