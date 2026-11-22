@@ -1,0 +1,51 @@
+quest 2024.13
+
+# Quest 13: a maze of platforms at levels 0 to 9 (digits), walls (`#`) and
+# empty space. Moving to a neighbouring platform takes 1 second, and so does
+# each level change; levels wrap from 9 to 0. Platforms must be at the same
+# level to step between them. S and E are at level 0.
+# Part 1: the fewest seconds from S to E.
+# Part 2: the same, in a larger maze.
+# Part 3: start from any of many S cells; search from all of them at once.
+
+example """
+#######
+#6769##
+S50505E
+#97434#
+#######
+"""
+  part1 = 28
+
+example """
+SSSSSSSSSSS
+S674345621S
+S###6#4#18S
+S53#6#4532S
+S5450E0485S
+S##7154532S
+S2##314#18S
+S971595#34S
+SSSSSSSSSSS
+"""
+  part3 = 14
+
+answers
+  part1 = 165
+  part2 = 612
+  part3 = 507
+
+level(c) = if c.is_digit then int(c) else 0
+
+# The platforms next to p, each with the seconds to change level to match
+# it (the short way round) and step across.
+next(g, p) = [(q, 1 + min(d, 10 - d))
+              for q in g.nbrs4(p) if q in g and g[q] not in "# "
+              let d = abs(level(g[p]) - level(g[q]))]
+
+# The fewest seconds to E from the nearest S.
+rescue(g) = dijkstra_from(g.where('S'), next(g, _), goal: g.find('E')).0
+
+part1 = rescue(input.grid)
+part2 = rescue(input.grid)
+part3 = rescue(input.grid)
