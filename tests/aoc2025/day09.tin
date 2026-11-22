@@ -29,21 +29,19 @@ area((x1, y1), (x2, y2)) = (abs(x1 - x2) + 1) * (abs(y1 - y2) + 1)
 
 part1 = red.combos(2).map(area).max
 
-# The loop's edges, as ((xmin, ymin), (xmax, ymax)) boxes.
-edges = [((min(x1, x2), min(y1, y2)), (max(x1, x2), max(y1, y2)))
-         for ((x1, y1), (x2, y2)) in zip(red, red[1..] ++ [red[0]])]
+# The box with corners p and q, as ((xmin, ymin), (xmax, ymax)).
+box((x1, y1), (x2, y2)) = ((min(x1, x2), min(y1, y2)), (max(x1, x2), max(y1, y2)))
+
+edges = zip(red, red.rotate(1)).map(box)
 
 # A rectangle lies inside the loop when no edge passes through its interior,
-# and its centre is inside. Coordinates are doubled so that the centre is a
-# whole number.
-inside(((ax, ay), (bx, by))) = not edges.any(crosses) and centre_inside
+# and its centre is inside: ray casting to the right against the vertical
+# edges, with coordinates doubled so that the centre is a whole number.
+inside(corners) = not edges.any(crosses) and centre_inside
   where
-    (lx, hx) = (min(ax, bx), max(ax, bx))
-    (ly, hy) = (min(ay, by), max(ay, by))
+    ((lx, ly), (hx, hy)) = box(corners)
     crosses(((ex1, ey1), (ex2, ey2))) = ex1 < hx and ex2 > lx and ey1 < hy and ey2 > ly
-    (cx, cy) = (lx + hx, ly + hy)
-    # Ray casting to the right, against the vertical edges.
-    centre_inside =
-      edges.count(((ex1, ey1), (ex2, ey2)) => ex1 == ex2 and 2 * ex1 > cx and 2 * ey1 <= cy < 2 * ey2) % 2 == 1
+    centre_inside = edges.count(((ex1, ey1), (ex2, ey2)) =>
+      ex1 == ex2 and 2 * ex1 > lx + hx and 2 * ey1 <= ly + hy < 2 * ey2) % 2 == 1
 
-part2 = area(red.combos(2).sort_by(p => -area(p)).first(inside))
+part2 = area(red.combos(2).sort_by(area, desc: true).first(inside))
