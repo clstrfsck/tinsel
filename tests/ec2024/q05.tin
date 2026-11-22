@@ -1,0 +1,89 @@
+quest 2024.5
+
+# Quest 5: dancers stand in four columns. Each round, the front of the
+# next column in turn (the first in round 1) is the Clapper, and moves to
+# the column on its right (wrapping round). Counting claps from one, it goes
+# down that column's left side, then back up its right, and when the count
+# reaches its own number it joins the column: in front of the person it
+# was passing on the left side, behind them on the right. Then the fronts
+# of the columns, read left to right, make the number shouted.
+# Part 1: the number shouted after round 10.
+# Part 2: dance until some number is shouted for the 2024th time; that
+#         number times the round.
+# Part 3: if the dance went on forever, the highest number shouted. The
+#         state (whose turn it is, the columns) must repeat, so dance
+#         until it does.
+
+example """
+2 3 4 5
+3 4 5 2
+4 5 2 3
+5 2 3 4
+"""
+  with rounds = 4
+  part1 = 3252
+
+example """
+2 3 4 5
+3 4 5 2
+4 5 2 3
+5 2 3 4
+"""
+  part1 = 2323
+
+example """
+2 3 4 5
+6 7 8 9
+"""
+  part2 = 50877075
+  part3 = 6584
+
+answers
+  part1 = 2233
+  part2 = 17386198904492
+  part3 = 9289100310028839
+
+rounds = 10
+
+# The dance's starting state: the columns, and the round about to start.
+start(text) = (text.lines.map(.ints).transpose, 0)
+
+# One round. The claps go down the next column of length n and back up,
+# a cycle of 2n, so clap c is number k = (c - 1) % 2n of the cycle,
+# counting from 0. For k < n it passes person k on the left, and the
+# Clapper joins in front, at index k; otherwise it passes person 2n - 1 - k
+# on the right, and joins behind, at index 2n - k.
+round((cols, r)) = (cols.set(i, cols[i].drop(1)).set(j, joined), r + 1)
+  where
+    i      = r % cols.len
+    j      = (i + 1) % cols.len
+    c      = cols[i][0]
+    line   = cols[j]
+    k      = (c - 1) % (2 * line.len)
+    at     = if k < line.len then k else 2 * line.len - k
+    joined = line[..<at] ++ [c] ++ line[at..]
+
+shout((cols, _)) = int(cols.map(.first).join)
+
+part1 = shout(iterate(start(input), round, times: rounds))
+
+# Dances until a number is shouted for the 2024th time, counting the shouts.
+repeats(text) = dance(round(start(text)), {})
+  where
+    dance(state, heard) =
+      if times == 2024 then number * state.1
+      else dance(round(state), heard.set(number, times))
+      where
+        number = shout(state)
+        times  = heard.get(number, 0) + 1
+
+part2 = repeats(input)
+
+# Every state up to the first repeat; the starting one isn't shouted. A
+# state's key is the column to clap next, and the columns.
+loudest(text) = states.drop(1).map(shout).max
+  where
+    turn(cols, r)  = (r % cols.len, cols)
+    (_, _, states) = iterate(start(text), round).find_cycle(key: turn)
+
+part3 = loudest(input)
