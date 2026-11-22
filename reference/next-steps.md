@@ -8,8 +8,8 @@ small values (items 3 and 4), found by converting AoC 2017, and on
 2026-11-14 after profiling two slow 2016 solutions (item 5), and on
 2026-11-20 after measuring what allocation costs (item 8, and "Not
 candidates"), and on 2026-11-21 with a first library idea ("Library
-ideas, for after December"), and on 2026-11-22 with an error message
-idea ("Error message ideas, for after December"). Native code is
+ideas, for after December"), and on 2026-11-22 with two error message
+ideas ("Error message ideas, for after December"). Native code is
 the default for `tinsel run` and `tinsel test`. This note records where
 things stand and what could come next, so that another round (if there
 is one) can start from it.
@@ -525,6 +525,39 @@ quest 19), each should come with a test that pins the new wording.
   method call with parentheses and too few arguments).
 - **Gain:** small, but it comes up whenever a solution passes a method to
   `map` or `filter`, and the change is low risk.
+
+### A hint when a program's definition hides a library name (added 2026-11-22)
+
+- **Seen in:** Everybody Codes 2024 quest 10. Part 3 added a top-level
+  `blocks(g)` (a wall's block corners), which hid the library's
+  `text.blocks` that part 2's `samples` already called. Part 2's example
+  then failed with "`height` expects a grid, found str", inside the new
+  function, with nothing pointing at the clash; renaming it to `corners`
+  fixed it. Hiding is deliberate (SPEC 9, "As with any library name, a
+  program's own definition ... hides these") and solutions rely on it
+  (`next`, `step`, `power`), so it stays legal and unflagged.
+- **What:** when a runtime error's stack trace passes through a call that
+  resolved to a program's own definition whose name is also a library
+  function, add a hint such as "`blocks` here is the definition at line
+  76, which hides the library's `blocks`". Only errors get the hint, so
+  deliberate hiding that works is never mentioned.
+- **To find out first:** whether the trace frames keep enough to tell a
+  user function from a library one and to find its definition's line (the
+  resolver knows; the IR and native frames may only keep a name), and
+  whether to limit the hint to method-form calls (`text.blocks`), which is
+  how a library name is usually reached by accident.
+- **All three engines** must give the same message and trace.
+- **Test:** in `tests/tools.rs`, a program that defines `blocks(g)` and
+  calls `"a\n\nb".blocks`, expecting the hint; and one where a hiding
+  definition is used correctly and a different error occurs elsewhere,
+  expecting no hint.
+- **A lighter alternative:** the VS Code extension could underline a
+  top-level definition that hides a library function which the same file
+  also calls in method form. It works before anything runs, but it would
+  also flag files that hide a name on purpose and call their own version
+  that way.
+- **Gain:** small and rare, but when it happens the error is reported at
+  the wrong place, possibly far from the new definition.
 
 ## Known loose ends
 

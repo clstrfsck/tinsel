@@ -1,0 +1,117 @@
+quest 2024.10
+
+# Quest 10: an 8 by 8 grid of runic symbols with `*` corners and a 4 by 4
+# blank centre. Each blank (`.`) takes the one symbol that appears in both
+# its row and its column; the runic word is the centre read row by row.
+# Part 1: the runic word.
+# Part 2: a stack of samples, side by side in blocks; the sum of the words'
+#         powers. A word's power adds each symbol's alphabet position (A 1)
+#         times its position in the word (from 1).
+# Part 3: a wall of blocks: 8 by 8 grids overlapping by two cells, with
+#         `?` for unknown symbols in the frames. Fill in what can be
+#         deduced, and add up the powers of the words found. When a blank's
+#         row and column share no symbol and its row has the one `?`, the
+#         blank and the `?` take the column's one symbol not yet in the
+#         centre (or the same with row and column swapped). That guess can
+#         be wrong in a block that has no word (a repeated symbol in its
+#         frame), and spoil a shared `?`, so a block's deductions are kept
+#         only if it fills in completely.
+
+example """
+**PCBS**
+**RLNW**
+BV....PT
+CR....HZ
+FL....JW
+SG....MN
+**FTZV**
+**GMJH**
+"""
+  part1 = "PTBVRCZHFLJWGMNS"
+  part2 = 1851
+
+example """
+**XFZB**DCST**
+**LWQK**GQJH**
+?G....WL....DQ
+BS....H?....CN
+P?....KJ....TV
+NM....Z?....SG
+**NSHM**VKWZ**
+**PJGV**XFNL**
+WQ....?L....YS
+FX....DJ....HV
+?Y....WM....?J
+TJ....YK....LP
+**XRTK**BMSP**
+**DWZN**GCJV**
+"""
+  part3 = 3889
+
+answers
+  part1 = "VBHSCXJQWGLZMFKT"
+  part2 = 194596
+  part3 = 207598
+
+# The runic word in a sample's rows: each blank in the centre gets the
+# symbol its row and column share.
+word(rows) = [rune(rows[y], cols[x]) for y in 2..5 for x in 2..5].join
+  where
+    cols = rows.transpose
+    rune(row, col) = c
+      where
+        [c] = list(set(row) & set(col) - set(".*"))
+
+part1 = word(input.lines)
+
+# The samples, each a list of rows: blocks of them separated by spaces.
+samples(text) =
+  [s for b in text.blocks for s in b.lines.map(.split(" ")).transpose]
+
+power(w) = sum((i + 1) * (ord(c) - ord('A') + 1) for (i, c) in w.enumerate)
+
+part2 = sum(power(word(s)) for s in samples(input))
+
+# The top-left corners of the blocks in a wall.
+corners(g) = [(6 * i, 6 * j) for j in 0..<(g.height - 2) / 6
+                             for i in 0..<(g.width - 2) / 6]
+
+centre((bx, by)) = [(bx + i, by + j) for j in 2..5 for i in 2..5]
+
+# Fills in the blank at p, in the block at b, if it can be deduced.
+fill(g, b, p) =
+  if g[p] != '.' or common.len > 1 then g
+  else if common.len == 1 then g.set(p, common.first)
+  else if guesses == [] then g
+  else guesses[0]
+  where
+    (bx, by) = b
+    (x, y)   = p
+    row      = [(bx + i, y) for i in [0, 1, 6, 7]]
+    col      = [(x, by + j) for j in [0, 1, 6, 7]]
+    common   = set(row.map(g[_])) & set(col.map(g[_])) - {'?'}
+    across   = [(bx + i, y) for i in 2..5]
+    down     = [(x, by + j) for j in 2..5]
+    guesses  = [g.set(p, c).set(qs[0], c)
+                for (frame, other, line) in [(row, col, down),
+                                             (col, row, across)]
+                let qs = frame.filter(g[_] == '?')
+                if qs.len == 1 and other.all(g[_] != '?')
+                let cs = set(other.map(g[_])) - set(line.map(g[_]))
+                if cs.len == 1
+                let c = cs.first]
+
+solved(g, b) = centre(b).all(g[_] != '.')
+
+# Solves block b on its own, keeping the result only if it fills in.
+attempt(g, b) =
+  if solved(g, b) then g else if solved(h, b) then h else g
+  where
+    h = fixpoint(g, h => centre(b).fold(h, (k, p) => fill(k, b, p)))
+
+wall(g) = sum(power(centre(b).map(done[_]).join)
+              for b in corners(g) if solved(done, b))
+  where
+    done = fixpoint(g, h => corners(g).fold(h, attempt))
+
+part3 = wall(input.grid)
