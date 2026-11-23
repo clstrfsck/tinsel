@@ -1,0 +1,86 @@
+quest 2024.8
+
+# Quest 8: a shrine built in layers. The first layer is one block; each
+# new layer goes under the last, one column wider on each side, and adds
+# blocks to every column.
+# Part 1: with layers one block thick (a pyramid), build until the blocks
+#         run out; the blocks missing from the last layer, times its width.
+# Part 2: the same with 20240000 blocks, the layers' thicknesses given by
+#         t' = t * priests % acolytes (the notes give the priests; there
+#         are 1111 acolytes), starting from 1.
+# Part 3: 202400000 blocks; thickness t' = t * priests % acolytes +
+#         acolytes, now with 10 acolytes. Then each column but the two
+#         outermost (part of the frame) is left hollow at the bottom by
+#         priests * width * height % acolytes blocks. Build until the
+#         blocks needed reach the blocks there are; how many more are
+#         needed. (The blocks needed grow with every layer, so the first
+#         such shrine is the cheapest.)
+
+example """
+13
+"""
+  part1 = 21
+
+example """
+3
+"""
+  with acolytes = 5
+  with marble = 50
+  part2 = 27
+
+example """
+2
+"""
+  with high_acolytes = 5
+  with platinum = 160
+  part3 = 2
+
+answers
+  part1 = 7656659
+  part2 = 112134000
+  part3 = 41082
+
+acolytes = 1111
+marble   = 20240000
+
+# Layer by layer: the width so far, the thickness of the last layer and
+# the blocks used, until the blocks run out. Each layer adds its thickness
+# to every column of the new width.
+shrine(priests, blocks) = build(1, 1, 1)
+  where
+    build(width, thick, used) =
+      if used >= blocks then (used - blocks) * width
+      else build(width + 2, next, used + next * (width + 2))
+      where
+        next = thick * priests % acolytes
+
+part1 = shrine(1, int(input.trim))
+part2 = shrine(int(input.trim), marble)
+
+high_acolytes = 10
+platinum      = 202400000
+
+# The blocks a shrine needs, from its column heights out from the centre
+# (each but the centre stands for two columns), less the hollow bottoms of
+# all but the outermost columns.
+needed(priests, heights) = sum(count(d) * (h - hollow(d, h))
+                               for (d, h) in heights.enumerate)
+  where
+    width       = 2 * heights.len - 1
+    count(d)    = if d == 0 then 1 else 2
+    hollow(d, h) =
+      if d == heights.len - 1 then 0
+      else priests * width * h % high_acolytes
+
+# Layer by layer until the blocks needed reach the blocks there are. Each
+# layer adds its thickness to every column, and a new outer column.
+temple(priests, blocks) = build([1], 1)
+  where
+    build(heights, thick) =
+      if need >= blocks then need - blocks
+      else build(heights.map(_ + next) ++ [next], next)
+      where
+        need = needed(priests, heights)
+        next = thick * priests % high_acolytes + high_acolytes
+
+part3 = temple(int(input.trim), platinum)
