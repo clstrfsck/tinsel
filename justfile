@@ -22,6 +22,10 @@ build:
 release:
     cargo build --release
 
+# Install a release `tinsel` in ~/.cargo/bin, replacing any earlier copy.
+install:
+    cargo install --path . --locked
+
 # Format the code.
 fmt:
     cargo fmt

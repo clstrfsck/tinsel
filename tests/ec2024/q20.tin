@@ -89,6 +89,7 @@ example """
 answers
   part1 = 1032
   part2 = 566
+  part3 = 768796
 
 air = input.grid
 home = air.find('S')
